@@ -1,3 +1,4 @@
+from PIL import Image, ImageFont, ImageDraw
 from abc import ABC, abstractmethod
 import cv2
 import os
@@ -223,7 +224,43 @@ class Fade(Clip):
       0
     )
 
-def FadeSequence(clip1, clip2, overlap_secs):
+class AddText(Clip):
+  def __init__(self, clip, text_list):
+    self.clip = clip
+    self.text_list = text_list
+
+  def frame_rate(self):
+    return self.clip.frame_rate()
+
+  def width(self):
+    return self.clip.width()
+
+  def height(self):
+    return self.clip.height()
+
+  def length(self):
+    return self.clip.length()
+
+  def signature(self, index):
+    return "(%s+text(%s)" % (self.clip.signature(index), self.text_list)
+
+  def build_frame(self, index):
+    frame = self.clip.get_frame(index)
+    pil_image = Image.fromarray(frame)
+    draw = ImageDraw.Draw(pil_image)
+
+    y = 25
+    for (points, font_file, text) in self.text_list:
+      font = ImageFont.truetype(font_file, points)
+      size = draw.textsize(text, font=font)
+      draw.text((self.width()/2 - size[0]/2, y), text, font=font)
+      y += 1.2*points
+
+    array = np.array(pil_image)
+    return array
+
+
+def FadeAppend(clip1, clip2, overlap_secs):
   t1_secs = clip1.length_secs()-overlap_secs
 
   v1 = Slice(clip1, 0, t1_secs)
@@ -235,13 +272,27 @@ def FadeSequence(clip1, clip2, overlap_secs):
 
 def FadeIn(clip, fade_secs):
   black = Black(clip.height(), clip.width(), clip.frame_rate(), fade_secs)
+  return FadeAppend(black, clip, fade_secs)
 
+def FadeOut(clip, fade_secs):
+  black = Black(clip.height(), clip.width(), clip.frame_rate(), fade_secs)
+  return FadeAppend(clip, black, fade_secs)
 
 if __name__ == "__main__":
+  font_file = "/usr/local/texlive/2018/texmf-dist/fonts/truetype/sorkin/merriweather/MerriweatherSans-Regular.ttf"
+  video_file = "/usr/local/texlive/2018/texmf-dist/tex/latex/mwe/example-movie.mp4"
 
-  vid = VideoFile("/usr/local/texlive/2018/texmf-dist/tex/latex/mwe/example-movie.mp4")
+  vid = VideoFile(video_file)
   vid = Slice(vid, 0, 5)
-  black = Black(vid.height(), vid.width(), vid.frame_rate(), 1)
-  fade = FadeSequence(black, vid, 1)
+
+  title = Black(vid.height() , vid.width(), vid.frame_rate(), 5)
+  title = AddText(title, [
+    (70, font_file, "Test Video for clip.py"),
+    (10, font_file, "If you can read this, you don't need glasses.")
+  ])
+  title = FadeIn(title, 0.5)
+  title = FadeOut(title, 0.5)
+
+  fade = FadeAppend(title, vid, 1)
   fade.save("test.mp4")
 
