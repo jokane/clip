@@ -38,8 +38,12 @@ class Clip(ABC):
     # Make sure we've loaded the list of cached frames.
     if not hasattr(Clip, 'cache'):
       Clip.cache = dict()
-      for cached_frame in os.listdir(".cache"):
-        Clip.cache[".cache/" + cached_frame] = True
+      try:
+        for cached_frame in os.listdir(".cache"):
+          Clip.cache[".cache/" + cached_frame] = True
+      except FileNotFoundError:
+        os.mkdir(".cache")
+
       print(len(Clip.cache), "frames in the cache.")
 
     # Has this frame been computed before?
@@ -52,6 +56,7 @@ class Clip(ABC):
     else:
       print("[ ]", sig)
       frame = self.build_frame(index)
+      assert frame is not None, "Got None instead of a real frame for " + sig
       cv2.imwrite(cached_filename, frame)
       Clip.cache[cached_filename] = True
       return frame
@@ -107,7 +112,7 @@ class Black(Clip):
       self.frame = np.zeros([self.height_, self.width_, 3], np.uint8)
       return self.frame
 
-class Sequence(Clip):
+class Chain(Clip):
   def __init__(self, clips):
     self.clips = clips
     assert(len(set(map(lambda x: x.frame_rate(), self.clips))) == 1)
@@ -135,12 +140,16 @@ class Sequence(Clip):
       if index < clip.length():
         return clip.get_frame(index)
       index -= clip.length()
+    assert(False)
 
-class Slice(Clip):
-  def __init__(self, clip, start_secs, end_secs):
+def SliceBySecs(clip, start_secs, end_secs):
+  return SliceByFrames(clip, int(start_secs * clip.frame_rate()), int(end_secs * clip.frame_rate()))
+
+class SliceByFrames(Clip):
+  def __init__(self, clip, start_frame, end_frame):
     self.clip = clip
-    self.start_frame = int(start_secs * clip.frame_rate())
-    self.end_frame = int(end_secs * clip.frame_rate())
+    self.start_frame = start_frame
+    self.end_frame = end_frame
 
   def frame_rate(self):
     return self.clip.frame_rate()
@@ -168,7 +177,7 @@ class VideoFile(Clip):
     self.last_index = -1
 
   def signature(self, index):
-    return "(file:%s frame:%06d)" % (self.fname, index)
+    return "(%s:%06d)" % (self.fname, index)
 
   def frame_rate(self):
     return float(self.cap.get(cv2.CAP_PROP_FPS))
@@ -183,6 +192,7 @@ class VideoFile(Clip):
     return int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
   def build_frame(self, index):
+    assert index < self.length(), "Requesting frame %d from %s, which only has %d frames." % (index, self.fname, self.length())
     if index != self.last_index + 1:
       self.cap.set(cv2.CAP_PROP_POS_FRAMES, index)
     self.last_index = index  
@@ -259,16 +269,15 @@ class AddText(Clip):
     array = np.array(pil_image)
     return array
 
-
 def FadeAppend(clip1, clip2, overlap_secs):
   t1_secs = clip1.length_secs()-overlap_secs
 
-  v1 = Slice(clip1, 0, t1_secs)
-  v2 = Slice(clip1, t1_secs, clip1.length_secs())
-  v3 = Slice(clip2, 0, overlap_secs)
-  v4 = Slice(clip2, overlap_secs, clip2.length_secs())
+  v1 = SliceBySecs(clip1, 0, t1_secs)
+  v2 = SliceBySecs(clip1, t1_secs, clip1.length_secs())
+  v3 = SliceBySecs(clip2, 0, overlap_secs)
+  v4 = SliceBySecs(clip2, overlap_secs, clip2.length_secs())
 
-  return Sequence([v1, Fade(v2, v3), v4])
+  return Chain([v1, Fade(v2, v3), v4])
 
 def FadeIn(clip, fade_secs):
   black = Black(clip.height(), clip.width(), clip.frame_rate(), fade_secs)
@@ -283,7 +292,7 @@ if __name__ == "__main__":
   video_file = "/usr/local/texlive/2018/texmf-dist/tex/latex/mwe/example-movie.mp4"
 
   vid = VideoFile(video_file)
-  vid = Slice(vid, 0, 5)
+  vid = SliceBySecs(vid, 0, 5)
 
   title = Black(vid.height() , vid.width(), vid.frame_rate(), 5)
   title = AddText(title, [
