@@ -52,14 +52,18 @@ class Clip(ABC):
     cached_filename = ".cache/" + blob + ".png"
     if cached_filename in Clip.cache:
       print("[+]", sig)
-      return cv2.imread(cached_filename)
+      frame = cv2.imread(cached_filename)
     else:
       print("[ ]", sig)
       frame = self.build_frame(index)
-      assert frame is not None, "Got None instead of a real frame for " + sig
       cv2.imwrite(cached_filename, frame)
       Clip.cache[cached_filename] = True
-      return frame
+
+    assert frame is not None, "Got None instead of a real frame for " + sig
+    assert frame.shape[0] == self.height(), "Got frame of height %d instead of %d." % (frame.shape[0], self.height())
+    assert frame.shape[1] == self.width(), "Got frame of width %d instead of %d." % (frame.shape[1], self.width())
+
+    return frame
 
   def length_secs(self):
     return self.length()/self.frame_rate()
@@ -111,6 +115,36 @@ class Black(Clip):
     except AttributeError:
       self.frame = np.zeros([self.height_, self.width_, 3], np.uint8)
       return self.frame
+
+class Filter(Clip):
+  def __init__(self, clip, func):
+    self.clip = clip
+    self.func = func
+    self.sample_frame = func(clip.get_frame(0))
+
+  def frame_rate(self):
+    return self.clip.frame_rate()
+
+  def length(self):
+    return self.clip.length()
+
+  def width(self):
+    return self.sample_frame.shape[1]
+
+  def height(self):
+    return self.sample_frame.shape[0]
+
+  def signature(self, index):
+    return "%s(%s)" % (self.func.__name__, self.clip.signature(index))
+
+  def build_frame(self, index):
+    return self.func(self.clip.get_frame(index))
+
+def Crop(clip, lower_left, upper_right):
+  def crop(frame):
+    return frame[lower_left[1]:upper_right[1], lower_left[0]:upper_right[0], :]
+  crop.__name__ = "crop%s%s" % (lower_left, upper_right)
+  return Filter(clip, crop)
 
 class Chain(Clip):
   def __init__(self, clips):
@@ -177,7 +211,7 @@ class VideoFile(Clip):
     self.last_index = -1
 
   def signature(self, index):
-    return "(%s:%06d)" % (self.fname, index)
+    return "%s:%06d" % (self.fname, index)
 
   def frame_rate(self):
     return float(self.cap.get(cv2.CAP_PROP_FPS))
