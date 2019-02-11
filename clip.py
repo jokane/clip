@@ -87,7 +87,7 @@ class Clip(ABC):
     vw.release()
     
 
-class Black(Clip):
+class black(Clip):
   def __init__(self, height, width, frame_rate, secs):
     self.frame_rate_ = frame_rate
     self.width_ = width
@@ -116,7 +116,7 @@ class Black(Clip):
       self.frame = np.zeros([self.height_, self.width_, 3], np.uint8)
       return self.frame
 
-class Filter(Clip):
+class filter_frames(Clip):
   def __init__(self, clip, func):
     self.clip = clip
     self.func = func
@@ -140,13 +140,13 @@ class Filter(Clip):
   def build_frame(self, index):
     return self.func(self.clip.get_frame(index))
 
-def Crop(clip, lower_left, upper_right):
-  def crop(frame):
+def crop(clip, lower_left, upper_right):
+  def crop_filter(frame):
     return frame[lower_left[1]:upper_right[1], lower_left[0]:upper_right[0], :]
-  crop.__name__ = "crop%s%s" % (lower_left, upper_right)
-  return Filter(clip, crop)
+  crop_filter.__name__ = "crop%s%s" % (lower_left, upper_right)
+  return filter_frames(clip, crop)
 
-class Chain(Clip):
+class chain(Clip):
   def __init__(self, clips):
     self.clips = clips
     assert(len(set(map(lambda x: x.frame_rate(), self.clips))) == 1)
@@ -176,10 +176,10 @@ class Chain(Clip):
       index -= clip.length()
     assert(False)
 
-def SliceBySecs(clip, start_secs, end_secs):
-  return SliceByFrames(clip, int(start_secs * clip.frame_rate()), int(end_secs * clip.frame_rate()))
+def slice_by_secs(clip, start_secs, end_secs):
+  return slice_by_frames(clip, int(start_secs * clip.frame_rate()), int(end_secs * clip.frame_rate()))
 
-class SliceByFrames(Clip):
+class slice_by_frames(Clip):
   def __init__(self, clip, start_frame, end_frame):
     self.clip = clip
     self.start_frame = start_frame
@@ -204,7 +204,7 @@ class SliceByFrames(Clip):
     return self.clip.get_frame(self.start_frame + index)
 
 
-class VideoFile(Clip):
+class video_file(Clip):
   def __init__(self, fname):
     self.fname = fname
     self.cap = cv2.VideoCapture(fname)
@@ -232,7 +232,7 @@ class VideoFile(Clip):
     self.last_index = index  
     return self.cap.read()[1]
  
-class Fade(Clip):
+class fade(Clip):
   def __init__(self, clip1, clip2):
     self.clip1 = clip1
     self.clip2 = clip2
@@ -268,7 +268,7 @@ class Fade(Clip):
       0
     )
 
-class AddText(Clip):
+class add_text(Clip):
   def __init__(self, clip, text_list):
     self.clip = clip
     self.text_list = text_list
@@ -303,39 +303,38 @@ class AddText(Clip):
     array = np.array(pil_image)
     return array
 
-def FadeAppend(clip1, clip2, overlap_secs):
+def fade_chain(clip1, clip2, overlap_secs):
   t1_secs = clip1.length_secs()-overlap_secs
 
-  v1 = SliceBySecs(clip1, 0, t1_secs)
-  v2 = SliceBySecs(clip1, t1_secs, clip1.length_secs())
-  v3 = SliceBySecs(clip2, 0, overlap_secs)
-  v4 = SliceBySecs(clip2, overlap_secs, clip2.length_secs())
+  v1 = slice_by_secs(clip1, 0, t1_secs)
+  v2 = slice_by_secs(clip1, t1_secs, clip1.length_secs())
+  v3 = slice_by_secs(clip2, 0, overlap_secs)
+  v4 = slice_by_secs(clip2, overlap_secs, clip2.length_secs())
 
-  return Chain([v1, Fade(v2, v3), v4])
+  return chain([v1, fade(v2, v3), v4])
 
-def FadeIn(clip, fade_secs):
-  black = Black(clip.height(), clip.width(), clip.frame_rate(), fade_secs)
-  return FadeAppend(black, clip, fade_secs)
+def fade_in(clip, fade_secs):
+  blk = black(clip.height(), clip.width(), clip.frame_rate(), fade_secs)
+  return fade_chain(blk, clip, fade_secs)
 
-def FadeOut(clip, fade_secs):
-  black = Black(clip.height(), clip.width(), clip.frame_rate(), fade_secs)
-  return FadeAppend(clip, black, fade_secs)
+def fade_out(clip, fade_secs):
+  blk = black(clip.height(), clip.width(), clip.frame_rate(), fade_secs)
+  return fade_chain(clip, blk, fade_secs)
 
 if __name__ == "__main__":
-  font_file = "/usr/local/texlive/2018/texmf-dist/fonts/truetype/sorkin/merriweather/MerriweatherSans-Regular.ttf"
-  video_file = "/usr/local/texlive/2018/texmf-dist/tex/latex/mwe/example-movie.mp4"
+  font_filename = "/usr/local/texlive/2018/texmf-dist/fonts/truetype/sorkin/merriweather/MerriweatherSans-Regular.ttf"
+  video_filename = "/usr/local/texlive/2018/texmf-dist/tex/latex/mwe/example-movie.mp4"
 
-  vid = VideoFile(video_file)
-  vid = SliceBySecs(vid, 0, 5)
+  vid = video_file(video_filename)
+  vid = slice_by_secs(vid, 0, 5)
 
-  title = Black(vid.height() , vid.width(), vid.frame_rate(), 5)
-  title = AddText(title, [
-    (70, font_file, "Test Video for clip.py"),
-    (10, font_file, "If you can read this, you don't need glasses.")
+  title = add_text(black(vid.height() , vid.width(), vid.frame_rate(), 5), [
+    (70, font_filename, "Test Video for clip.py"),
+    (10, font_filename, "If you can read this, you don't need glasses.")
   ])
-  title = FadeIn(title, 0.5)
-  title = FadeOut(title, 0.5)
+  title = fade_in(title, 0.5)
+  title = fade_out(title, 0.5)
 
-  fade = FadeAppend(title, vid, 1)
+  fade = fade_chain(title, vid, 1)
   fade.save("test.mp4")
 
