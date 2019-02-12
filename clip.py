@@ -144,7 +144,7 @@ def crop(clip, lower_left, upper_right):
   def crop_filter(frame):
     return frame[lower_left[1]:upper_right[1], lower_left[0]:upper_right[0], :]
   crop_filter.__name__ = "crop%s%s" % (lower_left, upper_right)
-  return filter_frames(clip, crop)
+  return filter_frames(clip, crop_filter)
 
 class chain(Clip):
   def __init__(self, clips):
@@ -177,6 +177,7 @@ class chain(Clip):
     assert(False)
 
 def slice_by_secs(clip, start_secs, end_secs):
+  print(start_secs, end_secs, clip.length())
   return slice_by_frames(clip, int(start_secs * clip.frame_rate()), int(end_secs * clip.frame_rate()))
 
 class slice_by_frames(Clip):
@@ -184,6 +185,9 @@ class slice_by_frames(Clip):
     self.clip = clip
     self.start_frame = start_frame
     self.end_frame = end_frame
+    assert self.start_frame >=0, "Slicing %s, but slice start should be at least 0, but got %d." % (clip.signature(0), start_frame)
+    assert self.end_frame <= clip.length(), "Slicing %s, but slice end %d is beyond the end of the clip (%d)" % (clip.signature(0), end_frame, clip.length())
+
 
   def frame_rate(self):
     return self.clip.frame_rate()
