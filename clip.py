@@ -149,7 +149,7 @@ def crop(clip, lower_left, upper_right):
 class chain(Clip):
   def __init__(self, clips):
     self.clips = clips
-    assert(len(set(map(lambda x: x.frame_rate(), self.clips))) == 1)
+    assert(len(set(map(lambda x: x.frame_rate(), self.clips))) == 1), "Cannot chain clips because the framerates do not match." + str(list(map(lambda x: x.frame_rate(), self.clips)))
 
   def frame_rate(self):
     return self.clips[0].frame_rate()
@@ -177,7 +177,6 @@ class chain(Clip):
     assert(False)
 
 def slice_by_secs(clip, start_secs, end_secs):
-  print(start_secs, end_secs, clip.length())
   return slice_by_frames(clip, int(start_secs * clip.frame_rate()), int(end_secs * clip.frame_rate()))
 
 class slice_by_frames(Clip):
@@ -309,6 +308,7 @@ class add_text(Clip):
 
 def fade_chain(clip1, clip2, overlap_secs):
   t1_secs = clip1.length_secs()-overlap_secs
+  print(t1_secs)
 
   v1 = slice_by_secs(clip1, 0, t1_secs)
   v2 = slice_by_secs(clip1, t1_secs, clip1.length_secs())
@@ -325,12 +325,63 @@ def fade_out(clip, fade_secs):
   blk = black(clip.height(), clip.width(), clip.frame_rate(), fade_secs)
   return fade_chain(clip, blk, fade_secs)
 
+class superimpose(Clip):
+# Superimpose one clip on another, at a given place in each frame, starting at
+# a given time.
+  def __init__(self, under_clip, over_clip, x, y, start_frame):
+    self.under_clip = under_clip
+    self.over_clip = over_clip
+    self.x = x
+    self.y = y
+    self.start_frame = start_frame
+
+    assert y + over_clip.height() < under_clip.height(), "Superimposing %s onto %s at (%d, %d), but the under clip is not tall enough." % (under_clip.signature(0), over_clip.signature(0), x, y)
+    assert x + over_clip.width() < under_clip.width(), "Superimposing %s onto %s at (%d, %d), but the under clip is not wide enough." % (under_clip.signature(0), over_clip.signature(0), x, y)
+    assert start_frame + over_clip.length() < under_clip.length(), "Superimposing %s onto %s at frame %d, but the under clip is not long enough." % (under_clip.signature(0), over_clip.signature(0), start_frame)
+    assert under_clip.frame_rate() == over_clip.frame_rate(), "Superimposing %s onto %s at frame %d, but the framerates do not match." % (under_clip.signature(0), over_clip.signature(0))
+
+
+  def frame_rate(self):
+    return self.under_clip.frame_rate()
+
+  def width(self):
+    return self.under_clip.width()
+
+  def height(self):
+    return self.under_clip.height()
+
+  def length(self):
+    return self.under_clip.length()
+
+  def signature(self, index):
+    if index >= self.start_frame and index - self.start_frame < self.over_clip.length():
+      return "%s+(%s@(%d,%d,%d))" % (self.under_clip.signature(index), self.over_clip.signature(index), self.x, self.y, self.start_frame)
+    else:
+      return self.under_clip.signature(index)
+
+  def build_frame(self, index):
+    frame = self.under_clip.get_frame(index)
+    if index >= self.start_frame and index - self.start_frame < self.over_clip.length():
+      print("here")
+      x0 = self.x
+      x1 = self.x + self.over_clip.width()
+      y0 = self.y
+      y1 = self.y + self.over_clip.height()
+      print(x0, x1, y0, y1, self.over_clip.width(), self.over_clip.height())
+      frame[y0:y1, x0:x1, :] = self.over_clip.get_frame(index - self.start_frame)
+    return frame
+
+
 if __name__ == "__main__":
   font_filename = "/usr/local/texlive/2018/texmf-dist/fonts/truetype/sorkin/merriweather/MerriweatherSans-Regular.ttf"
   video_filename = "/usr/local/texlive/2018/texmf-dist/tex/latex/mwe/example-movie.mp4"
 
   vid = video_file(video_filename)
   vid = slice_by_secs(vid, 0, 5)
+
+  small_vid = slice_by_frames(filter_frames(vid, lambda x: cv2.resize(x, (150, 100))), 0, 100)
+
+  vid = superimpose(vid, small_vid, 200, 100, 30)
 
   title = add_text(black(vid.height() , vid.width(), vid.frame_rate(), 5), [
     (70, font_filename, "Test Video for clip.py"),
