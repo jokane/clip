@@ -371,17 +371,23 @@ class superimpose(Clip):
       frame[y0:y1, x0:x1, :] = self.over_clip.get_frame(index - self.start_frame)
     return frame
 
+def superimpose_center(under_clip, over_clip, start_frame):
+  x = int(under_clip.width()/2) - int(over_clip.width()/2)
+  y = int(under_clip.height()/2) - int(over_clip.height()/2)
+  return superimpose(under_clip, over_clip, x, y, start_frame)
+
 
 if __name__ == "__main__":
   font_filename = "/usr/local/texlive/2018/texmf-dist/fonts/truetype/sorkin/merriweather/MerriweatherSans-Regular.ttf"
   video_filename = "/usr/local/texlive/2018/texmf-dist/tex/latex/mwe/example-movie.mp4"
 
   vid = video_file(video_filename)
-  vid = slice_by_secs(vid, 0, 5)
+  vid = slice_by_secs(vid, 0, 7)
 
   small_vid = slice_by_frames(filter_frames(vid, lambda x: cv2.resize(x, (150, 100))), 0, 100)
 
   vid = superimpose(vid, small_vid, 200, 100, 30)
+  vid = superimpose_center(vid, small_vid, 100)
 
   title = add_text(black(vid.height() , vid.width(), vid.frame_rate(), 5), [
     (70, font_filename, "Test Video for clip.py"),
