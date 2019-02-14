@@ -46,7 +46,12 @@ class Clip(ABC):
     """Number of frames in the clip."""
     pass
 
+  @abstractmethod
   def get_frame(self, index):
+    """Create and return one frame of the clip."""
+    pass
+
+  def get_frame_cached(self, index):
     # Make sure we've loaded the list of cached frames.
     if not hasattr(Clip, 'cache'):
       Clip.cache = dict()
@@ -67,7 +72,7 @@ class Clip(ABC):
       frame = cv2.imread(cached_filename)
     else:
       print("[ ]", sig)
-      frame = self.build_frame(index)
+      frame = self.get_frame(index)
       cv2.imwrite(cached_filename, frame)
       Clip.cache[cached_filename] = True
 
@@ -82,7 +87,7 @@ class Clip(ABC):
 
   def play(self):
     for i in range(0, self.length()):
-      frame = self.get_frame(i)
+      frame = self.get_frame_cached(i)
       cv2.imshow("", frame)
       cv2.waitKey(int(1000.0/self.frame_rate()))
 
@@ -94,7 +99,7 @@ class Clip(ABC):
       (self.width(), self.height())
     )
     for i in range(0, self.length()):
-      frame = self.get_frame(i)
+      frame = self.get_frame_cached(i)
       vw.write(frame)
     vw.release()
     
@@ -129,7 +134,7 @@ class black(Clip):
   def frame_signature(self, index):
     return "(black:%dx%d)" % (self.width_, self.height_)
 
-  def build_frame(self, index):
+  def get_frame(self, index):
     try:
       return self.frame
     except AttributeError:
@@ -162,7 +167,7 @@ class filter_frames(Clip):
     # Maybe try the dis module to make a signature based on the bytecode?
     return "%s(%s)" % (self.func.__name__, self.clip.frame_signature(index))
 
-  def build_frame(self, index):
+  def get_frame(self, index):
     return self.func(self.clip.get_frame(index))
 
 def crop(clip, lower_left, upper_right):
@@ -197,7 +202,7 @@ class chain(Clip):
         return clip.frame_signature(index)
       index -= clip.length()
 
-  def build_frame(self, index):
+  def get_frame(self, index):
     for clip in self.clips:
       if index < clip.length():
         return clip.get_frame(index)
@@ -235,7 +240,7 @@ class slice_by_frames(Clip):
   def frame_signature(self, index):
     return self.clip.frame_signature(self.start_frame + index)
 
-  def build_frame(self, index):
+  def get_frame(self, index):
     return self.clip.get_frame(self.start_frame + index)
 
 
@@ -264,7 +269,7 @@ class video_file(Clip):
   def length(self):
     return int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
-  def build_frame(self, index):
+  def get_frame(self, index):
     assert index < self.length(), "Requesting frame %d from %s, which only has %d frames." % (index, self.fname, self.length())
     if index != self.last_index + 1:
       self.cap.set(cv2.CAP_PROP_POS_FRAMES, index)
@@ -302,7 +307,7 @@ class fade(Clip):
     a = self.alpha(index)
     return "(%f%s + %f%s)" % (a, self.clip1.frame_signature(index), 1-a, self.clip2.frame_signature(index))
 
-  def build_frame(self, index):
+  def get_frame(self, index):
     a = self.alpha(index)
     return cv2.addWeighted(
       self.clip1.get_frame(index), a,
@@ -333,7 +338,7 @@ class add_text(Clip):
   def frame_signature(self, index):
     return "(%s+text(%s)" % (self.clip.frame_signature(index), self.text_list)
 
-  def build_frame(self, index):
+  def get_frame(self, index):
     frame = self.clip.get_frame(index)
     pil_image = Image.fromarray(frame)
     draw = ImageDraw.Draw(pil_image)
@@ -406,7 +411,7 @@ class superimpose(Clip):
     else:
       return self.under_clip.frame_signature(index)
 
-  def build_frame(self, index):
+  def get_frame(self, index):
     frame = self.under_clip.get_frame(index)
     if index >= self.start_frame and index - self.start_frame < self.over_clip.length():
       x0 = self.x
@@ -445,6 +450,6 @@ if __name__ == "__main__":
   title = fade_out(title, 0.5)
 
   fade = fade_chain(title, vid, 1)
-  #fade.save("test.mp4")
 
   print(fade.signature())
+  fade.play()
