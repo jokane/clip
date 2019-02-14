@@ -8,10 +8,22 @@ from functools import reduce
 
 cache = dict()
 
+def isfloat(x):
+  try:
+    float(x)
+    return True
+  except TypeError:
+    return False
+
 class Clip(ABC):
   @abstractmethod
-  def signature(index):
-    """A string that uniquely identifies a given frame."""
+  def signature():
+    """A string that describes this clip."""
+    pass
+
+  @abstractmethod
+  def frame_signature(index):
+    """A string that uniquely describes the appearance of the given frame."""
     pass
 
   @abstractmethod
@@ -47,7 +59,7 @@ class Clip(ABC):
       print(len(Clip.cache), "frames in the cache.")
 
     # Has this frame been computed before?
-    sig = str(self.signature(index))
+    sig = str(self.frame_signature(index))
     blob = hashlib.md5(sig.encode()).hexdigest()
     cached_filename = ".cache/" + blob + ".png"
     if cached_filename in Clip.cache:
@@ -60,8 +72,8 @@ class Clip(ABC):
       Clip.cache[cached_filename] = True
 
     assert frame is not None, "Got None instead of a real frame for " + sig
-    assert frame.shape[0] == self.height(), "Got frame of height %d instead of %d." % (frame.shape[0], self.height())
-    assert frame.shape[1] == self.width(), "Got frame of width %d instead of %d." % (frame.shape[1], self.width())
+    assert frame.shape[0] == self.height(), "From %s, I got a frame of height %d instead of %d." % (self.frame_signature(index), frame.shape[0], self.height())
+    assert frame.shape[1] == self.width(), "For %s, I got a frame of width %d instead of %d." % (self.frame_signature(index), frame.shape[1], self.width())
 
     return frame
 
@@ -89,6 +101,11 @@ class Clip(ABC):
 
 class black(Clip):
   def __init__(self, height, width, frame_rate, secs):
+    assert isinstance(height, int)
+    assert isinstance(width, int)
+    assert isfloat(frame_rate)
+    assert isfloat(secs)
+
     self.frame_rate_ = frame_rate
     self.width_ = width
     self.height_ = height
@@ -106,7 +123,10 @@ class black(Clip):
   def height(self):
     return self.height_
 
-  def signature(self, index):
+  def signature(self):
+    return "(black:%dx%d, %d frames)" % (self.width_, self.height_, self.length_)
+
+  def frame_signature(self, index):
     return "(black:%dx%d)" % (self.width_, self.height_)
 
   def build_frame(self, index):
@@ -134,8 +154,13 @@ class filter_frames(Clip):
   def height(self):
     return self.sample_frame.shape[0]
 
-  def signature(self, index):
-    return "%s(%s)" % (self.func.__name__, self.clip.signature(index))
+  def signature(self):
+    return "%s(%s)" % (self.func.__name__, self.clip.signature())
+
+  def frame_signature(self, index):
+    # TODO: This relies too much on __name__.  Different filter functions might have the same name.
+    # Maybe try the dis module to make a signature based on the bytecode?
+    return "%s(%s)" % (self.func.__name__, self.clip.frame_signature(index))
 
   def build_frame(self, index):
     return self.func(self.clip.get_frame(index))
@@ -163,10 +188,13 @@ class chain(Clip):
   def length(self):
     return sum(map(lambda x: x.length(), self.clips))
 
-  def signature(self, index):
+  def signature(self):
+    return "(chain " + " then ".join(list(map(lambda x: x.signature(), self.clips))) + ")"
+
+  def frame_signature(self, index):
     for clip in self.clips:
       if index < clip.length():
-        return clip.signature(index)
+        return clip.frame_signature(index)
       index -= clip.length()
 
   def build_frame(self, index):
@@ -184,8 +212,9 @@ class slice_by_frames(Clip):
     self.clip = clip
     self.start_frame = start_frame
     self.end_frame = end_frame
-    assert self.start_frame >=0, "Slicing %s, but slice start should be at least 0, but got %d." % (clip.signature(0), start_frame)
-    assert self.end_frame <= clip.length(), "Slicing %s, but slice end %d is beyond the end of the clip (%d)" % (clip.signature(0), end_frame, clip.length())
+    assert isinstance(start_frame, int), "Slicing %s, but the start frame %s is not an integer." % (clip.signature(), start_frame)
+    assert self.start_frame >=0, "Slicing %s, but slice start should be at least 0, but got %d." % (clip.signature(), start_frame)
+    assert self.end_frame <= clip.length(), "Slicing %s, but slice end %d is beyond the end of the clip (%d)" % (clip.signature(), end_frame, clip.length())
 
 
   def frame_rate(self):
@@ -200,8 +229,11 @@ class slice_by_frames(Clip):
   def length(self):
     return self.end_frame - self.start_frame
 
-  def signature(self, index):
-    return self.clip.signature(self.start_frame + index)
+  def signature(self):
+    return "(%s from %d to %d)" % (self.clip.signature(), self.start_frame, self.end_frame)
+
+  def frame_signature(self, index):
+    return self.clip.frame_signature(self.start_frame + index)
 
   def build_frame(self, index):
     return self.clip.get_frame(self.start_frame + index)
@@ -212,8 +244,12 @@ class video_file(Clip):
     self.fname = fname
     self.cap = cv2.VideoCapture(fname)
     self.last_index = -1
+    assert self.frame_rate() > 0, "Frame rate is 0 for %s.  Problem opening the file?" % fname
 
-  def signature(self, index):
+  def signature(self):
+    return self.fname
+
+  def frame_signature(self, index):
     return "%s:%06d" % (self.fname, index)
 
   def frame_rate(self):
@@ -239,10 +275,10 @@ class fade(Clip):
   def __init__(self, clip1, clip2):
     self.clip1 = clip1
     self.clip2 = clip2
-    assert(self.clip1.frame_rate() == self.clip2.frame_rate())
-    assert(self.clip1.width() == self.clip2.width())
-    assert(self.clip1.height() == self.clip2.height())
-    assert(self.clip1.height() == self.clip2.height())
+    assert self.clip1.frame_rate() == self.clip2.frame_rate()
+    assert self.clip1.width() == self.clip2.width()
+    assert self.clip1.height() == self.clip2.height()
+    assert self.clip1.height() == self.clip2.height()
 
   def frame_rate(self):
     return self.clip1.frame_rate()
@@ -259,9 +295,12 @@ class fade(Clip):
   def alpha(self, index):
     return (self.clip1.length()-1 - index)/(self.clip1.length()-1)
 
-  def signature(self, index):
+  def signature(self):
+    return "fade(%s, %s)" % (self.clip1.signature(), self.clip2.signature())
+
+  def frame_signature(self, index):
     a = self.alpha(index)
-    return "(%f%s + %f%s)" % (a, self.clip1.signature(index), 1-a, self.clip2.signature(index))
+    return "(%f%s + %f%s)" % (a, self.clip1.frame_signature(index), 1-a, self.clip2.frame_signature(index))
 
   def build_frame(self, index):
     a = self.alpha(index)
@@ -288,8 +327,11 @@ class add_text(Clip):
   def length(self):
     return self.clip.length()
 
-  def signature(self, index):
-    return "(%s+text(%s)" % (self.clip.signature(index), self.text_list)
+  def signature(self):
+    return "(%s+text(%s)" % (self.clip.signature(), self.text_list)
+
+  def frame_signature(self, index):
+    return "(%s+text(%s)" % (self.clip.frame_signature(index), self.text_list)
 
   def build_frame(self, index):
     frame = self.clip.get_frame(index)
@@ -307,17 +349,19 @@ class add_text(Clip):
     return array
 
 def fade_chain(clip1, clip2, overlap_secs):
-  t1_secs = clip1.length_secs()-overlap_secs
-  print(t1_secs)
+  overlap_frames = int(overlap_secs * clip1.frame_rate())
+  t1_frames = clip1.length()-overlap_frames
+  assert t1_frames >= 0, "Cannot chain with fade from %s to %s, because fade length (%f frames) is longer than the first clip (%f frames)" % (clip1.signature(), clip2.signature(), overlap_frames, clip1.length())
 
-  v1 = slice_by_secs(clip1, 0, t1_secs)
-  v2 = slice_by_secs(clip1, t1_secs, clip1.length_secs())
-  v3 = slice_by_secs(clip2, 0, overlap_secs)
-  v4 = slice_by_secs(clip2, overlap_secs, clip2.length_secs())
+  v1 = slice_by_frames(clip1, 0, t1_frames)
+  v2 = slice_by_frames(clip1, t1_frames, clip1.length())
+  v3 = slice_by_frames(clip2, 0, overlap_frames)
+  v4 = slice_by_frames(clip2, overlap_frames, clip2.length())
 
   return chain([v1, fade(v2, v3), v4])
 
 def fade_in(clip, fade_secs):
+  assert fade_secs <= clip.length_secs(), "Cannot fade into %s for %f seconds, because the clip is only %f seconds long." % (clip.signature(), fade_secs, clip.length_secs())
   blk = black(clip.height(), clip.width(), clip.frame_rate(), fade_secs)
   return fade_chain(blk, clip, fade_secs)
 
@@ -335,10 +379,10 @@ class superimpose(Clip):
     self.y = y
     self.start_frame = start_frame
 
-    assert y + over_clip.height() < under_clip.height(), "Superimposing %s onto %s at (%d, %d), but the under clip is not tall enough." % (under_clip.signature(0), over_clip.signature(0), x, y)
-    assert x + over_clip.width() < under_clip.width(), "Superimposing %s onto %s at (%d, %d), but the under clip is not wide enough." % (under_clip.signature(0), over_clip.signature(0), x, y)
-    assert start_frame + over_clip.length() < under_clip.length(), "Superimposing %s onto %s at frame %d, but the under clip is not long enough." % (under_clip.signature(0), over_clip.signature(0), start_frame)
-    assert under_clip.frame_rate() == over_clip.frame_rate(), "Superimposing %s onto %s at frame %d, but the framerates do not match." % (under_clip.signature(0), over_clip.signature(0))
+    assert y + over_clip.height() <= under_clip.height(), "Superimposing %s onto %s at (%d, %d), but the under clip is not tall enough." % (over_clip.signature(), under_clip.signature(), x, y)
+    assert x + over_clip.width() <= under_clip.width(), "Superimposing %s onto %s at (%d, %d), but the under clip is not wide enough." % (over_clip.signature(), under_clip.signature(), x, y)
+    assert start_frame + over_clip.length() <= under_clip.length(), "Superimposing %s onto %s at frame %d, but the under clip is not long enough." % (over_clip.signature(), under_clip.signature(), start_frame)
+    assert under_clip.frame_rate() == over_clip.frame_rate(), "Superimposing %s onto %s at frame %d, but the framerates do not match." % (over_clip.signature(), under_clip.signature())
 
 
   def frame_rate(self):
@@ -353,25 +397,29 @@ class superimpose(Clip):
   def length(self):
     return self.under_clip.length()
 
-  def signature(self, index):
+  def signature(self):
+    return "%s+(%s@(%d,%d,%d))" % (self.under_clip.signature(), self.over_clip.signature(), self.x, self.y, self.start_frame)
+
+  def frame_signature(self, index):
     if index >= self.start_frame and index - self.start_frame < self.over_clip.length():
-      return "%s+(%s@(%d,%d,%d))" % (self.under_clip.signature(index), self.over_clip.signature(index), self.x, self.y, self.start_frame)
+      return "%s+(%s@(%d,%d,%d))" % (self.under_clip.frame_signature(index), self.over_clip.frame_signature(index), self.x, self.y, self.start_frame)
     else:
-      return self.under_clip.signature(index)
+      return self.under_clip.frame_signature(index)
 
   def build_frame(self, index):
     frame = self.under_clip.get_frame(index)
     if index >= self.start_frame and index - self.start_frame < self.over_clip.length():
-      print("here")
       x0 = self.x
       x1 = self.x + self.over_clip.width()
       y0 = self.y
       y1 = self.y + self.over_clip.height()
-      print(x0, x1, y0, y1, self.over_clip.width(), self.over_clip.height())
       frame[y0:y1, x0:x1, :] = self.over_clip.get_frame(index - self.start_frame)
     return frame
 
 def superimpose_center(under_clip, over_clip, start_frame):
+  assert isinstance(under_clip, Clip)
+  assert isinstance(over_clip, Clip)
+  assert isinstance(start_frame, int)
   x = int(under_clip.width()/2) - int(over_clip.width()/2)
   y = int(under_clip.height()/2) - int(over_clip.height()/2)
   return superimpose(under_clip, over_clip, x, y, start_frame)
@@ -397,5 +445,6 @@ if __name__ == "__main__":
   title = fade_out(title, 0.5)
 
   fade = fade_chain(title, vid, 1)
-  fade.save("test.mp4")
+  #fade.save("test.mp4")
 
+  print(fade.signature())
