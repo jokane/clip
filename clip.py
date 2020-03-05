@@ -611,7 +611,7 @@ def superimpose_center(under_clip, over_clip, start_frame):
 
 if __name__ == "__main__":
   # Some basic tests/illustrations.  The source font and video are part of
-  # texlive, which might be install on your computer already.
+  # texlive, which might be installed on your computer already.
 
   font_filename = "/usr/local/texlive/2018/texmf-dist/fonts/truetype/sorkin/merriweather/MerriweatherSans-Regular.ttf"
   video_filename = "/usr/local/texlive/2018/texmf-dist/tex/latex/mwe/example-movie.mp4"
@@ -624,7 +624,7 @@ if __name__ == "__main__":
   vid = superimpose(vid, small_vid, 200, 100, 30)
   vid = superimpose_center(vid, small_vid, 100)
 
-  title = add_text(black(vid.height() , vid.width(), vid.frame_rate(), 5), [
+  title = add_text(black(vid.height(), vid.width(), vid.frame_rate(), 5), [
     (70, font_filename, "Test Video for clip.py"),
     (10, font_filename, "If you can read this, you don't need glasses.")
   ])
