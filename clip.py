@@ -223,6 +223,35 @@ def black(height, width, frame_rate, length):
 def white(height, width, frame_rate, length):
   return solid(height, width, frame_rate, length, (255,255,255))
 
+
+class repeat_frame(Clip):
+  """A clip that shows the same frame, from another clip, over and over."""
+  def __init__(self, clip, frame_index, length):
+    self.clip = clip
+    self.frame_index = frame_index
+    self.length_ = length
+
+  def frame_rate(self):
+    return self.clip.frame_rate()
+
+  def length(self):
+    return self.length_
+
+  def width(self):
+    return self.clip.width()
+
+  def height(self):
+    return self.clip.height()
+
+  def signature(self):
+    return "repeat frame(%d of %s, %d frames)" % (self.frame_index, self.clip.signature(), self.length_)
+
+  def frame_signature(self, index):
+    return self.clip.frame_signature(self.frame_index)
+
+  def get_frame(self, index):
+    return self.clip.get_frame(self.frame_index)
+
 class filter_frames(Clip):
   """A clip formed by passing the frames of another clip through some function.
   The function should have one argument, the input frame, and return the output
