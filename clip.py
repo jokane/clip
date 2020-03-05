@@ -176,19 +176,20 @@ class Clip(ABC):
     if save_fname:
       vw.release()
     
-
-class black(Clip):
-  """A black clip with the specified size, frame rate, and length."""
-  def __init__(self, height, width, frame_rate, secs):
+class solid(Clip):
+  """A clip with the specified size, frame rate, and length, in which each frame has the same solid color."""
+  def __init__(self, height, width, frame_rate, length, color):
     assert isinstance(height, int)
     assert isinstance(width, int)
     assert isfloat(frame_rate)
-    assert isfloat(secs)
+    assert isinstance(length, int)
+    # TODO: Ensure that color is a tuple of three ints in the correct range.
 
     self.frame_rate_ = frame_rate
     self.width_ = width
     self.height_ = height
-    self.length_ = int(self.frame_rate_ * secs)
+    self.length_ = length
+    self.color = color
 
   def frame_rate(self):
     return self.frame_rate_
@@ -203,10 +204,10 @@ class black(Clip):
     return self.height_
 
   def signature(self):
-    return "(black:%dx%d, %d frames)" % (self.width_, self.height_, self.length_)
+    return "(solid:%s, %dx%d, %d frames)" % (self.color, self.width_, self.height_, self.length_)
 
   def frame_signature(self, index):
-    return "(black:%dx%d)" % (self.width_, self.height_)
+    return "(solid: %s, %dx%d)" % (self.color, self.width_, self.height_)
 
   def get_frame(self, index):
     try:
