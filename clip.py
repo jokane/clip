@@ -426,7 +426,10 @@ class video_file(Clip):
     if index != self.last_index + 1:
       self.cap.set(cv2.CAP_PROP_POS_FRAMES, index)
     self.last_index = index  
-    return self.cap.read()[1]
+    frame = self.cap.read()[1]
+    if frame is None:
+      raise Exception("When reading a frame from %s, got None instead of a frame." % self.fname)
+    return frame
  
 class fade(Clip):
   """Fade between two equal-length clips."""
