@@ -303,6 +303,18 @@ def crop(clip, lower_left, upper_right):
   crop_filter.__name__ = "crop%s%s" % (lower_left, upper_right)
   return filter_frames(clip, crop_filter)
 
+def scale(clip, factor):
+  """Scale the frames of a clip by a given factor."""
+  assert isinstance(clip, Clip)
+  assert isfloat(factor)
+  assert factor > 0
+  new_width = int(factor * clip.width())
+  new_height = int(factor * clip.height())
+  def scale_filter(frame):
+    return cv2.resize(frame, (new_width, new_height))
+  scale_filter.__name__ = "scale[%f]" % factor
+  return filter_frames(clip, scale_filter)
+
 class chain(Clip):
   """Concatenate a series of clips, which must all have the same frame size and frame rate."""
 
