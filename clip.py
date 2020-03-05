@@ -214,7 +214,14 @@ class solid(Clip):
       return self.frame
     except AttributeError:
       self.frame = np.zeros([self.height_, self.width_, 3], np.uint8)
+      self.frame[:] = self.color
       return self.frame
+
+def black(height, width, frame_rate, length):
+  return solid(height, width, frame_rate, length, (0,0,0))
+
+def white(height, width, frame_rate, length):
+  return solid(height, width, frame_rate, length, (255,255,255))
 
 class filter_frames(Clip):
   """A clip formed by passing the frames of another clip through some function.
