@@ -479,10 +479,16 @@ class add_text(Clip):
   of a TrueType font, and the actual text to draw.  Text is centered, starting
   at the top and moving downward with each line."""
 
-  def __init__(self, clip, text_list):
+  def __init__(self, clip, text_list, align='center', color='white'):
     assert isinstance(clip, Clip)
     self.clip = clip
     self.text_list = text_list
+    self.align = align
+
+    # TODO: Colors are not handled correctly here, almost certainly because
+    # of RGB/BGR/etc nonsense.  Might need to transpose things when we
+    # convert back to a numpy array.
+    self.color = color
 
   def frame_rate(self):
     return self.clip.frame_rate()
@@ -500,7 +506,7 @@ class add_text(Clip):
     return "(%s+text(%s)" % (self.clip.signature(), self.text_list)
 
   def frame_signature(self, index):
-    return "(%s+text(%s)" % (self.clip.frame_signature(index), self.text_list)
+    return "(%s+text[%s/%s](%s)" % (self.clip.frame_signature(index), self.align, self.color, self.text_list)
 
   def get_frame(self, index):
     frame = self.clip.get_frame(index)
@@ -511,7 +517,11 @@ class add_text(Clip):
     for (points, font_file, text) in self.text_list:
       font = ImageFont.truetype(font_file, points)
       size = draw.textsize(text, font=font)
-      draw.text((self.width()/2 - size[0]/2, y), text, font=font)
+      if self.align == 'center':
+        draw.text((self.width()/2 - size[0]/2, y), text, font=font, fill=self.color)
+      elif self.align == 'left':
+        draw.text((0, y), text, font=font, fill=self.color)
+
       y += 1.2*points
 
     array = np.array(pil_image)
