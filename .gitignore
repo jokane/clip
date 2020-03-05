@@ -1,0 +1,4 @@
+.cache
+*.sw?
+Pipfile
+Pipfile.lock
