@@ -133,25 +133,48 @@ class Clip(ABC):
     """Return the length of the clip, in seconds."""
     return self.length()/self.frame_rate()
 
-  def play(self):
+  def play(self, keep_frame_rate=True):
     """Render the video and display it in a window on screen."""
+    self.realize(keep_frame_rate=keep_frame_rate)
     for i in range(0, self.length()):
       frame = self.get_frame_cached(i)
-      cv2.imshow("", frame)
-      cv2.waitKey(int(1000.0/self.frame_rate()))
 
   def save(self, fname):
     """Render the video and save it as an MP4 file."""
-    vw = cv2.VideoWriter(
-      fname,
-      cv2.VideoWriter_fourcc(*"mp4v"),
-      self.frame_rate(),
-      (self.width(), self.height())
-    )
-    for i in range(0, self.length()):
-      frame = self.get_frame_cached(i)
-      vw.write(frame)
-    vw.release()
+    self.realize(save_fname=fname)
+
+  def saveplay(self, fname, keep_frame_rate=True):
+    """Play and save at the same time."""
+    self.realize(save_fname=fname, play=True, keep_frame_rate=keep_frame_rate)
+  
+  def realize(self, save_fname=None, play=False, keep_frame_rate=True):
+    """Main function for saving and playing, or both."""
+    if save_fname:
+      vw = cv2.VideoWriter(
+        save_fname,
+        cv2.VideoWriter_fourcc(*"mp4v"),
+        self.frame_rate(),
+        (self.width(), self.height())
+      )
+
+    try: 
+      for i in range(0, self.length()):
+        frame = self.get_frame_cached(i)
+        if save_fname:
+          vw.write(frame)
+        if play:
+          cv2.imshow("", frame)
+          if keep_frame_rate:
+            cv2.waitKey(int(1000.0/self.frame_rate()))
+          else:
+            cv2.waitKey(1)
+    except KeyboardInterrupt as e:
+      if save_fname:
+        vw.release()
+      raise e
+
+    if save_fname:
+      vw.release()
     
 
 class black(Clip):
