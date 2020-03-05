@@ -296,6 +296,8 @@ def crop(clip, lower_left, upper_right):
   assert isinstance(lower_left[1], int)
   assert isinstance(upper_right[0], int)
   assert isinstance(upper_right[1], int)
+  assert lower_left[0] < upper_right[0]
+  assert lower_left[1] < upper_right[1]
   def crop_filter(frame):
     return frame[lower_left[1]:upper_right[1], lower_left[0]:upper_right[0], :]
   crop_filter.__name__ = "crop%s%s" % (lower_left, upper_right)
