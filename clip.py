@@ -71,6 +71,11 @@ class Clip(ABC):
     """Frame rate of the clip, in frames per second."""
     pass
 
+  def fr(self):
+    """Same as frame_rate(), but shorter."""
+    return self.frame_rate()
+
+
   @abstractmethod
   def width():
     """Width of each frame in the clip."""
