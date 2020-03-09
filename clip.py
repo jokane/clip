@@ -44,6 +44,7 @@ import cv2
 import os
 import hashlib
 import numpy as np
+import glob
 from functools import reduce
 
 cache = dict()
@@ -74,7 +75,6 @@ class Clip(ABC):
   def fr(self):
     """Same as frame_rate(), but shorter."""
     return self.frame_rate()
-
 
   @abstractmethod
   def width():
@@ -608,6 +608,38 @@ def superimpose_center(under_clip, over_clip, start_frame):
   x = int(under_clip.width()/2) - int(over_clip.width()/2)
   y = int(under_clip.height()/2) - int(over_clip.height()/2)
   return superimpose(under_clip, over_clip, x, y, start_frame)
+
+class image_glob(Clip):
+  """Form a video from a collection of identically-sized image files that match a unix-style pattern, at a given frame rate."""
+
+  def __init__(self, pattern, frame_rate):
+    self.pattern = pattern
+    self.frame_rate_ = frame_rate
+    self.filenames = sorted(glob.glob(pattern))
+    assert len(self.filenames) > 0, "No files matched pattern: " + pattern
+    self.sample_frame = cv2.imread(self.filenames[0])
+    assert self.sample_frame is not None
+
+  def frame_rate(self):
+    return self.frame_rate_
+
+  def width(self):
+    return self.sample_frame.shape[1]
+
+  def height(self):
+    return self.sample_frame.shape[0]
+
+  def length(self):
+    return len(self.filenames)
+
+  def signature(self):
+    return "%s@%dfps" % (self.pattern, self.frame_rate())
+
+  def frame_signature(self, index):
+    return self.filenames[index]
+
+  def get_frame(self, index):
+    return cv2.imread(self.filenames[index])
 
 
 if __name__ == "__main__":
