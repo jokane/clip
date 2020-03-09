@@ -525,9 +525,8 @@ class add_text(Clip):
     array = np.array(pil_image)
     return array
 
-def fade_chain(clip1, clip2, overlap_secs):
+def fade_chain(clip1, clip2, overlap_frames):
   """Concatenate two frames, with some fading overlap between them."""
-  overlap_frames = int(overlap_secs * clip1.frame_rate())
   t1_frames = clip1.length()-overlap_frames
   assert t1_frames >= 0, "Cannot chain with fade from %s to %s, because fade length (%f frames) is longer than the first clip (%f frames)" % (clip1.signature(), clip2.signature(), overlap_frames, clip1.length())
 
@@ -538,16 +537,19 @@ def fade_chain(clip1, clip2, overlap_secs):
 
   return chain(v1, fade(v2, v3), v4)
 
-def fade_in(clip, fade_secs):
+def fade_in(clip, fade_frames):
   """Fade in from black."""
-  assert fade_secs <= clip.length_secs(), "Cannot fade into %s for %f seconds, because the clip is only %f seconds long." % (clip.signature(), fade_secs, clip.length_secs())
-  blk = black(clip.height(), clip.width(), clip.frame_rate(), fade_secs)
-  return fade_chain(blk, clip, fade_secs)
+  fade_frames = int(fade_frames)
+  assert fade_frames <= clip.length(), "Cannot fade into %s for %f frames, because the clip is only %f frames long." % (clip.signature(), fade_frames, clip.length())
+  blk = black(clip.height(), clip.width(), clip.frame_rate(), fade_frames)
+  return fade_chain(blk, clip, fade_frames)
 
-def fade_out(clip, fade_secs):
+def fade_out(clip, fade_frames):
   """Fade out to black."""
-  blk = black(clip.height(), clip.width(), clip.frame_rate(), fade_secs)
-  return fade_chain(clip, blk, fade_secs)
+  fade_frames = int(fade_frames)
+  assert fade_frames <= clip.length(), "Cannot fade into %s for %f frames, because the clip is only %f frames long." % (clip.signature(), fade_frames, clip.length())
+  blk = black(clip.height(), clip.width(), clip.frame_rate(), fade_frames)
+  return fade_chain(clip, blk, fade_frames)
 
 class superimpose(Clip):
   """Superimpose one clip on another, at a given place in each frame, starting
