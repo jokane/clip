@@ -436,7 +436,7 @@ class fade(Clip):
     self.clip2 = clip2
     assert isinstance(clip1, Clip)
     assert isinstance(clip2, Clip)
-    assert self.clip1.frame_rate() == self.clip2.frame_rate()
+    assert self.clip1.frame_rate() == self.clip2.frame_rate(), "Mismatched frame rates %d and %d" % (self.clip1.frame_rate(), self.clip2.frame_rate())
     assert self.clip1.width() == self.clip2.width()
     assert self.clip1.height() == self.clip2.height()
     assert self.clip1.height() == self.clip2.height()
