@@ -135,9 +135,7 @@ class Clip(ABC):
 
   def play(self, keep_frame_rate=True):
     """Render the video and display it in a window on screen."""
-    self.realize(keep_frame_rate=keep_frame_rate)
-    for i in range(0, self.length()):
-      frame = self.get_frame_cached(i)
+    self.realize(keep_frame_rate=keep_frame_rate, play=True)
 
   def save(self, fname):
     """Render the video and save it as an MP4 file."""
