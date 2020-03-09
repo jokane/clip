@@ -455,7 +455,7 @@ class fade(Clip):
     return self.clip1.length()
 
   def alpha(self, index):
-    return (self.clip1.length()-1 - index)/(self.clip1.length()-1)
+    return (self.clip1.length()-1 - index)/(self.clip1.length())
 
   def signature(self):
     return "fade(%s, %s)" % (self.clip1.signature(), self.clip2.signature())
@@ -614,8 +614,8 @@ if __name__ == "__main__":
   # Some basic tests/illustrations.  The source font and video are part of
   # texlive, which might be installed on your computer already.
 
-  font_filename = "/usr/local/texlive/2018/texmf-dist/fonts/truetype/sorkin/merriweather/MerriweatherSans-Regular.ttf"
-  video_filename = "/usr/local/texlive/2018/texmf-dist/tex/latex/mwe/example-movie.mp4"
+  font_filename = "/usr/local/texlive/2019/texmf-dist/fonts/truetype/sorkin/merriweather/MerriweatherSans-Regular.ttf"
+  video_filename = "/usr/local/texlive/2019/texmf-dist/tex/latex/mwe/example-movie.mp4"
 
   vid = video_file(video_filename)
   vid = slice_by_secs(vid, 0, 7)
