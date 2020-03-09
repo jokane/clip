@@ -225,6 +225,7 @@ def white(height, width, frame_rate, length):
 class repeat_frame(Clip):
   """A clip that shows the same frame, from another clip, over and over."""
   def __init__(self, clip, frame_index, length):
+    assert frame_index < clip.length(), "Trying to repeat frame %d of %s, but the last valid frame index is %s." % (frame_index, clip.signature(), clip.length()-1)
     self.clip = clip
     self.frame_index = frame_index
     self.length_ = length
