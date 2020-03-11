@@ -569,7 +569,7 @@ class superimpose(Clip):
     self.y = y
     self.start_frame = start_frame
 
-    assert y + over_clip.height() <= under_clip.height(), "Superimposing %s onto %s at (%d, %d), but the under clip is not tall enough." % (over_clip.signature(), under_clip.signature(), x, y)
+    assert y + over_clip.height() <= under_clip.height(), "Superimposing %s onto %s at (%d, %d), but the under clip is not tall enough.  It would need to be %d, but is only %d." % (over_clip.signature(), under_clip.signature(), x, y, y + over_clip.height(), under_clip.height())
     assert x + over_clip.width() <= under_clip.width(), "Superimposing %s onto %s at (%d, %d), but the under clip is not wide enough." % (over_clip.signature(), under_clip.signature(), x, y)
     assert start_frame + over_clip.length() <= under_clip.length(), "Superimposing %s onto %s at frame %d, but the under clip is not long enough." % (over_clip.signature(), under_clip.signature(), start_frame)
     assert under_clip.frame_rate() == over_clip.frame_rate(), "Superimposing %s onto %s at frame %d, but the framerates do not match." % (over_clip.signature(), under_clip.signature())
@@ -596,7 +596,7 @@ class superimpose(Clip):
       return self.under_clip.frame_signature(index)
 
   def get_frame(self, index):
-    frame = self.under_clip.get_frame(index)
+    frame = np.copy(self.under_clip.get_frame(index))
     if index >= self.start_frame and index - self.start_frame < self.over_clip.length():
       x0 = self.x
       x1 = self.x + self.over_clip.width()
