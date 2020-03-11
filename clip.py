@@ -648,6 +648,28 @@ class image_glob(Clip):
     return cv2.imread(self.filenames[index])
 
 
+class force_frame_rate(Clip):
+  """Change the frame rate at which a clip thinks it should be played."""
+  def __init__(self, clip, frame_rate):
+    assert isinstance(clip, Clip)
+    self.clip = clip
+    self.frame_rate_ = frame_rate
+
+  def frame_rate(self):
+    return self.frame_rate_
+
+  def signature(self):
+    return "%s@%sfps" % (self.clip.signature(), self.frame_rate_)
+
+  def width(self): return self.clip.width()
+  def height(self): return self.clip.height()
+  def length(self): return self.clip.length()
+  def get_frame(self, index): return self.clip.get_frame(index)
+  def frame_signature(self, index): return self.clip.frame_signature(index)
+
+
+
+
 if __name__ == "__main__":
   # Some basic tests/illustrations.  The source font and video are part of
   # texlive, which might be installed on your computer already.
