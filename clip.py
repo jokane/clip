@@ -413,10 +413,12 @@ class slice_by_frames(Clip):
   def __init__(self, clip, start_frame, end_frame):
     assert isinstance(clip, Clip)
 
-    assert isinstance(start_frame, int)
+    assert isfloat(start_frame)
     assert start_frame >= 0, "Slicing %s, but slice start should be at least 0, but got %d." % (clip.signature(), start_frame)
+    start_frame = int(start_frame)
    
-    assert isinstance(end_frame, int)
+    assert isfloat(end_frame)
+    end_frame = int(end_frame)
     assert end_frame <= clip.length(), "Slicing %s, but slice end %d is beyond the end of the clip (%d)" % (clip.signature(), end_frame, clip.length())
 
     assert start_frame <= end_frame, "Slicing %s, but slice end %d is before slice start %d" % (clip.signature(), end_frame, start_frame)
@@ -583,6 +585,7 @@ class add_text(Clip):
       y += 1.2*points
 
     array = np.array(pil_image)
+    array = array[:, :, ::-1]  # Correct for BGR/RGB/whatever problem.
     return array
 
 def fade_chain(clip1, clip2, overlap_frames):
@@ -758,12 +761,13 @@ class force_frame_rate(Clip):
 if __name__ == "__main__":
   # Some basic tests/illustrations.  The source font and video are part of
   # texlive, which might be installed on your computer already.
+  # TODO More here.
 
   font_filename = "/usr/local/texlive/2019/texmf-dist/fonts/truetype/sorkin/merriweather/MerriweatherSans-Regular.ttf"
   video_filename = "/usr/local/texlive/2019/texmf-dist/tex/latex/mwe/example-movie.mp4"
 
   vid = video_file(video_filename)
-  vid = slice_by_secs(vid, 0, 7)
+  vid = slice_by_frames(vid, 0, 7.5*vid.frame_rate())
 
   small_vid = slice_by_frames(filter_frames(vid, lambda x: cv2.resize(x, (150, 100))), 0, 100)
 
@@ -773,7 +777,7 @@ if __name__ == "__main__":
   title = add_text(black(vid.height(), vid.width(), vid.frame_rate(), 5*vid.frame_rate()), [
     (70, font_filename, "Test Video for clip.py"),
     (10, font_filename, "If you can read this, you don't need glasses.")
-  ])
+  ], color=(0,0,255))
   title = fade_in(title, 0.5*vid.frame_rate())
   title = fade_out(title, 0.5*vid.frame_rate())
 
