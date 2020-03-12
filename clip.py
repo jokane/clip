@@ -10,10 +10,10 @@ be achieved by filtering the frames through custom functions.
 The basic currency is the (abstract) Clip class, which encapsulates a sequence
 of identically-sized frames, each a cv2 image, meant to be played at a certain
 frame rate.  Clips may be created by reading from a video file (see:
-video_file), by starting from a blank video (see: black), or by using one of
-the other subclasses or functions to modify existing clips.  Keep in mind that
-all of these methods are non-destructive: Doing, say, a crop() on a clip with
-return a new, cropped clip, but will not affect the original.
+video_file), by starting from a blank video (see: black or solid), or by using
+one of the other subclasses or functions to modify existing clips.  Keep in
+mind that all of these methods are non-destructive: Doing, say, a crop() on a
+clip with return a new, cropped clip, but will not affect the original.
 
 See the bottom of this file for some usage examples.
 
@@ -26,13 +26,13 @@ Possibly relevant implementation details:
 - To accelerate things across multiple runs, frames are cached in a local
   directory called .cache.  This caching is done based on a string
   "signature" for each frame, which is meant to uniquely identify the visual
-  contents of a frame.  For debugging purposes, each clip also has a "clip"
-  signature, meant to describe the composition of the clip in a
+  contents of a frame.  For debugging purposes, each clip also has a clip
+  "signature", meant to describe the composition of the clip in a
   human-readable way.
 
-- Some parts of the "public" interface are subclasses of Clip, other parts
-  are just functions.  However, all of them use snake_case because it should
-  not matter to a user whether it's a subclass or a function.
+- Some parts things are subclasses of Clip, whereas other parts are just
+  functions.  However, all of them use snake_case because it should not matter
+  to a user whether it's a subclass or a function.
 
 --------------------------------------------------------------------------------
 
@@ -47,8 +47,6 @@ import numpy as np
 import glob
 from functools import reduce
 
-cache = dict()
-
 def isfloat(x):
   try:
     float(x)
@@ -56,7 +54,16 @@ def isfloat(x):
   except TypeError:
     return False
 
+def isiterable(x):
+  try:
+    iter(x)
+    return True
+  except TypeError:
+    return False
+
 class Clip(ABC):
+  """The base class for everything else.  A finite series of frames, each with
+  identical height and width, meant to be played at a given rate."""
   @abstractmethod
   def signature():
     """A string that describes this clip."""
@@ -115,18 +122,22 @@ class Clip(ABC):
     blob = hashlib.md5(sig.encode()).hexdigest()
     cached_filename = ".cache/" + blob + ".png"
     if cached_filename in Clip.cache:
+      # Yes.  Read it from the cache.
       print("[+]", sig)
       frame = cv2.imread(cached_filename)
     else:
+      # No.  Compute it directly.
       print("[ ]", sig)
       frame = self.get_frame(index)
       cv2.imwrite(cached_filename, frame)
       Clip.cache[cached_filename] = True
 
+    # Some sanity checks.
     assert frame is not None, "Got None instead of a real frame for " + sig
     assert frame.shape[0] == self.height(), "From %s, I got a frame of height %d instead of %d." % (self.frame_signature(index), frame.shape[0], self.height())
     assert frame.shape[1] == self.width(), "For %s, I got a frame of width %d instead of %d." % (self.frame_signature(index), frame.shape[1], self.width())
 
+    # Done!
     return frame
 
   def length_secs(self):
@@ -166,27 +177,39 @@ class Clip(ABC):
             cv2.waitKey(int(1000.0/self.frame_rate()))
           else:
             cv2.waitKey(1)
-    except KeyboardInterrupt as e:
+    finally:
       if save_fname:
         vw.release()
-      raise e
-
-    if save_fname:
-      vw.release()
     
 class solid(Clip):
   """A clip with the specified size, frame rate, and length, in which each frame has the same solid color."""
   def __init__(self, height, width, frame_rate, length, color):
+    # Sanity check.
     assert isinstance(height, int)
-    assert isinstance(width, int)
-    assert isfloat(frame_rate)
-    assert isinstance(length, int)
-    # TODO: Ensure that color is a tuple of three ints in the correct range.
+    assert height > 0
 
+    assert isinstance(width, int)
+    assert width > 0
+
+    assert isfloat(frame_rate)
+    assert frame_rate > 0
+
+    assert isfloat(length)
+    assert length > 0
+
+    assert len(color) == 3
+    assert isinstance(color[0], int)
+    assert isinstance(color[1], int)
+    assert isinstance(color[2], int)
+    assert color[0] >= 0 and color[0] < 256
+    assert color[1] >= 0 and color[1] < 256
+    assert color[2] >= 0 and color[2] < 256
+
+    # Remember the details.
     self.frame_rate_ = frame_rate
     self.width_ = width
     self.height_ = height
-    self.length_ = length
+    self.length_ = int(length)
     self.color = color
 
   def frame_rate(self):
@@ -216,16 +239,26 @@ class solid(Clip):
       return self.frame
 
 def black(height, width, frame_rate, length):
+  """A clip with of solid black frames."""
   return solid(height, width, frame_rate, length, (0,0,0))
 
 def white(height, width, frame_rate, length):
+  """A clip with of white black frames."""
   return solid(height, width, frame_rate, length, (255,255,255))
 
 
 class repeat_frame(Clip):
   """A clip that shows the same frame, from another clip, over and over."""
   def __init__(self, clip, frame_index, length):
+    assert isinstance(clip, Clip)
+
+    assert isinstance(frame_index, int)
+    assert frame_index >= 0
     assert frame_index < clip.length(), "Trying to repeat frame %d of %s, but the last valid frame index is %s." % (frame_index, clip.signature(), clip.length()-1)
+
+    assert isinstance(length, int)
+    assert length > 0
+
     self.clip = clip
     self.frame_index = frame_index
     self.length_ = length
@@ -257,11 +290,13 @@ class filter_frames(Clip):
   frame.  The output frames may have a different size from the input ones, but
   must all be the same size across the whole clip."""
 
-  def __init__(self, clip, func):
+  def __init__(self, clip, func, name=None):
     assert isinstance(clip, Clip)
     assert callable(func)
     self.clip = clip
     self.func = func
+    if name:
+      self.func.__name__ = name
     self.sample_frame = func(clip.get_frame(0))
 
   def frame_rate(self):
@@ -280,9 +315,6 @@ class filter_frames(Clip):
     return "%s(%s)" % (self.func.__name__, self.clip.signature())
 
   def frame_signature(self, index):
-    # TODO: This relies too much on __name__.  Different filter functions might
-    # have the same name, especially "<lambda>".  Maybe try the dis module to
-    # make a signature based on the bytecode?
     return "%s(%s)" % (self.func.__name__, self.clip.frame_signature(index))
 
   def get_frame(self, index):
@@ -291,16 +323,26 @@ class filter_frames(Clip):
 def crop(clip, lower_left, upper_right):
   """Trim the frames of a clip to show only the rectangle between lower_left and upper_right."""
   assert isinstance(clip, Clip)
+
   assert isinstance(lower_left[0], int)
+  assert lower_left[0] >= 0
+
   assert isinstance(lower_left[1], int)
+  assert lower_left[1] >= 0
+
   assert isinstance(upper_right[0], int)
+  assert upper_right[0] < clip.width()
+
   assert isinstance(upper_right[1], int)
+  assert upper_right[1] < clip.height()
+
   assert lower_left[0] < upper_right[0]
   assert lower_left[1] < upper_right[1]
+
   def crop_filter(frame):
     return frame[lower_left[1]:upper_right[1], lower_left[0]:upper_right[0], :]
-  crop_filter.__name__ = "crop%s%s" % (lower_left, upper_right)
-  return filter_frames(clip, crop_filter)
+
+  return filter_frames(clip, crop_filter, name=f'crop{lower_left}{upper_right}')
 
 def scale_by_factor(clip, factor):
   """Scale the frames of a clip by a given factor."""
@@ -316,19 +358,18 @@ def scale_to_size(clip, new_width, new_height):
   assert isinstance(clip, Clip)
   def scale_filter(frame):
     return cv2.resize(frame, (new_width, new_height))
-  scale_filter.__name__ = "scale[%dx%d]" % (new_width, new_height)
+  scale_filter.__name__ = f'scale[{new_width}x{new_height}]'
   return filter_frames(clip, scale_filter)
-
 
 class chain(Clip):
   """Concatenate a series of clips, which must all have the same frame size and frame rate."""
 
   def __init__(self, *args):
+    for clip in args: assert isinstance(clip, Clip)
+    assert len(set(map(lambda x: x.width(), args))) == 1, "Cannot chain clips because the widths do not match." + str(list(map(lambda x: x.width(), self.clips)))
+    assert len(set(map(lambda x: x.height(), args))) == 1, "Cannot chain clips because the heights do not match." + str(list(map(lambda x: x.heights(), self.clips)))
+    assert len(set(map(lambda x: x.frame_rate(), args))) == 1, "Cannot chain clips because the framerates do not match." + str(list(map(lambda x: x.frame_rate(), self.clips)))
     self.clips = args
-    for clip in self.clips: assert isinstance(clip, Clip)
-    assert(len(set(map(lambda x: x.width(), self.clips))) == 1), "Cannot chain clips because the widths do not match." + str(list(map(lambda x: x.width(), self.clips)))
-    assert(len(set(map(lambda x: x.height(), self.clips))) == 1), "Cannot chain clips because the heights do not match." + str(list(map(lambda x: x.heights(), self.clips)))
-    assert(len(set(map(lambda x: x.frame_rate(), self.clips))) == 1), "Cannot chain clips because the framerates do not match." + str(list(map(lambda x: x.frame_rate(), self.clips)))
 
   def frame_rate(self):
     return self.clips[0].frame_rate()
@@ -356,23 +397,29 @@ class chain(Clip):
       if index < clip.length():
         return clip.get_frame(index)
       index -= clip.length()
-    assert(False)
+    assert False
 
 def slice_by_secs(clip, start_secs, end_secs):
   """Extract the portion of a clip between the given times, which are specified in seconds."""
   assert isinstance(clip, Clip)
   assert isfloat(start_secs)
   assert isfloat(end_secs)
+  assert start_secs < end_secs
+  assert start_secs >= 0
   return slice_by_frames(clip, int(start_secs * clip.frame_rate()), int(end_secs * clip.frame_rate()))
 
 class slice_by_frames(Clip):
   """Extract the portion of a clip between the given times, which are specified in frames."""
   def __init__(self, clip, start_frame, end_frame):
     assert isinstance(clip, Clip)
+
     assert isinstance(start_frame, int)
+    assert start_frame >= 0, "Slicing %s, but slice start should be at least 0, but got %d." % (clip.signature(), start_frame)
+   
     assert isinstance(end_frame, int)
-    assert start_frame >=0, "Slicing %s, but slice start should be at least 0, but got %d." % (clip.signature(), start_frame)
     assert end_frame <= clip.length(), "Slicing %s, but slice end %d is beyond the end of the clip (%d)" % (clip.signature(), end_frame, clip.length())
+
+    assert start_frame <= end_frame, "Slicing %s, but slice end %d is before slice start %d" % (clip.signature(), end_frame, start_frame)
 
     self.clip = clip
     self.start_frame = start_frame
@@ -403,6 +450,9 @@ class slice_by_frames(Clip):
 class video_file(Clip):
   """Read a clip from a file."""
   def __init__(self, fname):
+    assert isinstance(fname, str)
+    assert os.path.isfile(fname), f'Trying to open {fname}, which does not exist.'
+
     self.fname = fname
     self.cap = cv2.VideoCapture(fname)
     self.last_index = -1
@@ -437,16 +487,16 @@ class video_file(Clip):
     return frame
  
 class fade(Clip):
-  """Fade between two equal-length clips."""
+  """Fade between two clips, which must be equal in length, frame size, and frame rate."""
   def __init__(self, clip1, clip2):
-    self.clip1 = clip1
-    self.clip2 = clip2
     assert isinstance(clip1, Clip)
     assert isinstance(clip2, Clip)
-    assert self.clip1.frame_rate() == self.clip2.frame_rate(), "Mismatched frame rates %d and %d" % (self.clip1.frame_rate(), self.clip2.frame_rate())
-    assert self.clip1.width() == self.clip2.width()
-    assert self.clip1.height() == self.clip2.height()
-    assert self.clip1.height() == self.clip2.height()
+    assert clip1.frame_rate() == clip2.frame_rate(), "Mismatched frame rates %d and %d" % (self.clip1.frame_rate(), self.clip2.frame_rate())
+    assert clip1.width() == clip2.width()
+    assert clip1.height() == clip2.height()
+
+    self.clip1 = clip1
+    self.clip2 = clip2
 
   def frame_rate(self):
     return self.clip1.frame_rate()
@@ -478,14 +528,17 @@ class fade(Clip):
       0
     )
 
+
+
 class add_text(Clip):
-  """Superimpose text onto (every frame of) a clip.  The 'text' parameter
+  """Superimpose text onto every frame of a clip.  The 'text' parameter
   should be iterable, with each element consisting of a font size, the filename
-  of a TrueType font, and the actual text to draw.  Text is centered, starting
-  at the top and moving downward with each line."""
+  of a TrueType font, and the actual text to draw.  Text starts
+  at the top and move downward with each line.  White and centered by default."""
 
   def __init__(self, clip, text_list, align='center', color='white'):
     assert isinstance(clip, Clip)
+    assert isiterable(text_list)
     self.clip = clip
     self.text_list = text_list
     self.align = align
@@ -533,9 +586,16 @@ class add_text(Clip):
     return array
 
 def fade_chain(clip1, clip2, overlap_frames):
-  """Concatenate two frames, with some fading overlap between them."""
+  """Concatenate two clips, with some fading overlap between them."""
+  assert isinstance(clip1, Clip)
+  assert isinstance(clip2, Clip)
+  assert isfloat(overlap_frames)
+  assert overlap_frames >= 0
+  assert overlap_frames <= clip1.length()
+  assert overlap_frames <= clip2.length()
+  overlap_frames = int(overlap_frames)
+
   t1_frames = clip1.length()-overlap_frames
-  assert t1_frames >= 0, "Cannot chain with fade from %s to %s, because fade length (%f frames) is longer than the first clip (%f frames)" % (clip1.signature(), clip2.signature(), overlap_frames, clip1.length())
 
   v1 = slice_by_frames(clip1, 0, t1_frames)
   v2 = slice_by_frames(clip1, t1_frames, clip1.length())
@@ -546,15 +606,23 @@ def fade_chain(clip1, clip2, overlap_frames):
 
 def fade_in(clip, fade_frames):
   """Fade in from black."""
+  assert isinstance(clip, Clip)
+  assert isfloat(fade_frames)
+  assert fade_frames >= 0
   fade_frames = int(fade_frames)
   assert fade_frames <= clip.length(), "Cannot fade into %s for %f frames, because the clip is only %f frames long." % (clip.signature(), fade_frames, clip.length())
+
   blk = black(clip.height(), clip.width(), clip.frame_rate(), fade_frames)
   return fade_chain(blk, clip, fade_frames)
 
 def fade_out(clip, fade_frames):
   """Fade out to black."""
+  assert isinstance(clip, Clip)
+  assert isfloat(fade_frames)
+  assert fade_frames >= 0
   fade_frames = int(fade_frames)
-  assert fade_frames <= clip.length(), "Cannot fade into %s for %f frames, because the clip is only %f frames long." % (clip.signature(), fade_frames, clip.length())
+  assert fade_frames <= clip.length(), "Cannot fade out from %s for %f frames, because the clip is only %f frames long." % (clip.signature(), fade_frames, clip.length())
+
   blk = black(clip.height(), clip.width(), clip.frame_rate(), fade_frames)
   return fade_chain(clip, blk, fade_frames)
 
@@ -563,16 +631,27 @@ class superimpose(Clip):
   at a given time."""
 
   def __init__(self, under_clip, over_clip, x, y, start_frame):
+    assert isinstance(under_clip, Clip)
+    assert isinstance(over_clip, Clip)
+    assert isinstance(x, int)
+    assert x >= 0
+    assert isinstance(y, int)
+    assert y >= 0
+    assert isfloat(start_frame)
+    assert start_frame >= 0
+    start_frame = int(start_frame)
+
+    assert y + over_clip.height() <= under_clip.height(), "Superimposing %s onto %s at (%d, %d), but the under clip is not tall enough.  It would need to be %d, but is only %d." % (over_clip.signature(), under_clip.signature(), x, y, y + over_clip.height(), under_clip.height())
+    assert x + over_clip.width() <= under_clip.width(), "Superimposing %s onto %s at (%d, %d), but the under clip is not wide enough." % (over_clip.signature(), under_clip.signature(), x, y)
+    assert start_frame + over_clip.length() <= under_clip.length(), "Superimposing %s onto %s at frame %d, but the under clip is not long enough." % (over_clip.signature(), under_clip.signature(), start_frame)
+    assert under_clip.frame_rate() == over_clip.frame_rate(), "Superimposing %s onto %s at frame %d, but the framerates do not match." % (over_clip.signature(), under_clip.signature())
+
     self.under_clip = under_clip
     self.over_clip = over_clip
     self.x = x
     self.y = y
     self.start_frame = start_frame
 
-    assert y + over_clip.height() <= under_clip.height(), "Superimposing %s onto %s at (%d, %d), but the under clip is not tall enough.  It would need to be %d, but is only %d." % (over_clip.signature(), under_clip.signature(), x, y, y + over_clip.height(), under_clip.height())
-    assert x + over_clip.width() <= under_clip.width(), "Superimposing %s onto %s at (%d, %d), but the under clip is not wide enough." % (over_clip.signature(), under_clip.signature(), x, y)
-    assert start_frame + over_clip.length() <= under_clip.length(), "Superimposing %s onto %s at frame %d, but the under clip is not long enough." % (over_clip.signature(), under_clip.signature(), start_frame)
-    assert under_clip.frame_rate() == over_clip.frame_rate(), "Superimposing %s onto %s at frame %d, but the framerates do not match." % (over_clip.signature(), under_clip.signature())
 
   def frame_rate(self):
     return self.under_clip.frame_rate()
@@ -620,6 +699,9 @@ class image_glob(Clip):
 
   def __init__(self, pattern, frame_rate):
     self.pattern = pattern
+    assert isfloat(frame_rate)
+    assert frame_rate > 0
+
     self.frame_rate_ = frame_rate
     self.filenames = sorted(glob.glob(pattern))
     assert len(self.filenames) > 0, "No files matched pattern: " + pattern
@@ -652,6 +734,9 @@ class force_frame_rate(Clip):
   """Change the frame rate at which a clip thinks it should be played."""
   def __init__(self, clip, frame_rate):
     assert isinstance(clip, Clip)
+    assert isfloat(frame_rate)
+    assert frame_rate > 0
+
     self.clip = clip
     self.frame_rate_ = frame_rate
 
@@ -685,12 +770,12 @@ if __name__ == "__main__":
   vid = superimpose(vid, small_vid, 200, 100, 30)
   vid = superimpose_center(vid, small_vid, 100)
 
-  title = add_text(black(vid.height(), vid.width(), vid.frame_rate(), 5), [
+  title = add_text(black(vid.height(), vid.width(), vid.frame_rate(), 5*vid.frame_rate()), [
     (70, font_filename, "Test Video for clip.py"),
     (10, font_filename, "If you can read this, you don't need glasses.")
   ])
-  title = fade_in(title, 0.5)
-  title = fade_out(title, 0.5)
+  title = fade_in(title, 0.5*vid.frame_rate())
+  title = fade_out(title, 0.5*vid.frame_rate())
 
   fade = fade_chain(title, vid, 1)
 
