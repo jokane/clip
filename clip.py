@@ -637,7 +637,7 @@ class fade_audio(Audio):
     # return r
 
 
-Label = collections.namedtuple('Label', ['text', 'color', 'font', 'size', 'x', 'y'], defaults=[None]*6)
+Label = collections.namedtuple('Label', ['text', 'color', 'font', 'size', 'x', 'y', 'start', 'end'], defaults=[None]*6)
 
 
 def get_font(font, size):
@@ -652,7 +652,7 @@ def get_font(font, size):
   return ImageFont.truetype(font, size)
 get_font.cache = dict()
 
-class add_text(Clip):
+class add_labels(Clip):
   """
   Superimpose one or more text labels onto every frame of a clip.
   """
@@ -665,20 +665,29 @@ class add_text(Clip):
     if isinstance(labels, Label):
       labels = [labels]
 
-    for label in labels:
+    for (i, label) in enumerate(labels):
       assert isinstance(label, Label)
       assert isfloat(label.size)
       assert isinstance(label.font, str)
       assert isinstance(label.text, str)
-      assert isinstance(label.x, int)
+      assert isinstance(label.x, int), f'Got {type(label.x)} instead of int for label x.'
       assert isinstance(label.y, int)
       assert iscolor(label.color)
+
+      if label.start is None:
+        labels[i] = label._replace(start=0)
+
+      if label.end is None:
+        labels[i] = label._replace(end=clip.length())
+
+      assert isinstance(label.start, int)
+      assert isinstance(label.end, int)
 
     self.clip = clip
     self.labels = labels
 
   def __repr__(self):
-    return 'add_text(%s, %s)' % (self.clip.__repr__(), self.labels)
+    return 'add_labels(%s, %s)' % (self.clip.__repr__(), self.labels)
 
   def frame_rate(self):
     return self.clip.frame_rate()
@@ -697,8 +706,10 @@ class add_text(Clip):
     draw = ImageDraw.Draw(pil_image)
 
     for label in self.labels:
-      font = get_font(label.font, label.size)
-      draw.text((label.x, label.y), label.text, font=font, fill=label.color)
+      if label.start <= index and index < label.end:
+        font = get_font(label.font, label.size)
+        draw.text((label.x, label.y), label.text, font=font, fill=label.color)
+
     array = np.array(pil_image)
     array = array[:, :, ::-1]  # Correct for BGR/RGB/whatever problem.
     return array
@@ -775,8 +786,8 @@ def add_titles(clip, labels, x=None, y=None, halign="center", valign="center", l
     new_labels.append(new_label)
     y += int(spacing * size[1])
 
-  # Return an add_text that uses these correctly-positioned new labels.
-  return add_text(clip, new_labels)
+  # Return an add_labels that uses these correctly-positioned new labels.
+  return add_labels(clip, new_labels)
 
 class fade(Clip):
   """Fade between two clips, which must be equal in length, frame size, frame rate, sample rate, and number of channels."""
@@ -1336,8 +1347,6 @@ def fade_out(clip, fade_frames, color=(0,0,0)):
 
   blk = solid(clip.height(), clip.width(), clip.frame_rate(), fade_frames, color=color)
   return fade_chain(fade_frames, clip, blk)
-
-
 
 
 
