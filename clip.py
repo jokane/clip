@@ -1,11 +1,11 @@
 """
 clip.py
 --------------------------------------------------------------------------------
-This is a library for manipulating and generating short video clips, such as
-might be attached to a research paper.  It uses cv2 to read and write behind
-the scenes, and provides abstractions for cropping, superimposing, adding text,
-trimming, fading in and out, fading between clips, etc.  Additional effects can
-be achieved by filtering the frames through custom functions.
+This is a library for manipulating and generating short video clips.  It uses
+cv2 to read and write behind the scenes, and provides abstractions for
+cropping, superimposing, adding text, trimming, fading in and out, fading
+between clips, etc.  Additional effects can be achieved by filtering the frames
+through custom functions.
 
 The basic currency is the (abstract) Clip class, which encapsulates a sequence
 of identically-sized frames, each a cv2 image, meant to be played at a certain
@@ -28,16 +28,15 @@ Possibly relevant implementation details:
   framerates) but will not actually do any work to produce the video.  The real
   rendering happens when one calls one of the save or play methods on a clip.
 
-- To accelerate things across multiple runs, frames are cached in a local
-  directory called .cache.  This caching is done based on a string
-  "signature" for each frame, which is meant to uniquely identify the visual
-  contents of a frame.  For debugging purposes, each clip also has a clip
-  "signature", meant to describe the composition of the clip in a
-  human-readable way.
+- To accelerate things across multiple runs, frames are cached in
+  /tmp/clipcache.  This caching is done based on a string "signature" for each
+  frame, which is meant to uniquely identify the visual contents of a frame.
+  For debugging purposes, each clip also has a clip "signature", meant to
+  describe the composition of the clip in a human-readable way.
 
 - Some parts things are subclasses of Clip, whereas other parts are just
   functions.  However, all of them use snake_case because it should not matter
-  to a user whether it's a subclass or a function.
+  to a user whether it's a subclass or a function.  Same for Audio.
 
 --------------------------------------------------------------------------------
 
@@ -46,16 +45,20 @@ Possibly relevant implementation details:
 from abc import ABC, abstractmethod
 from PIL import Image, ImageFont, ImageDraw
 import collections
+import contextlib
 import cv2
 import hashlib
+import itertools
 import numpy as np
 import os
 import progressbar
+import re
 import soundfile
+import subprocess
 import sys
-import itertools
 import tempfile
-
+import threading
+import time
 
 def isfloat(x):
   try:
@@ -81,11 +84,51 @@ def iscolor(color):
   if color[2] < 0 or color[2] > 255: return False
   return True
 
-def ffmpeg(*args):
-  command = 'ffmpeg -y ' + ' '.join(args) + ' 2> /dev/null'
-  return_value = os.system(command)
-  if return_value != 0:
-    raise Exception(f'Alas, ffmpeg failed with return code {return_value}.\nCommand was: {command}')
+def ffmpeg(*args, progress=False, num_frames=None):
+  """Run ffmpeg with the given arguments.  Optionally, maintain a progress bar
+  as it goes."""
+
+  with tempfile.NamedTemporaryFile() as stats:
+    command = f"ffmpeg -y -vstats_file {stats.name} {' '.join(args)} 2> /dev/null"
+    proc = subprocess.Popen(command, shell=True)
+
+    t = threading.Thread(target=lambda :proc.communicate())
+    t.start()
+
+    if(progress):
+      with progressbar.ProgressBar(max_value=num_frames) as pb:
+        pb.update(0)
+        while proc.poll() is None:
+          try:
+            with open(stats.name) as f:
+              fr = int(re.findall('frame=\s*(\d+)\s', f.read())[-1])
+              pb.update(fr)
+          except FileNotFoundError:
+            pass
+          except IndexError:
+            pass
+          time.sleep(1)
+      
+    t.join()
+    
+    if proc.returncode != 0:
+      raise Exception(f'Alas, ffmpeg failed with return code {proc.returncode}.\nCommand was: {command}')
+
+@contextlib.contextmanager
+def temporary_current_directory():
+  """Create a context in which the current directory is a new temporary
+  directory.  When the context ends, the current directory is restored and the
+  temporary directory is vaporized."""
+  previous_current_directory = os.getcwd()
+
+  with tempfile.TemporaryDirectory() as td:
+    os.chdir(td)
+    
+    try:
+      yield
+    finally:
+      os.chdir(previous_current_directory)
+
 
 class Clip(ABC):
   """The base class for all video clips.  A finite series of frames, each with
@@ -136,31 +179,34 @@ class Clip(ABC):
     assert isinstance(index, int)
     return int(index * self.get_audio().sample_rate() / self.frame_rate())
 
-  def get_frame_cached(self, index):
-    """Return one frame of the clip, from the cache if possible, but from scratch if necessary."""
+  def get_cached_filename(self, index):
+    """Look for the frame with the given index in the cache."""
 
     # Make sure we've loaded the list of cached frames.
+    cache_directory = '/tmp/clipcache/'
     if not hasattr(Clip, 'cache'):
       Clip.cache = dict()
       try:
-        for cached_frame in os.listdir(".cache"):
-          Clip.cache[".cache/" + cached_frame] = True
+        for cached_frame in os.listdir(cache_directory):
+          Clip.cache[os.path.join(cache_directory, cached_frame)] = True
       except FileNotFoundError:
-        os.mkdir(".cache")
+        os.mkdir(cache_directory)
 
       print(len(Clip.cache), "frames in the cache.")
 
     # Has this frame been computed before?
     sig = str(self.frame_signature(index))
     blob = hashlib.md5(sig.encode()).hexdigest()
-    cached_filename = ".cache/" + blob + ".png"
-    if cached_filename in Clip.cache:
-      # Yes.  Read it from the cache.
-      #print("[+]", sig)
+    cached_filename = os.path.join(cache_directory, blob + ".png")
+    return (cached_filename, cached_filename in Clip.cache)
+
+  def get_frame_cached(self, index):
+    """Return one frame of the clip, from the cache if possible, but from scratch if necessary."""
+    cached_filename, success = self.get_cached_filename(index)
+
+    if success:
       frame = cv2.imread(cached_filename)
     else:
-      # No.  Compute it directly.
-      #print("[ ]", sig)
       frame = self.get_frame(index)
       cv2.imwrite(cached_filename, frame)
       Clip.cache[cached_filename] = True
@@ -236,25 +282,47 @@ class Clip(ABC):
  
   def save_av(self, fname):
     """Save both audio and video, in a format suitable for embedding in HTML5."""
-    with tempfile.TemporaryDirectory() as td:
-      audio_fname = os.path.join(td, 'audio.flac')
-      video_fname = os.path.join(td, 'video.mp4')
-      
+    full_fname = os.path.join(os.getcwd(), fname)
+
+    # Force the frame cache to be read before we change to the temp directory.
+    self.get_frame_cached(0)
+
+    with temporary_current_directory():
+      audio_fname = 'audio.flac'
       self.get_audio().save(audio_fname)
-      self.save_video(video_fname)
+
+      
+      with progressbar.ProgressBar(max_value=self.length()) as pb:
+        for i in range(0, self.length()):
+          cached_filename, success = self.get_cached_filename(i)
+          if not success:
+            frame = self.get_frame_cached(i)
+            cv2.imwrite(cached_filename, frame)
+            Clip.cache[cached_filename] = True
+          os.symlink(cached_filename, f'{i:06d}.png')
+          pb.update(i)
       
       ffmpeg(
-        f'-i {audio_fname} -i {video_fname}',
-        f'-c:v libx264 -b:v 5000k -minrate 1000k -maxrate 8000k -pass 1 -c:a aac -f mp4',
-        f'/dev/null',
-        f' 2> /dev/null'
+        f'-framerate {self.frame_rate()} -i %06d.png -i {audio_fname} ',
+        f'-vcodec libx264 -f mp4 -vb 1024k -preset slow ',
+        f'{full_fname}',
+        progress=True,
+        num_frames=self.length()
       )
-      ffmpeg(
-        f'-i {audio_fname} -i {video_fname}',
-        f'-c:v libx264 -b:v 5000k -minrate 1000k -maxrate 8000k -pass 2 -c:a aac -movflags faststart',
-        f'{fname}',
-        f' 2> /dev/null'
-      )
+
+      # common_options = (f'-framerate {self.frame_rate()} -i %06d.png -i {audio_fname} ' +
+      #   f'-c:v libx264 -b:v 5000k -minrate 1000k -maxrate 8000k')
+    
+      # ffmpeg(
+      #   common_options,
+      #   f'-pass 1 -c:a aac -f mp4',
+      #   f'/dev/null',
+      # )
+      # ffmpeg(
+      #   common_options,
+      #   f'-pass 2 -c:a aac -movflags faststart',
+      #   f'{full_fname}',
+      # )
 
       asecs = self.get_audio().length()/self.get_audio().sample_rate()
       vsecs = self.length()/self.frame_rate()
@@ -622,9 +690,9 @@ class fade_audio(Audio):
 
   def get_samples(self):
     return (
-      np.linspace([0.0]*self.num_channels(), [1.0]*self.num_channels(), self.length()) * self.audio1.get_samples()
+      np.linspace([1.0]*self.num_channels(), [0.0]*self.num_channels(), self.length()) * self.audio1.get_samples()
       +
-      np.linspace([1.0]*self.num_channels(), [0.0]*self.num_channels(), self.length()) * self.audio2.get_samples()
+      np.linspace([0.0]*self.num_channels(), [1.0]*self.num_channels(), self.length()) * self.audio2.get_samples()
     )
 
     # It's amazing how slow the naive version is...
@@ -635,6 +703,29 @@ class fade_audio(Audio):
     #   a = self.alpha(index)
     #   r[index] = (1-a)*a1[index] + a*a2[index]
     # return r
+
+class reverse_audio(Audio):
+  """Same sound, played backward."""
+
+  def __init__(self, audio):
+    assert isinstance(audio, Audio)
+    self.audio = audio
+    self.audio2 = audio2
+
+  def __repr__(self):
+    return 'reverse_audio(%s, %s)' % (self.audio.__repr__())
+
+  def sample_rate(self):
+    return self.audio.sample_rate()
+
+  def num_channels(self):
+    return self.audio.num_channels()
+
+  def length(self):
+    return self.audio.length()
+
+  def get_samples(self):
+    return np.flip(self.audio.get_samples(), axis=0)
 
 
 Label = collections.namedtuple('Label', ['text', 'color', 'font', 'size', 'x', 'y', 'start', 'end'], defaults=[None]*6)
@@ -698,7 +789,7 @@ class add_labels(Clip):
   def length(self):
     return self.clip.length()
   def frame_signature(self, index):
-    return f'{self.__repr__()}:{index}'
+    return self.clip.frame_signature(index) + "+" + ",".join(map(lambda x: f'"{x.text}" {x.color} {x.font} {x.size} {x.x} {x.y}', filter(lambda x: x.start <= index and index < x.end, self.labels)))
 
   def get_frame(self, index):
     frame = self.clip.get_frame(index)
@@ -868,6 +959,9 @@ class chain(Clip):
     # the right place.  That way, the errors won't accumulate they way they do
     # now, necessitating the force_audio_length above.
 
+    # TODO: Where can we verify that each clip has the correct-length audio?
+    # Maybe in realize_video()?
+
   def __repr__(self):
     return f'chain({self.clips})'
 
@@ -888,7 +982,7 @@ class chain(Clip):
     # the source clip that would contain that frame, along with the index
     # within that clip.  TODO: Binary search.
     for i in range(0, len(self.clips)):
-      if frame_index <= self.clips[i].length():
+      if frame_index < self.clips[i].length():
         return (i, frame_index)
       frame_index -= self.clips[i].length()
     assert False, f'Could not find chain element index {frame_index} within {len(self.clips)} clips, with lengths {list(map(lambda x: x.length(), self.clips))}  Total length is only {self.length()}.\n{self}'
@@ -1175,7 +1269,7 @@ class image_glob(Clip):
   def get_frame(self, index):
     return cv2.imread(self.filenames[index])
 
-  def get_audio():
+  def get_audio(self):
     return self.default_audio()
 
 class repeat_frame(Clip):
@@ -1215,7 +1309,7 @@ class repeat_frame(Clip):
   def get_frame(self, index):
     return self.clip.get_frame(self.frame_index)
 
-  def get_audio():
+  def get_audio(self):
     return self.default_audio()
 
 def crop(clip, lower_left, upper_right):
@@ -1229,10 +1323,10 @@ def crop(clip, lower_left, upper_right):
   assert lower_left[1] >= 0
 
   assert isinstance(upper_right[0], int)
-  assert upper_right[0] < clip.width()
+  assert upper_right[0] <= clip.width()
 
   assert isinstance(upper_right[1], int)
-  assert upper_right[1] < clip.height()
+  assert upper_right[1] <= clip.height()
 
   assert lower_left[0] < upper_right[0]
   assert lower_left[1] < upper_right[1]
@@ -1294,9 +1388,6 @@ def fade_chain(overlap_frames, *args):
     return zip(a, b)
 
   chunks = list()
-  print("fade_chain over %d clips, with overlap %d" % (len(clips), overlap_frames))
-  for i, a in enumerate(clips):
-    print("  clip %d has %d audio samples, should have %d" % (i, a.get_audio().length(), a.default_audio().length()))
 
   for ((i, a), (j, b)) in pairwise(enumerate(clips)):
     if i == 0:
@@ -1306,19 +1397,14 @@ def fade_chain(overlap_frames, *args):
 
     t1_frames = a.length()-overlap_frames-offset
 
-    print("i", i, "a.length:", a.length(), "offset:", offset, "t1_frames:", t1_frames, "overlap_frames:", overlap_frames)
     v1 = slice_video(a, offset, offset+t1_frames)
     v2 = slice_video(a, offset+t1_frames, a.length())
     v3 = slice_video(b, 0, overlap_frames)
 
     a2 = v2.get_audio()
     a3 = v3.get_audio()
-    print("v2al:", v2.get_audio().length(), "v3al:", v3.get_audio().length())
     if a2.length() != a3.length():
-      print('fixing')
       v3 = replace_audio(v3, a3, force_to=a2.length())
-    print("v2al:", v2.get_audio().length(), "v3al:", v3.get_audio().length())
-    print()
 
     chunks.append(v1)
     chunks.append(fade(v2, v3))
@@ -1349,6 +1435,27 @@ def fade_out(clip, fade_frames, color=(0,0,0)):
   return fade_chain(fade_frames, clip, blk)
 
 
+
+class reverse(Clip):
+  def __init__(self, clip):
+    assert isinstance(clip, Clip)
+    self.clip = clip
+  def __repr__(self):
+    return f'reverse({self.clip})'
+  def frame_rate(self):
+    return self.clip.frame_rate()
+  def width(self):
+    return self.clip.width()
+  def height(self):
+    return self.clip.height()
+  def length(self):
+    return self.clip.length()
+  def frame_signature(self, index):
+    return self.clip.frame_signature(self.clip.length() - index - 1)
+  def get_frame(self, index):
+    return self.clip.get_frame(self.clip.length() - index - 1)
+  def get_audio(self):
+    return self.clip.get_audio()
 
 
 if __name__ == "__main__":
