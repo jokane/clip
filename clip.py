@@ -31,8 +31,6 @@ Possibly relevant implementation details:
 - To accelerate things across multiple runs, frames are cached in
   /tmp/clipcache.  This caching is done based on a string "signature" for each
   frame, which is meant to uniquely identify the visual contents of a frame.
-  For debugging purposes, each clip also has a clip "signature", meant to
-  describe the composition of the clip in a human-readable way.
 
 - Some parts things are subclasses of Clip, whereas other parts are just
   functions.  However, all of them use snake_case because it should not matter
@@ -53,6 +51,7 @@ import numpy as np
 import os
 import progressbar
 import re
+import scipy.signal
 import soundfile
 import subprocess
 import sys
@@ -245,10 +244,6 @@ class Clip(ABC):
         (self.width(), self.height())
       )
     
-    # A quick dry run to discover any errors in the signatures quickly.
-    for i in range(0, self.length()):
-      self.frame_signature(i)
-
     try:    
       # widgets=[
       #   '[',
@@ -288,9 +283,6 @@ class Clip(ABC):
     self.get_frame_cached(0)
 
     with temporary_current_directory():
-      audio_fname = 'audio.flac'
-      self.get_audio().save(audio_fname)
-
       
       with progressbar.ProgressBar(max_value=self.length()) as pb:
         for i in range(0, self.length()):
@@ -301,6 +293,9 @@ class Clip(ABC):
             Clip.cache[cached_filename] = True
           os.symlink(cached_filename, f'{i:06d}.png')
           pb.update(i)
+
+      audio_fname = 'audio.flac'
+      self.get_audio().save(audio_fname)
       
       ffmpeg(
         f'-framerate {self.frame_rate()} -i %06d.png -i {audio_fname} ',
@@ -493,6 +488,9 @@ class Audio(ABC):
 class audio_from_data(Audio):
   """ Form an audio clip from a numpy array. """
   def __init__(self, name, data, sample_rate):
+    assert isinstance(name, str)
+    assert isinstance(data, np.ndarray)
+    assert isfloat(sample_rate)
     self.name = name
     self.data = data
     self.sample_rate_ = sample_rate
@@ -506,7 +504,6 @@ class audio_from_data(Audio):
 
   def sample_rate(self):
     return self.sample_rate_
-
 
   def num_channels(self):
     return self.data.shape[1]
@@ -524,7 +521,7 @@ def audio_file(fname):
 
   ext = os.path.splitext(fname)[1]
   if ext.lower() in direct_formats:
-    data, sample_rate = soundfile.read(fname)
+    data, sample_rate = soundfile.read(fname, always_2d=True)
     return audio_from_data(fname, data, sample_rate)
   elif ext in video_formats: 
     with tempfile.TemporaryDirectory() as td:
@@ -576,7 +573,7 @@ class slice_audio(Audio):
 
 class mix(Audio):
   """
-  Add together a serioes of audio clips, sample by sample.  The sample rates
+  Add together a series of audio clips, sample by sample.  The sample rates
   and number of channels must match.  The resulting length will match the
   longest of the input clips.
   """
@@ -614,6 +611,72 @@ class mix(Audio):
       r[:audio.length()] += audio.get_samples()
     return r
 
+class mix_at(Audio):
+  """
+  Add together a series of audio clips, sample by sample, each starting at
+  given sample.  Arguments should be (audio, start) tuples.  The sample rates
+  and number of channels must match.
+  """
+
+  def __init__(self, *args):
+    for tup in args:
+      assert isinstance(tup, tuple)
+      audio, start = tup
+      assert isinstance(audio, Audio)
+      assert isinstance(start, int)
+
+    self.tups = args
+
+    assert len(self.tups) > 0, "Need at least one audio to mix."
+    assert len(set(map(lambda x: x[0].sample_rate(), self.tups))) == 1, "Cannot chain audios because the sample rates do not match." + str(list(map(lambda x: x[0].sample_rate(), self.tups)))
+    assert len(set(map(lambda x: x[0].sample_rate(), self.tups))) == 1, "Cannot chain audios because the numbers of channels do not match." + str(list(map(lambda x: x.num_channels(), self.tups)))
+
+  def __repr__(self):
+    return f'mix_at({self.tups})'
+
+  def sample_rate(self):
+    return self.tups[0][0].sample_rate()
+
+  def num_channels(self):
+    return self.tups[0][0].num_channels()
+
+  def length(self):
+    return max(map(lambda x: x[0].length() + x[1], self.tups))
+
+  def get_samples(self):
+    r = np.zeros((self.length(), self.num_channels()))
+    for audio, start in self.tups:
+      r[start:start+audio.length()] += audio.get_samples()
+    return r
+
+class resample(Audio):
+  """
+  Change the sample rate of an audio clip.
+  """
+
+  def __init__(self, audio, new_sample_rate):
+    assert isinstance(audio, Audio)
+    assert isfloat(new_sample_rate)
+    self.audio = audio
+    self.new_sample_rate = new_sample_rate
+    self.new_length = round(audio.length() * new_sample_rate/audio.sample_rate())
+
+  def __repr__(self):
+    return f'resample({self.clip}, {self.new_sample_rate})'
+
+  def sample_rate(self):
+    return self.new_sample_rate
+
+  def num_channels(self):
+    return self.audio.num_channels()
+
+  def length(self):
+    return self.new_length
+
+  def get_samples(self):
+    data = self.audio.get_samples()
+    return scipy.signal.resample(data, self.new_length)
+    
 class chain_audio(Audio):
   """
   Concatenate a series of audio clips.  The clips may be given individually, in
@@ -737,10 +800,9 @@ def get_font(font, size):
   loading the same font again and again.  (The performance improvement seems to
   be small but non-zero.)
   """
-  # if (font, size)not in get_font.cache:
-  #   get_font.cache[(font, size)] = ImageFont.truetype(font, size)
-  # return get_font.cache[(font, size)]
-  return ImageFont.truetype(font, size)
+  if (font, size)not in get_font.cache:
+    get_font.cache[(font, size)] = ImageFont.truetype(font, size)
+  return get_font.cache[(font, size)]
 get_font.cache = dict()
 
 class add_labels(Clip):
@@ -1437,6 +1499,7 @@ def fade_out(clip, fade_frames, color=(0,0,0)):
 
 
 class reverse(Clip):
+  """Reverse the video in a clip.  No change to the audio."""
   def __init__(self, clip):
     assert isinstance(clip, Clip)
     self.clip = clip
