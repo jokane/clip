@@ -139,6 +139,10 @@ class Clip(ABC):
     """A string that describes this clip."""
     pass
 
+  def summary(self):
+    secs = self.length()/self.frame_rate()
+    return f'{secs}s {self.width()}x{self.height()} {self.frame_rate()}fps'
+
   @abstractmethod
   def frame_signature(index):
     """A string that uniquely describes the appearance of the given frame."""
@@ -222,17 +226,9 @@ class Clip(ABC):
     """Return the length of the clip, in seconds."""
     return self.length()/self.frame_rate()
 
-  def play_video(self, keep_frame_rate=True):
+  def play_silently(self, keep_frame_rate=True):
     """Render the video part and display it in a window on screen."""
     self.realize_video(keep_frame_rate=keep_frame_rate, play=True)
-
-  def save_video(self, fname):
-    """Render the video part and save it as an MP4 file."""
-    self.realize_video(save_fname=fname)
-
-  def saveplay_video(self, fname, keep_frame_rate=True):
-    """Play and save the video part at the same time."""
-    self.realize_video(save_fname=fname, play=True, keep_frame_rate=keep_frame_rate)
   
   def realize_video(self, save_fname=None, play=False, keep_frame_rate=True):
     """Main function for saving and playing, or both."""
@@ -275,7 +271,7 @@ class Clip(ABC):
     num_channels = 2
     return silence(int(self.length() * sample_rate / self.frame_rate()), sample_rate, num_channels)
  
-  def save_av(self, fname):
+  def save(self, fname):
     """Save both audio and video, in a format suitable for embedding in HTML5."""
     full_fname = os.path.join(os.getcwd(), fname)
 
@@ -517,10 +513,10 @@ def audio_file(fname):
   assert os.path.isfile(fname), f'Trying to open {fname}, which does not exist.'
 
   direct_formats = list(map(lambda x: "." + x.lower(), soundfile.available_formats().keys()))
-  video_formats = ['.mp4']
+  video_formats = ['.mp4', '.mov']
 
-  ext = os.path.splitext(fname)[1]
-  if ext.lower() in direct_formats:
+  ext = os.path.splitext(fname)[1].lower()
+  if ext in direct_formats:
     data, sample_rate = soundfile.read(fname, always_2d=True)
     return audio_from_data(fname, data, sample_rate)
   elif ext in video_formats: 
@@ -651,18 +647,20 @@ class mix_at(Audio):
 
 class resample(Audio):
   """
-  Change the sample rate of an audio clip.
+  Change both the sample rate of an audio clip and its length, using some sort
+  of fancy resampling algorithm.
   """
 
-  def __init__(self, audio, new_sample_rate):
+  def __init__(self, audio, new_sample_rate, new_length):
     assert isinstance(audio, Audio)
     assert isfloat(new_sample_rate)
+    assert isinstance(new_length, int)
     self.audio = audio
     self.new_sample_rate = new_sample_rate
-    self.new_length = round(audio.length() * new_sample_rate/audio.sample_rate())
+    self.new_length = new_length
 
   def __repr__(self):
-    return f'resample({self.clip}, {self.new_sample_rate})'
+    return f'resample({self.clip}, {self.new_sample_rate}, {self.new_length})'
 
   def sample_rate(self):
     return self.new_sample_rate
@@ -676,6 +674,12 @@ class resample(Audio):
   def get_samples(self):
     data = self.audio.get_samples()
     return scipy.signal.resample(data, self.new_length)
+
+def change_sample_rate(audio, new_sample_rate):
+  return resample(audio, new_sample_rate, round(audio.length() * new_sample_rate/audio.sample_rate()))
+  
+def timewarp_audio(audio, factor):
+  return resample(audio, audio.sample_rate(), int(audio.length()*factor))
     
 class chain_audio(Audio):
   """
@@ -773,7 +777,6 @@ class reverse_audio(Audio):
   def __init__(self, audio):
     assert isinstance(audio, Audio)
     self.audio = audio
-    self.audio2 = audio2
 
   def __repr__(self):
     return 'reverse_audio(%s, %s)' % (self.audio.__repr__())
@@ -861,10 +864,9 @@ class add_labels(Clip):
     for label in self.labels:
       if label.start <= index and index < label.end:
         font = get_font(label.font, label.size)
-        draw.text((label.x, label.y), label.text, font=font, fill=label.color)
+        draw.text((label.x, label.y), label.text, font=font, fill=(label.color[2],label.color[1],label.color[0]))
 
     array = np.array(pil_image)
-    array = array[:, :, ::-1]  # Correct for BGR/RGB/whatever problem.
     return array
 
   def get_audio(self):
@@ -1519,6 +1521,37 @@ class reverse(Clip):
     return self.clip.get_frame(self.clip.length() - index - 1)
   def get_audio(self):
     return self.clip.get_audio()
+
+class timewarp(Clip):
+  def __init__(self, clip, factor):
+    assert isinstance(clip, Clip)
+    assert isfloat(factor)
+    assert factor > 0
+    self.clip = clip
+    self.factor = factor
+    self.audio = timewarp_audio(self.clip.get_audio(), factor)
+
+  def __repr__(self):
+    return f'timewarp({self.clip}, {self.factor})'
+
+  def new_index(self, index):
+    return int(index/self.factor)
+  def frame_rate(self):
+    return self.clip.frame_rate()
+  def width(self):
+    return self.clip.width()
+  def height(self):
+    return self.clip.height()
+  def length(self):
+    return int(self.clip.length()*self.factor)
+  def frame_signature(self, index):
+    return self.clip.frame_signature(self.new_index(index))
+  def get_frame(self, index):
+    return self.clip.get_frame(self.new_index(index))
+  def get_audio(self):
+    return self.audio
+
+
 
 
 if __name__ == "__main__":
