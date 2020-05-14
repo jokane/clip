@@ -328,6 +328,7 @@ class video_file(Clip):
 
     self.fname = fname
     self.cap = cv2.VideoCapture(fname)
+    self.cap.setExceptionMode(True)
     self.last_index = -1
     assert self.frame_rate() > 0, "Frame rate is 0 for %s.  Problem opening the file?" % fname
 
@@ -1257,7 +1258,7 @@ class filter_frames(Clip):
     self.sample_frame = func(clip.get_frame(0))
   
   def __repr__(self):
-    return f'filter_frames({clip}, func)'
+    return f'filter_frames({self.clip}, func)'
 
   def frame_rate(self):
     return self.clip.frame_rate()
