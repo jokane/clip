@@ -58,6 +58,7 @@ import sys
 import tempfile
 import threading
 import time
+import pdf2image
 
 def isfloat(x):
   try:
@@ -1258,7 +1259,7 @@ class filter_frames(Clip):
     self.sample_frame = func(clip.get_frame(0))
   
   def __repr__(self):
-    return f'filter_frames({self.clip}, func)'
+    return f'filter_frames({clip}, func)'
 
   def frame_rate(self):
     return self.clip.frame_rate()
@@ -1552,6 +1553,31 @@ class timewarp(Clip):
   def get_audio(self):
     return self.audio
 
+class pdf_page(Clip):
+  def __init__(self, pdf, page_num, length, frame_rate, **kwargs):
+    self.pdf = pdf
+    self.page_num = page_num
+    self.frame_rate_ = frame_rate
+    self.length_ = length
+    self.kwargs = kwargs
+    images = pdf2image.convert_from_path(self.pdf, first_page=page_num, last_page=page_num, **kwargs)
+    self.the_frame = np.array(images[0])
+  def __repr__(self):
+    return f'pdf_page({self.pdf}, {self.page_num}, {self.frame_rate_}, {self.kwargs})'
+  def frame_rate(self):
+    return self.frame_rate_
+  def width(self):
+    return self.the_frame.shape[1]
+  def height(self):
+    return self.the_frame.shape[0]
+  def length(self):
+    return self.length_
+  def get_audio(self):
+    return self.default_audio()
+  def frame_signature(self, index):
+    return f'pdf_page: {self.pdf}, {self.page_num}, {self.frame_rate}, {self.kwargs})'
+  def get_frame(self, index):
+    return self.the_frame
 
 
 
