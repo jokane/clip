@@ -403,7 +403,7 @@ class solid(Clip):
     self.width_ = width
     self.height_ = height
     self.length_ = length
-    self.color = color
+    self.color = [color[2], color[1], color[0]]
 
   def __repr__(self):
     return f'solid({self.height_}, {self.width_}, {self.frame_rate_}, {self.length_}, {self.color})'
