@@ -1,4 +1,4 @@
-.cache
 *.sw?
 Pipfile
 Pipfile.lock
+__pycache__
