@@ -32,9 +32,9 @@ Possibly relevant implementation details:
   /tmp/clipcache.  This caching is done based on a string "signature" for each
   frame, which is meant to uniquely identify the visual contents of a frame.
 
-- Some parts things are subclasses of Clip, whereas other parts are just
-  functions.  However, all of them use snake_case because it should not matter
-  to a user whether it's a subclass or a function.  Same for Audio.
+- Some things are subclasses of Clip, whereas other parts are just functions.
+  However, all of them use snake_case because it should not matter to a user
+  whether it's a subclass or a function.  Same for Audio.
 
 --------------------------------------------------------------------------------
 
@@ -83,6 +83,16 @@ def iscolor(color):
   if color[1] < 0 or color[1] > 255: return False
   if color[2] < 0 or color[2] > 255: return False
   return True
+
+def sha256sum(filename):
+  # https://stackoverflow.com/questions/22058048/hashing-a-file-in-python
+  h  = hashlib.sha256()
+  b  = bytearray(128*1024)
+  mv = memoryview(b)
+  with open(filename, 'rb', buffering=0) as f:
+      for n in iter(lambda : f.readinto(mv), 0):
+          h.update(mv[:n])
+  return h.hexdigest()
 
 def ffmpeg(*args, progress=False, num_frames=None):
   """Run ffmpeg with the given arguments.  Optionally, maintain a progress bar
@@ -196,7 +206,7 @@ class Clip(ABC):
       except FileNotFoundError:
         os.mkdir(cache_directory)
 
-      print(len(Clip.cache), "frames in the cache.")
+      print(f'Found {len(Clip.cache)} frames in the cache ({cache_directory}).')
 
     # Has this frame been computed before?
     sig = str(self.frame_signature(index))
@@ -227,12 +237,18 @@ class Clip(ABC):
     """Return the length of the clip, in seconds."""
     return self.length()/self.frame_rate()
 
-  def play_silently(self, keep_frame_rate=True):
+  def play_silently(self):
     """Render the video part and display it in a window on screen."""
-    self.realize_video(keep_frame_rate=keep_frame_rate, play=True)
+    self.realize_video(keep_frame_rate=True, play=True)
+
+  def preview(self):
+    """Render the video part and display it in a window on screen."""
+    self.realize_video(keep_frame_rate=False, play=True)
   
   def realize_video(self, save_fname=None, play=False, keep_frame_rate=True):
-    """Main function for saving and playing, or both."""
+    """Main function for saving and playing, or both.  Note that the save()
+    method does not use this (anymore) because cv2 cannot handle audio, so it's
+    faster just to give the frames directly to ffmpeg."""
     if save_fname:
       vw = cv2.VideoWriter(
         save_fname,
@@ -242,14 +258,6 @@ class Clip(ABC):
       )
     
     try:    
-      # widgets=[
-      #   '[',
-      #   progressbar.Timer(format='%(elapsed)s'),
-      #   '/',
-      #   progressbar.ETA(format='%(eta)s'),
-      #   ']',
-      #   progressbar.Bar(marker='.')
-      # ]
       with progressbar.ProgressBar(max_value=self.length()) as pb:
         for i in range(0, self.length()):
           frame = self.get_frame_cached(i)
@@ -271,6 +279,9 @@ class Clip(ABC):
     sample_rate = 44100
     num_channels = 2
     return silence(int(self.length() * sample_rate / self.frame_rate()), sample_rate, num_channels)
+
+  preset = 'slow'
+  bitrate = '1024k'
  
   def save(self, fname):
     """Save both audio and video, in a format suitable for embedding in HTML5."""
@@ -296,25 +307,13 @@ class Clip(ABC):
       
       ffmpeg(
         f'-framerate {self.frame_rate()} -i %06d.png -i {audio_fname} ',
-        f'-vcodec libx264 -f mp4 -vb 1024k -preset slow ',
+        f'-vcodec libx264 -f mp4 ',
+        f'-vb {Clip.bitrate}' if Clip.bitrate else '',
+        f'-preset {Clip.preset}' if Clip.preset else '',
         f'{full_fname}',
         progress=True,
         num_frames=self.length()
       )
-
-      # common_options = (f'-framerate {self.frame_rate()} -i %06d.png -i {audio_fname} ' +
-      #   f'-c:v libx264 -b:v 5000k -minrate 1000k -maxrate 8000k')
-    
-      # ffmpeg(
-      #   common_options,
-      #   f'-pass 1 -c:a aac -f mp4',
-      #   f'/dev/null',
-      # )
-      # ffmpeg(
-      #   common_options,
-      #   f'-pass 2 -c:a aac -movflags faststart',
-      #   f'{full_fname}',
-      # )
 
       asecs = self.get_audio().length()/self.get_audio().sample_rate()
       vsecs = self.length()/self.frame_rate()
@@ -376,7 +375,7 @@ class video_file(Clip):
     self.last_index = index  
     frame = self.cap.read()[1]
     if frame is None:
-      raise Exception("When reading a frame from %s, got None instead of a frame." % self.fname)
+      raise Exception(f"When reading frame {index} from {self.fname}, got None instead of a frame.")
     return frame
 
   def get_audio(self):
@@ -466,9 +465,13 @@ class Audio(ABC):
     pass
 
   @abstractmethod
-  def get_samples(self):
+  def compute_samples(self):
     pass
 
+  def get_samples(self):
+    if not hasattr(self, '_samples'):
+      self._samples = self.compute_samples()
+    return self._samples
 
   def save(self, fname):
     data = self.get_samples()
@@ -506,7 +509,7 @@ class audio_from_data(Audio):
   def num_channels(self):
     return self.data.shape[1]
 
-  def get_samples(self):
+  def compute_samples(self):
     return self.data
     
 
@@ -544,7 +547,7 @@ class slice_audio(Audio):
     assert isinstance(audio, Audio)
     assert isinstance(start_sample, int)
     assert isinstance(end_sample, int)
-    assert start_sample >= 0, "Slicing %s, but slice start should be at least 0, but got %d." % (audio, start_sample)
+    assert start_sample >= 0, f"Slicing {audio} but slice start should be at least 0.  Got {start_sample} instead."
     assert end_sample <= audio.length(), "Slice end %d is beyond the end of the sound (%d)" % (end_sample, audio.length())
 
     assert start_sample <= end_sample, "Slice end %d is before slice start %d" % (end_sample, start_sample)
@@ -565,7 +568,7 @@ class slice_audio(Audio):
   def length(self):
     return self.end_sample - self.start_sample
 
-  def get_samples(self):
+  def compute_samples(self):
     return self.audio.get_samples()[self.start_sample:self.end_sample]
 
 
@@ -603,7 +606,7 @@ class mix(Audio):
   def length(self):
     return max(map(lambda x: x.length(), self.audios))
 
-  def get_samples(self):
+  def compute_samples(self):
     r = np.zeros((self.length(), self.num_channels()))
     for audio in self.audios:
       r[:audio.length()] += audio.get_samples()
@@ -626,8 +629,8 @@ class mix_at(Audio):
     self.tups = args
 
     assert len(self.tups) > 0, "Need at least one audio to mix."
-    assert len(set(map(lambda x: x[0].sample_rate(), self.tups))) == 1, "Cannot chain audios because the sample rates do not match." + str(list(map(lambda x: x[0].sample_rate(), self.tups)))
-    assert len(set(map(lambda x: x[0].sample_rate(), self.tups))) == 1, "Cannot chain audios because the numbers of channels do not match." + str(list(map(lambda x: x.num_channels(), self.tups)))
+    assert len(set(map(lambda x: x[0].sample_rate(), self.tups))) == 1, "Cannot mix audios because the sample rates do not match." + str(list(map(lambda x: x[0].sample_rate(), self.tups)))
+    assert len(set(map(lambda x: x[0].sample_rate(), self.tups))) == 1, "Cannot mix audios because the numbers of channels do not match." + str(list(map(lambda x: x.num_channels(), self.tups)))
 
   def __repr__(self):
     return f'mix_at({self.tups})'
@@ -641,7 +644,7 @@ class mix_at(Audio):
   def length(self):
     return max(map(lambda x: x[0].length() + x[1], self.tups))
 
-  def get_samples(self):
+  def compute_samples(self):
     r = np.zeros((self.length(), self.num_channels()))
     for audio, start in self.tups:
       r[start:start+audio.length()] += audio.get_samples()
@@ -662,7 +665,7 @@ class resample(Audio):
     self.new_length = new_length
 
   def __repr__(self):
-    return f'resample({self.clip}, {self.new_sample_rate}, {self.new_length})'
+    return f'resample({self.audio}, {self.new_sample_rate}, {self.new_length})'
 
   def sample_rate(self):
     return self.new_sample_rate
@@ -673,7 +676,7 @@ class resample(Audio):
   def length(self):
     return self.new_length
 
-  def get_samples(self):
+  def compute_samples(self):
     data = self.audio.get_samples()
     return scipy.signal.resample(data, self.new_length)
 
@@ -718,7 +721,7 @@ class chain_audio(Audio):
   def length(self):
     return sum(map(lambda x: x.length(), self.audios))
 
-  def get_samples(self):
+  def compute_samples(self):
     chunks = list(map(lambda x: x.get_samples(), self.audios))
     return np.concatenate(chunks)
 
@@ -757,7 +760,7 @@ class fade_audio(Audio):
   def length(self):
     return self.audio1.length()
 
-  def get_samples(self):
+  def compute_samples(self):
     return (
       np.linspace([1.0]*self.num_channels(), [0.0]*self.num_channels(), self.length()) * self.audio1.get_samples()
       +
@@ -781,7 +784,7 @@ class reverse_audio(Audio):
     self.audio = audio
 
   def __repr__(self):
-    return 'reverse_audio(%s, %s)' % (self.audio.__repr__())
+    return 'reverse_audio(%s)' % (self.audio.__repr__())
 
   def sample_rate(self):
     return self.audio.sample_rate()
@@ -792,7 +795,7 @@ class reverse_audio(Audio):
   def length(self):
     return self.audio.length()
 
-  def get_samples(self):
+  def compute_samples(self):
     return np.flip(self.audio.get_samples(), axis=0)
 
 
@@ -805,7 +808,7 @@ def get_font(font, size):
   loading the same font again and again.  (The performance improvement seems to
   be small but non-zero.)
   """
-  if (font, size)not in get_font.cache:
+  if (font, size) not in get_font.cache:
     get_font.cache[(font, size)] = ImageFont.truetype(font, size)
   return get_font.cache[(font, size)]
 get_font.cache = dict()
@@ -834,11 +837,13 @@ class add_labels(Clip):
 
       if label.start is None:
         labels[i] = label._replace(start=0)
+        label = labels[i]
 
       if label.end is None:
         labels[i] = label._replace(end=clip.length())
+        label = labels[i]
 
-      assert isinstance(label.start, int)
+      assert isinstance(label.start, int), f"Label start frame should be an integer, not {label.start}."
       assert isinstance(label.end, int)
 
     self.clip = clip
@@ -952,11 +957,13 @@ class fade(Clip):
     assert isinstance(clip1, Clip)
     assert isinstance(clip2, Clip)
     assert clip1.frame_rate() == clip2.frame_rate(), "Mismatched frame rates %d and %d" % (self.clip1.frame_rate(), self.clip2.frame_rate())
-    assert clip1.width() == clip2.width()
+    assert clip1.width() == clip2.width(), f'Mismatchjed widths {clip1.width()} and {clip2.width()}.'
     assert clip1.height() == clip2.height()
     assert clip1.length() == clip2.length()
-    assert clip1.get_audio().sample_rate() == clip2.get_audio().sample_rate()
-    assert clip1.get_audio().num_channels() == clip2.get_audio().num_channels()
+    assert clip1.get_audio().sample_rate() == clip2.get_audio().sample_rate(), f'Cannot fade between audio with sample rate {clip1.get_audio().sample_rate()} and audio with sample rate {clip2.get_audio().sample_rate()}.'
+
+    assert clip1.get_audio().num_channels() == clip2.get_audio().num_channels(), f'Cannot fade between audio with {clip1.get_audio().num_channels()} channel(s) and audio with {clip2.get_audio().num_channels()} channel(s).'
+
     assert clip1.get_audio().length() == clip2.get_audio().length(), f'Cannot fade between clips because their audio lengths do not match. {clip1.get_audio().length()} != {clip2.get_audio().length()}'
 
     self.clip1 = clip1
@@ -1009,8 +1016,7 @@ class chain(Clip):
         self.clips += x
       else:
         self.clips.append(x)
-
-    for clip in self.clips: assert isinstance(clip, Clip)
+    for clip in self.clips: assert isinstance(clip, Clip), f'Got {type(clip)} instead of Clip.'
     assert len(self.clips) > 0, "Need at least one clip to form a chain."
 
     assert len(set(map(lambda x: x.width(), self.clips))) == 1, "Cannot chain clips because the widths do not match." + str(list(map(lambda x: x.width(), self.clips)))
@@ -1165,10 +1171,10 @@ class superimpose(Clip):
     assert start_frame >= 0
     start_frame = int(start_frame)
 
-    assert y + over_clip.height() <= under_clip.height(), "Superimposing %s onto %s at (%d, %d), but the under clip is not tall enough.  It would need to be %d, but is only %d." % (over_clip.signature(), under_clip.signature(), x, y, y + over_clip.height(), under_clip.height())
+    assert y + over_clip.height() <= under_clip.height(), f"Superimposing {over_clip} onto {under_clip} at ({x}, {x}), but the under clip is not tall enough.  It would need to be {y+over_clip.height()}, but is only {under_clip.height()}."
     assert x + over_clip.width() <= under_clip.width(), "Superimposing %s onto %s at (%d, %d), but the under clip is not wide enough." % (over_clip.signature(), under_clip.signature(), x, y)
-    assert start_frame + over_clip.length() <= under_clip.length(), "Superimposing %s onto %s at frame %d, but the under clip is not long enough." % (over_clip.signature(), under_clip.signature(), start_frame)
-    assert under_clip.frame_rate() == over_clip.frame_rate(), "Superimposing %s onto %s at frame %d, but the framerates do not match." % (over_clip.signature(), under_clip.signature())
+    assert start_frame + over_clip.length() <= under_clip.length(), f"Superimposing {over_clip} onto {under_clip} at frame {start_frame}, but the under clip is not long enough."
+    assert under_clip.frame_rate() == over_clip.frame_rate(), f'Superimposing {over_clip} onto {under_clip} at frame {start_frame}, but the framerates do not match ({over_clip.frame_rate()} != {under_clip.frame_rate()}.'
 
     self.under_clip = under_clip
     self.over_clip = over_clip
@@ -1259,7 +1265,7 @@ class filter_frames(Clip):
     self.sample_frame = func(clip.get_frame(0))
   
   def __repr__(self):
-    return f'filter_frames({clip}, func)'
+    return f'filter_frames({self.clip}, {self.func.__name__})'
 
   def frame_rate(self):
     return self.clip.frame_rate()
@@ -1292,8 +1298,10 @@ def scale_by_factor(clip, factor):
   return scale_to_size(clip, new_width, new_height)
 
 def scale_to_size(clip, new_width, new_height):
-  """Scale the frames of a clip by a given factor."""
+  """Scale the frames of a clip by a given factor, possibly distorting them."""
   assert isinstance(clip, Clip)
+  assert isinstance(new_width, int), f'Width should be an integer.  Got {new_width} instead.'
+  assert isinstance(new_height, int), f'Height should be an interger.  Got {new_height} instead.'
   def scale_filter(frame):
     return cv2.resize(frame, (new_width, new_height))
   scale_filter.__name__ = f'scale[{new_width}x{new_height}]'
@@ -1443,7 +1451,7 @@ def fade_chain(overlap_frames, *args):
     if index == 0 or index == len(clips)-1:
       assert overlap_frames <= clip.length()
     else:
-      assert 2*overlap_frames <= clip.length()
+      assert 2*overlap_frames <= clip.length(), f'Clip should have been at least {2*overlap_frames} frames to chain with fading, but it only has {clip.length()} frames.'
 
   # For some reason, this is shown in the itertools docs, instead of being part
   # of itertools.  ?
@@ -1476,7 +1484,7 @@ def fade_chain(overlap_frames, *args):
     chunks.append(fade(v2, v3))
   v4 = slice_video(clips[-1], overlap_frames, clips[-1].length())
   chunks.append(v4)
-  
+
   return chain(chunks)
       
 
@@ -1524,46 +1532,87 @@ class reverse(Clip):
   def get_audio(self):
     return self.clip.get_audio()
 
-class timewarp(Clip):
-  def __init__(self, clip, factor):
-    assert isinstance(clip, Clip)
-    assert isfloat(factor)
-    assert factor > 0
-    self.clip = clip
-    self.factor = factor
-    self.audio = timewarp_audio(self.clip.get_audio(), factor)
 
-  def __repr__(self):
-    return f'timewarp({self.clip}, {self.factor})'
+class resample_frames(Clip):
+  """
+  Modify the frame rate and the length of the video.  No change to the audio.
+  """
+  def __init__(self, clip, new_frame_rate, new_length):
+    assert isinstance(clip, Clip)
+    assert isfloat(new_frame_rate)
+    assert isinstance(new_length, int)
+    self.clip = clip
+    self.new_frame_rate = new_frame_rate
+    self.new_length = new_length
 
   def new_index(self, index):
-    return int(index/self.factor)
+    x = int(self.clip.length()*index/self.new_length)
+    return x
+  def __repr__(self):
+    return f'resample_frames({self.clip}, {self.new_frame_rate}, {self.new_length})'
   def frame_rate(self):
-    return self.clip.frame_rate()
+    return self.new_frame_rate
   def width(self):
     return self.clip.width()
   def height(self):
     return self.clip.height()
   def length(self):
-    return int(self.clip.length()*self.factor)
+    return self.new_length
   def frame_signature(self, index):
     return self.clip.frame_signature(self.new_index(index))
   def get_frame(self, index):
     return self.clip.get_frame(self.new_index(index))
   def get_audio(self):
-    return self.audio
+    return self.clip.get_audio()
+
+def timewarp(clip, factor):
+  assert isinstance(clip, Clip)
+  assert isfloat(factor)
+  assert factor > 0
+  a = clip.get_audio()
+  x = resample_frames(clip, clip.frame_rate(), int(clip.length()*factor))
+  a = timewarp_audio(a, factor)
+  x = replace_audio(x, a)
+  return x
+
+def change_framerate(clip, new_frame_rate):
+  assert isinstance(clip, Clip)
+  assert isfloat(new_frame_rate)
+  assert new_frame_rate > 0
+  new_length = int(new_frame_rate*clip.length()/clip.frame_rate())
+  return resample_frames(clip, new_frame_rate, int(new_frame_rate*clip.length()/clip.frame_rate()))
 
 class pdf_page(Clip):
+  """A silent video constructed from a single page of a PDF."""
   def __init__(self, pdf, page_num, length, frame_rate, **kwargs):
+    assert isinstance(length, int)
+    assert length > 0, f'Cannot create a PDF clip with length {length}.'
     self.pdf = pdf
     self.page_num = page_num
     self.frame_rate_ = frame_rate
     self.length_ = length
+    self.hash = sha256sum(self.pdf)
     self.kwargs = kwargs
     images = pdf2image.convert_from_path(self.pdf, first_page=page_num, last_page=page_num, **kwargs)
     self.the_frame = np.array(images[0])
+
+    # The code above seems sometimes (or always?) to give an image that has the
+    # red and blue channels swapped.  Fix it.
+    if images[0].mode == 'RGB':
+      self.the_frame = self.the_frame[:,:,::-1]
+    else:
+      print("Tread carefully, because I'm not sure if a PIL image from {pdf}, which has in mode {images[0].mode} needs to have channels swapped.")
+
+    # The code above seems sometimes to return an image that is not the
+    # correct size, off by one in the width.  Fix it.
+    if 'size' in kwargs:
+      w = kwargs['size'][0]
+      h = kwargs['size'][1]
+      if h != self.the_frame.shape[0] or w != self.the_frame.shape[1]:
+        self.the_frame = self.the_frame[0:h,0:w]
+
   def __repr__(self):
-    return f'pdf_page({self.pdf}, {self.page_num}, {self.frame_rate_}, {self.kwargs})'
+    return f'pdf_page({self.pdf}, {self.page_num}, {self.length_}, {self.frame_rate_}, {self.kwargs})'
   def frame_rate(self):
     return self.frame_rate_
   def width(self):
@@ -1575,10 +1624,42 @@ class pdf_page(Clip):
   def get_audio(self):
     return self.default_audio()
   def frame_signature(self, index):
-    return f'pdf_page: {self.pdf}, {self.page_num}, {self.frame_rate}, {self.kwargs})'
+    return f'pdf_page: {self.pdf}, {self.hash[:5]}, {self.page_num}, {self.kwargs})'
   def get_frame(self, index):
     return self.the_frame
 
+
+def loop(clip, length):
+  "Repeat a clip as needed to fill the given length."
+  assert isinstance(clip, Clip)
+  assert isinstance(length, int)
+  assert length > 0
+  full_plays = int(length/clip.length())
+  partial_play = length - full_plays*clip.length()
+  return chain(full_plays*[clip], slice_video(clip, 0, partial_play))
+  
+
+class mono_to_stereo(Audio):
+  def __init__(self, audio):
+    assert isinstance(audio, Audio)
+    assert audio.num_channels() == 1
+    self.audio = audio
+
+  def __repr__(self):
+    return f'mono_to_stereo({self.audio})'
+
+  def length(self):
+    return self.audio.length()
+
+  def num_channels(self):
+    return 2
+
+  def sample_rate(self):
+    return self.audio.sample_rate()
+
+  def compute_samples(self):
+    data = self.audio.get_samples()
+    return np.concatenate((data, data), axis=1)
 
 
 if __name__ == "__main__":
