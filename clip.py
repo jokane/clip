@@ -1695,7 +1695,7 @@ def fade_chain(overlap_frames, *args):
       clips.append(x)
 
   # Sanity checks.
-  assert isinstance(overlap_frames, int)
+  assert isinstance(overlap_frames, int), "Cannot overlap by non-integer number of frames. " + overlap_frames
   assert overlap_frames >= 0
 
   for index, clip in enumerate(clips):
