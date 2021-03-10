@@ -981,6 +981,7 @@ class fade_audio(Audio):
       +
       np.linspace([0.0]*self.num_channels(), [1.0]*self.num_channels(), self.length()) * a2
     )
+    return data
 
     # It's amazing how slow the naive version is...
     # a1 = self.audio1.get_samples()
@@ -1014,7 +1015,10 @@ class reverse_audio(Audio):
     return np.flip(self.audio.get_samples(), axis=0)
 
 
-Label = collections.namedtuple('Label', ['text', 'color', 'font', 'size', 'x', 'y', 'start', 'end'], defaults=[None]*6)
+if sys.version_info.major == 3 and sys.version_info.minor < 8:
+  Label = collections.namedtuple('Label', ['text', 'color', 'font', 'size', 'x', 'y', 'start', 'end'])
+else:
+  Label = collections.namedtuple('Label', ['text', 'color', 'font', 'size', 'x', 'y', 'start', 'end'], defaults=[None]*4)
 
 
 def get_font(font, size):
