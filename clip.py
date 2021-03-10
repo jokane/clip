@@ -698,7 +698,7 @@ def audio_file(fname):
   assert os.path.isfile(fname), f'Trying to open {fname}, which does not exist.'
 
   direct_formats = list(map(lambda x: "." + x.lower(), soundfile.available_formats().keys()))
-  video_formats = ['.mp4', '.mov']
+  video_formats = ['.mp4', '.mov', '.mkv', '.wmv']
 
   ext = os.path.splitext(fname)[1].lower()
   if ext in direct_formats:
