@@ -1222,7 +1222,7 @@ class fade(Clip):
     )
 
   def get_audio(self):
-    return fade_audio(self.clip1.audio, self.clip2.audio)
+    return fade_audio(self.clip1.get_audio(), self.clip2.get_audio())
 
 class chain(Clip):
   """
