@@ -381,6 +381,16 @@ class Clip(ABC):
       vsecs = self.length()/self.frame_rate()
       print(f'Wrote audio ({asecs:0.2f}s) and video ({vsecs:0.2f}s) to {fname}.')
 
+  def readable_length(self):
+    secs = int(self.length() / self.frame_rate())
+    mins, secs = divmod(secs, 60)
+    hours, mins = divmod(mins, 60)
+    if hours > 0:
+      return f'{hours}:{mins:02}:{secs:02}'
+    else:
+      return f'{mins}:{secs:02}'
+
+
 class video_file(Clip):
   """Read a video clip from a file, optionally grabbing its audio track.  If we
   don't read audio from the input file, fill in silence instead."""
