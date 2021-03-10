@@ -412,16 +412,6 @@ class video_file(Clip):
 
     self.decode_chunk_size = decode_chunk_size
 
-  def __init__(self, fname, audio=True):
-    assert isinstance(fname, str)
-    assert os.path.isfile(fname), f'Trying to open {fname}, which does not exist.'
-
-    self.fname = fname
-    self.cap = cv2.VideoCapture(fname)
-    self.cap.setExceptionMode(True)
-    self.last_index = -1
-    assert self.frame_rate() > 0, "Frame rate is 0 for %s.  Problem opening the file?" % fname
-
     if audio:
       # Grab the audio.
       self.audio = audio_file(fname)
