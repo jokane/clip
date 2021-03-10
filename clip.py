@@ -1334,6 +1334,9 @@ class replace_audio(Clip):
     return self.audio
 
 
+def slice_out(clip, start, end):
+  return chain(slice(clip, 0, start), slice(clip, end, clip.length()))
+
 class slice_video(Clip):
   """
   Extract the portion of a clip between the given frames.
