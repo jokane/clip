@@ -370,6 +370,8 @@ class Clip(ABC):
         f'-vcodec libx264 -f mp4 ',
         f'-vb {Clip.bitrate}' if Clip.bitrate else '',
         f'-preset {Clip.preset}' if Clip.preset else '',
+        f'-profile:v high',
+        f'-vf format=yuv420p',
         f'{full_fname}',
         task=f"Encoding {fname}",
         num_frames=self.length()
