@@ -834,6 +834,32 @@ class mix_at(Audio):
       r[start:start+audio.length()] += audio.get_samples()
     return r
 
+class volume(Audio):
+  """
+  Scale the volume of an audio clip, sample by sample.
+  """
+
+  def __init__(self, audio, factor):
+    assert isinstance(audio, Audio)
+    assert isfloat(factor)
+    self.audio = audio
+    self.factor = factor
+
+  def __repr__(self):
+    return f'volume({self.audio}, factor)'
+
+  def sample_rate(self):
+    return self.audio.sample_rate()
+
+  def num_channels(self):
+    return self.audio.num_channels()
+
+  def length(self):
+    return self.audio.length()
+
+  def compute_samples(self):
+    return self.factor * self.audio.get_samples()
+
 class resample(Audio):
   """
   Change both the sample rate of an audio clip and its length, using some sort
