@@ -1523,7 +1523,7 @@ def scale_by_factor(clip, factor):
   return scale_to_size(clip, new_width, new_height)
 
 def scale_to_size(clip, new_width, new_height):
-  """Scale the frames of a clip by a given factor, possibly distorting them."""
+  """Scale the frames of a clip to a given size, possibly distorting them."""
   assert isinstance(clip, Clip)
   assert isinstance(new_width, int), f'Width should be an integer.  Got {new_width} instead.'
   assert isinstance(new_height, int), f'Height should be an interger.  Got {new_height} instead.'
