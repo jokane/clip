@@ -1241,9 +1241,9 @@ class chain(Clip):
     for clip in self.clips: assert isinstance(clip, Clip), f'Got {type(clip)} instead of Clip.'
     assert len(self.clips) > 0, "Need at least one clip to form a chain."
 
-    assert len(set(map(lambda x: x.width(), self.clips))) == 1, "Cannot chain clips because the widths do not match." + str(list(map(lambda x: x.width(), self.clips)))
-    assert len(set(map(lambda x: x.height(), self.clips))) == 1, "Cannot chain clips because the heights do not match." + str(list(map(lambda x: x.heights(), self.clips)))
-    assert len(set(map(lambda x: x.frame_rate(), self.clips))) == 1, "Cannot chain clips because the framerates do not match." + str(list(map(lambda x: x.frame_rate(), self.clips)))
+    assert len(set(map(lambda x: x.width(), self.clips))) == 1, "Cannot chain clips because the widths do not match. " + str(list(map(lambda x: x.width(), self.clips)))
+    assert len(set(map(lambda x: x.height(), self.clips))) == 1, "Cannot chain clips because the heights do not match. " + str(list(map(lambda x: x.height(), self.clips)))
+    assert len(set(map(lambda x: x.frame_rate(), self.clips))) == 1, "Cannot chain clips because the framerates do not match. " + str(list(map(lambda x: x.frame_rate(), self.clips)))
     
     self.audio = force_audio_length(chain_audio(map(lambda x: x.get_audio(), self.clips)), self.default_audio().length())
     # TODO: Looks like chain_audio is bad choice here, especially if there are
