@@ -47,7 +47,9 @@ import contextlib
 import cv2
 import hashlib
 import itertools
+import io
 import numpy as np
+import math
 import os
 import progressbar
 import re
@@ -59,6 +61,7 @@ import tempfile
 import threading
 import time
 import pdf2image
+from zipfile import ZipFile
 
 def isfloat(x):
   try:
@@ -1934,6 +1937,52 @@ class stereo_to_mono(Audio):
   def compute_samples(self):
     data = self.audio.get_samples()
     return (0.5*data[:,0] + 0.5*data[:,1]).reshape(self.length(), 1)
+
+class zip_file(Clip):
+  def __init__(self, fname, frame_rate=None):
+    assert isinstance(fname, str)
+    assert os.path.isfile(fname), f'Trying to open {fname}, which does not exist.'
+    self.fname = fname
+    self.zf = ZipFile(fname, 'r')
+
+    image_formats = ['tga']  # Many others are likely to work, but haven't been tested.
+    pattern = ".(" + "|".join(image_formats) + ")$"
+
+    self.info_list = sorted(filter(lambda x: re.search(pattern, x.filename), self.zf.infolist()), key=lambda x: x.filename)
+
+    assert isfloat(frame_rate)
+    assert frame_rate > 0
+    self.frame_rate_ = frame_rate
+
+    self.sample_frame = self.get_frame(0)
+
+  def __repr__(self):
+    return f'zip_file("{self.fname}", frame_rate={self.frame_rate_})'
+
+  def frame_rate(self):
+    return self.frame_rate_
+
+  def width(self):
+    return self.sample_frame.shape[1]
+
+  def height(self):
+    return self.sample_frame.shape[0]
+
+  def length(self):
+    return len(self.info_list)
+
+  def frame_signature(self, index):
+    return f"zip_file_member({self.fname}, {self.info_list[index].filename})"
+
+  def get_frame(self, index):
+    data = self.zf.read(self.info_list[index])
+    pil_image = Image.open(io.BytesIO(data)).convert('RGB')
+    frame = np.array(pil_image)
+    frame = frame[:,:,::-1]
+    return frame
+
+  def get_audio(self):
+    return self.default_audio()
 
 
 if __name__ == "__main__":
