@@ -94,7 +94,30 @@ def sha256sum(filename):
           h.update(mv[:n])
   return h.hexdigest()
 
-def ffmpeg(*args, progress=False, num_frames=None):
+def custom_progressbar(task, steps):
+  digits = int(math.log10(steps))+1
+  widgets = [
+    '|',
+    f'{task:^25s}',
+    ' ',
+    progressbar.Bar(),
+    progressbar.Percentage(),
+    '| ',
+    progressbar.SimpleProgress(format=f'%(value_s){digits}s/%(max_value_s){digits}s'),
+    ' |',
+    progressbar.ETA(
+      format_not_started='',
+      format_finished='%(elapsed)8s',
+      format='%(eta)8s',
+      format_zero='',
+      format_NA=''
+    ),
+    '|'
+  ]
+  return progressbar.ProgressBar(max_value=steps, widgets=widgets)
+
+
+def ffmpeg(*args, task=None, num_frames=None):
   """Run ffmpeg with the given arguments.  Optionally, maintain a progress bar
   as it goes."""
 
@@ -102,17 +125,17 @@ def ffmpeg(*args, progress=False, num_frames=None):
     command = f"ffmpeg -y -vstats_file {stats.name} {' '.join(args)} 2> /dev/null"
     proc = subprocess.Popen(command, shell=True)
 
-    t = threading.Thread(target=lambda :proc.communicate())
+    t = threading.Thread(target=lambda : proc.communicate())
     t.start()
 
-    if(progress):
-      with progressbar.ProgressBar(max_value=num_frames) as pb:
+    if task is not None:
+      with custom_progressbar(task=task, steps=num_frames) as pb:
         pb.update(0)
         while proc.poll() is None:
           try:
             with open(stats.name) as f:
               fr = int(re.findall('frame=\s*(\d+)\s', f.read())[-1])
-              pb.update(fr)
+              pb.update(min(fr, num_frames-1))
           except FileNotFoundError:
             pass
           except IndexError:
