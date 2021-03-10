@@ -1179,7 +1179,7 @@ class fade(Clip):
     assert isinstance(clip1, Clip)
     assert isinstance(clip2, Clip)
     assert clip1.frame_rate() == clip2.frame_rate(), "Mismatched frame rates %d and %d" % (self.clip1.frame_rate(), self.clip2.frame_rate())
-    assert clip1.width() == clip2.width(), f'Mismatchjed widths {clip1.width()} and {clip2.width()}.'
+    assert clip1.width() == clip2.width(), f'Mismatched widths {clip1.width()} and {clip2.width()}.'
     assert clip1.height() == clip2.height()
     assert clip1.length() == clip2.length()
     assert clip1.get_audio().sample_rate() == clip2.get_audio().sample_rate(), f'Cannot fade between audio with sample rate {clip1.get_audio().sample_rate()} and audio with sample rate {clip2.get_audio().sample_rate()}.'
