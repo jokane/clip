@@ -215,7 +215,10 @@ class Clip(ABC):
   identical height and width, meant to be played at a given rate, along with an
   audio clip of the same length."""
 
+  preset = 'slow'
+  bitrate = '1024k'
   cache_format = 'png'
+
   @abstractmethod
   def __repr__():
     """A string that describes this clip."""
@@ -307,9 +310,18 @@ class Clip(ABC):
         self.frame_rate(),
         (self.width(), self.height())
       )
+
+    tasks = [] 
+    if play and keep_frame_rate:
+      tasks.append('playing')
+    if play and not keep_frame_rate:
+      tasks.append('previewing')
+    if save_fname:
+      tasks.append("saving " + save_fname)
+    task = "+".join(tasks).capitalize()
     
     try:    
-      with progressbar.ProgressBar(max_value=self.length()) as pb:
+      with custom_progressbar(task, self.length()) as pb:
         for i in range(0, self.length()):
           frame = self.get_frame_cached(i)
           pb.update(i)
@@ -327,13 +339,10 @@ class Clip(ABC):
 
   def default_audio(self):
     """Utility to generate an appropriate-length silent audio clip with reasonable parameters."""
-    sample_rate = 44100
+    sample_rate = 48000
     num_channels = 2
     return silence(int(self.length() * sample_rate / self.frame_rate()), sample_rate, num_channels)
 
-  preset = 'slow'
-  bitrate = '1024k'
- 
   def save(self, fname):
     """Save both audio and video, in a format suitable for embedding in HTML5."""
     full_fname = os.path.join(os.getcwd(), fname)
