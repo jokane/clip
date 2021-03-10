@@ -1532,6 +1532,33 @@ def scale_to_size(clip, new_width, new_height):
   scale_filter.__name__ = f'scale[{new_width}x{new_height}]'
   return filter_frames(clip, scale_filter)
 
+def scale_to_fit(clip, max_width, max_height):
+  """Scale the frames of a clip to fit within the given constraints,
+  maintaining the aspect ratio."""
+
+  aspect1 = clip.width() / clip.height()
+  aspect2 = max_width / max_height
+
+  if aspect1 > aspect2:
+    # Fill width.
+    new_width = max_width
+    new_height = clip.height() * max_width / clip.width() 
+  else:
+    # Fill height.
+    factor = max_height / clip.height()
+    new_height = max_height
+    new_width = clip.width() * max_height / clip.height() 
+
+  return scale_to_size(clip, int(new_width), int(new_height))
+
+def letterbox(clip, width, height):
+  clip = scale_to_fit(clip, width, height)
+  background = black(height, width, clip.frame_rate(), clip.length())
+  a = clip.get_audio()
+  background = replace_audio(background, silence(a.length(), a.sample_rate(), a.num_channels()))
+  return superimpose(background, clip, int((background.width()-clip.width())/2), int((background.height()-clip.height())/2), 0, audio='replace')
+
+
 class image_glob(Clip):
   """Form a video from a collection of identically-sized image files that match
   a unix-style pattern, at a given frame rate."""
