@@ -166,12 +166,56 @@ def temporary_current_directory():
     finally:
       os.chdir(previous_current_directory)
 
+class ClipCache:
+  """An object for managing the cache of already-computed frames and audio
+  segments."""
+  def __init__(self):
+    self.directory = '/tmp/clipcache/'
+    self.cache = None
+
+  def scan_directory(self):
+    """Examine the cache directory and remember what we see there."""
+    self.cache = dict()
+    try:
+      for cached_frame in os.listdir(self.directory):
+        self.cache[os.path.join(self.directory, cached_frame)] = True
+    except FileNotFoundError:
+      os.mkdir(self.directory)
+
+    counts = '; '.join(map(lambda x: f'{x[1]} {x[0]}', collections.Counter(map(lambda x: os.path.splitext(x)[1][1:], self.cache.keys())).items()))
+    print(f'Found {len(self.cache)} cached items ({counts}) in {self.directory}')
+
+
+  def sig_to_fname(self, sig, ext):
+    """Compute the filename where something with the given signature and
+    extension should live."""
+    blob = hashlib.md5(sig.encode()).hexdigest()
+    return os.path.join(self.directory, f'{blob}.{ext}')
+
+  def lookup(self, sig, ext):
+    """Determine the appropriate filename for something with the given
+    signature and extension.  Return a tuple with that filename followed by
+    True or False, indicating whether that file exists or not."""
+    if self.cache is None:
+      self.scan_directory()
+    cached_filename = self.sig_to_fname(sig, ext)
+    return (cached_filename, cached_filename in self.cache)
+  
+  def insert(self, fname):
+    """Update the cache to reflect the fact that the given file exists."""
+    if self.cache is None:
+      self.scan_directory()
+    self.cache[fname] = True
+
+
+cache = ClipCache()
 
 class Clip(ABC):
   """The base class for all video clips.  A finite series of frames, each with
   identical height and width, meant to be played at a given rate, along with an
   audio clip of the same length."""
 
+  cache_format = 'png'
   @abstractmethod
   def __repr__():
     """A string that describes this clip."""
@@ -220,37 +264,17 @@ class Clip(ABC):
     assert isinstance(index, int)
     return int(index * self.get_audio().sample_rate() / self.frame_rate())
 
-  def get_cached_filename(self, index):
-    """Look for the frame with the given index in the cache."""
-
-    # Make sure we've loaded the list of cached frames.
-    cache_directory = '/tmp/clipcache/'
-    if not hasattr(Clip, 'cache'):
-      Clip.cache = dict()
-      try:
-        for cached_frame in os.listdir(cache_directory):
-          Clip.cache[os.path.join(cache_directory, cached_frame)] = True
-      except FileNotFoundError:
-        os.mkdir(cache_directory)
-
-      print(f'Found {len(Clip.cache)} frames in the cache ({cache_directory}).')
-
-    # Has this frame been computed before?
-    sig = str(self.frame_signature(index))
-    blob = hashlib.md5(sig.encode()).hexdigest()
-    cached_filename = os.path.join(cache_directory, blob + ".png")
-    return (cached_filename, cached_filename in Clip.cache)
-
   def get_frame_cached(self, index):
     """Return one frame of the clip, from the cache if possible, but from scratch if necessary."""
-    cached_filename, success = self.get_cached_filename(index)
+    sig = self.frame_signature(index)
+    cached_filename, success = cache.lookup(sig, Clip.cache_format)
 
     if success:
       frame = cv2.imread(cached_filename)
     else:
       frame = self.get_frame(index)
       cv2.imwrite(cached_filename, frame)
-      Clip.cache[cached_filename] = True
+      cache.insert(cached_filename)
 
     # Some sanity checks.
     assert frame is not None, "Got None instead of a real frame for " + sig
@@ -318,27 +342,27 @@ class Clip(ABC):
     self.get_frame_cached(0)
 
     with temporary_current_directory():
-      
-      with progressbar.ProgressBar(max_value=self.length()) as pb:
-        for i in range(0, self.length()):
-          cached_filename, success = self.get_cached_filename(i)
-          if not success:
-            frame = self.get_frame_cached(i)
-            cv2.imwrite(cached_filename, frame)
-            Clip.cache[cached_filename] = True
-          os.symlink(cached_filename, f'{i:06d}.png')
-          pb.update(i)
 
       audio_fname = 'audio.flac'
       self.get_audio().save(audio_fname)
       
+      with custom_progressbar(f"Staging {fname}", self.length()) as pb:
+        for i in range(0, self.length()):
+          cached_filename, success = cache.lookup(self.frame_signature(i), Clip.cache_format)
+          if not success:
+            frame = self.get_frame_cached(i)
+            cv2.imwrite(cached_filename, frame)
+            cache.insert(cached_filename)
+          os.symlink(cached_filename, f'{i:06d}.{Clip.cache_format}')
+          pb.update(i)
+
       ffmpeg(
-        f'-framerate {self.frame_rate()} -i %06d.png -i {audio_fname} ',
+        f'-framerate {self.frame_rate()} -i %06d.{Clip.cache_format} -i {audio_fname} ',
         f'-vcodec libx264 -f mp4 ',
         f'-vb {Clip.bitrate}' if Clip.bitrate else '',
         f'-preset {Clip.preset}' if Clip.preset else '',
         f'{full_fname}',
-        progress=True,
+        task=f"Encoding {fname}",
         num_frames=self.length()
       )
 
@@ -347,7 +371,12 @@ class Clip(ABC):
       print(f'Done saving audio ({asecs:0.2f} seconds) and video ({vsecs:0.2f} seconds) to {fname}.')
 
 class video_file(Clip):
-  """Read a video clip from a file, optionally grabbing its audio track.  If we don't read audio from the input file, fill in silence instead."""
+  """Read a video clip from a file, optionally grabbing its audio track.  If we
+  don't read audio from the input file, fill in silence instead."""
+  
+  # Older versions of this used cv2.VideoCapture.  But that seemed to be buggy
+  # on some types of videos, and needed ffmpeg hacks to get the audio anyway.
+  # This new version uses ffmpeg to explode the video directly into the cache.
 
   def __init__(self, fname, audio=True):
     assert isinstance(fname, str)
@@ -377,33 +406,123 @@ class video_file(Clip):
 
     assert self.audio.length() == self.frame_to_sample(self.length())
 
+  def acquire_dimensions(self, forced_length=None):
+    # Get the width, height, length, and frame rate.
+    
+    # Do we have this information in the cache?
+    cached_filename, exists = cache.lookup(hashlib.md5(self.fname.encode()).hexdigest(), 'dim')
+    if exists:
+      print(f"Using cached dimensions for {self.fname}") 
+      (self.width_, self.height_, self.frame_rate_, self.length_, _) = open(cached_filename, 'r').read().split('\t')
+      self.width_ = int(self.width_)
+      self.height_ = int(self.height_)
+      self.frame_rate_ = float(self.frame_rate_)
+      self.length_ = int(self.length_)
+      if forced_length:
+        assert forced_length == self.length
+      return
+    
+    
+    # Here the length is computed from the reported duration; it seems
+    # plausible that this might be off by a few frames, so we'll need to be
+    # careful later.
+    print(f"Getting dimensions for {self.fname}")
+    proc = subprocess.Popen(f'ffprobe {self.fname}', shell=True, stderr=subprocess.PIPE)
+    deets = proc.stderr.read().decode('utf-8')
+    match = re.search(r'Stream.*Video.* (\d+)x(\d+).*, ([0-9\.]+) fps', deets)
+    assert match, f"Could not find dimensions for {self.fname}" 
+
+    self.width_ = int(match.group(1))
+    self.height_ = int(match.group(2))
+    self.frame_rate_ = float(match.group(3))
+
+    if not forced_length:
+      match = re.search(r'Duration: (\d\d):(\d\d):(\d\d\.\d\d)', deets)
+      assert match, f"Could not find length for {fname}." 
+      hours = int(match.group(1))
+      minutes = int(match.group(2))
+      seconds = float(match.group(3))
+      self.length_ = int((60*(60*hours + minutes)+seconds) * self.frame_rate_)
+    else:
+      self.length_ = forced_length
+
+    with open(cached_filename, 'w') as f:
+      print('\t'.join(map(lambda x: str(x), [self.width_, self.height_, self.frame_rate_, self.length_, self.fname])), file=f)
+
+    match = re.search(r'displaymatrix: rotation of -90.00 degrees', deets)
+    if match:
+      self.width_, self.height_ = self.height_, self.width_
+
+
   def __repr__(self):
     return f'video_file("{self.fname}")'
 
   def frame_rate(self):
-    return float(self.cap.get(cv2.CAP_PROP_FPS))
+    return self.frame_rate_
 
   def width(self):
-    return int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    return self.width_
 
   def height(self):
-    return int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    return self.height_
 
   def length(self):
-    return int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    return self.length_
 
   def frame_signature(self, index):
     return "%s:%06d" % (self.fname, index)
 
   def get_frame(self, index):
     assert index < self.length(), "Requesting frame %d from %s, which only has %d frames." % (index, self.fname, self.length())
-    if index != self.last_index + 1:
-      self.cap.set(cv2.CAP_PROP_POS_FRAMES, index)
-    self.last_index = index  
-    frame = self.cap.read()[1]
-    if frame is None:
-      raise Exception(f"When reading frame {index} from {self.fname}, got None instead of a frame.")
-    return frame
+    
+    # Make sure it's in the cache.  If it's not, expand a segment of the video
+    # starting from here to acquire it.
+    cached_filename, exists = cache.lookup(self.frame_signature(index), Clip.cache_format)
+    if not exists:
+      if self.decode_chunk_size is None:
+        self.explode(0, self.length())
+      else:
+        self.explode(max(0, index-int(self.frame_rate())), self.decode_chunk_size)
+    
+    # Return the frame from the cache.
+    return self.get_frame_cached(index)
+
+  def explode(self, start_index, length):
+    # Explode a segment of the video into individual frames, then cache those
+    # frames for later.
+    with temporary_current_directory():
+      try:
+        ffmpeg(
+          f'-ss {start_index/self.frame_rate_}',
+          f'-t {(length)/self.frame_rate_}',
+          f'-i {self.fname}',
+          f'-r {self.frame_rate_}',
+          f'%06d.{Clip.cache_format}',
+          task=f'Exploding {os.path.basename(self.fname)}:{start_index}',
+          num_frames=length
+        )
+      except Exception as e:
+        print(e)
+        print("(starting shell to examine temporary directory)")
+        os.system('bash')
+        raise
+
+      # Add each frame to the cache.
+      for index in range(start_index, min(start_index+length, self.length())):
+        sequential_filename = os.path.abspath(f'{index-start_index+1:06d}.{Clip.cache_format}')
+        cached_filename, exists = cache.lookup(self.frame_signature(index), Clip.cache_format)
+        if not exists:
+          try:
+            os.rename(sequential_filename, cached_filename)
+          except FileNotFoundError:
+            # If we get here, that means ffmpeg thought there were more
+            # frames than there really were.  To keep things rolling, let's
+            # fill in a black frame instead.
+            print(f"[Exploding {self.fname} did not produce frame {index}.  Using black instead.]")
+            fr = np.zeros([self.height_, self.width_, 3], np.uint8)
+            cv2.imwrite(cached_filename, fr)
+
+          cache.insert(cached_filename)
 
   def get_audio(self):
     return self.audio
@@ -552,15 +671,19 @@ def audio_file(fname):
     data, sample_rate = soundfile.read(fname, always_2d=True)
     return audio_from_data(fname, data, sample_rate)
   elif ext in video_formats: 
-    with tempfile.TemporaryDirectory() as td:
-      audio_fname = os.path.join(td, 'audio.flac')
-      
-      ffmpeg(
-        f'-i {fname}',
-        f'-vn',
-        f'{audio_fname}',
-      )
-      return audio_file(audio_fname)
+    cached_filename, success = cache.lookup(fname, 'flac')
+    if not success:
+      print(f'Extracting audio from {fname}')
+      with tempfile.TemporaryDirectory() as td:
+        audio_fname = os.path.join(td, 'audio.flac')
+        ffmpeg(
+          f'-i {fname}',
+          f'-vn',
+          f'{audio_fname}',
+        )
+        os.rename(audio_fname, cached_filename)
+        cache.insert(cached_filename)
+    return audio_file(cached_filename)
   else:
     raise Exception(f"Don't know how to extract audio from {ext} format: {fname}")
 
