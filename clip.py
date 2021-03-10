@@ -1028,7 +1028,10 @@ def get_font(font, size):
   be small but non-zero.)
   """
   if (font, size) not in get_font.cache:
-    get_font.cache[(font, size)] = ImageFont.truetype(font, size)
+    try:
+      get_font.cache[(font, size)] = ImageFont.truetype(font, size)
+    except OSError:
+      raise Exception(f"Failed to open font {font}.")
   return get_font.cache[(font, size)]
 get_font.cache = dict()
 
