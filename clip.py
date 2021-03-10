@@ -379,7 +379,7 @@ class Clip(ABC):
 
       asecs = self.get_audio().length()/self.get_audio().sample_rate()
       vsecs = self.length()/self.frame_rate()
-      print(f'Done saving audio ({asecs:0.2f} seconds) and video ({vsecs:0.2f} seconds) to {fname}.')
+      print(f'Wrote audio ({asecs:0.2f}s) and video ({vsecs:0.2f}s) to {fname}.')
 
 class video_file(Clip):
   """Read a video clip from a file, optionally grabbing its audio track.  If we
