@@ -399,6 +399,16 @@ class video_file(Clip):
   # on some types of videos, and needed ffmpeg hacks to get the audio anyway.
   # This new version uses ffmpeg to explode the video directly into the cache.
 
+  def __init__(self, fname, audio=True, decode_chunk_size=1000, forced_length=None):
+    assert isinstance(fname, str)
+    assert os.path.isfile(fname), f'Trying to open {fname}, which does not exist.'
+
+    self.fname = os.path.abspath(fname)
+
+    self.acquire_dimensions(forced_length=forced_length)
+
+    self.decode_chunk_size = decode_chunk_size
+
   def __init__(self, fname, audio=True):
     assert isinstance(fname, str)
     assert os.path.isfile(fname), f'Trying to open {fname}, which does not exist.'
@@ -638,6 +648,9 @@ class Audio(ABC):
   def get_samples(self):
     if not hasattr(self, '_samples'):
       self._samples = self.compute_samples()
+      assert len(self._samples.shape) == 2, self._samples.shape
+      assert self._samples.shape[0] == self.length()
+      assert self._samples.shape[1] == self.num_channels()
     return self._samples
 
   def save(self, fname):
