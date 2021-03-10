@@ -972,10 +972,14 @@ class fade_audio(Audio):
     return self.audio1.length()
 
   def compute_samples(self):
-    return (
-      np.linspace([1.0]*self.num_channels(), [0.0]*self.num_channels(), self.length()) * self.audio1.get_samples()
+    if self.length() > 1e8:
+      print("Starting fade_audio.compute_samples on a long segment.  Hold onto your hat.")
+    a1 = self.audio1.get_samples()
+    a2 = self.audio1.get_samples()
+    data = (
+      np.linspace([1.0]*self.num_channels(), [0.0]*self.num_channels(), self.length()) * a1
       +
-      np.linspace([0.0]*self.num_channels(), [1.0]*self.num_channels(), self.length()) * self.audio2.get_samples()
+      np.linspace([0.0]*self.num_channels(), [1.0]*self.num_channels(), self.length()) * a2
     )
 
     # It's amazing how slow the naive version is...
