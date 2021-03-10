@@ -1853,7 +1853,7 @@ class pdf_page(Clip):
     if images[0].mode == 'RGB':
       self.the_frame = self.the_frame[:,:,::-1]
     else:
-      print("Tread carefully, because I'm not sure if a PIL image from {pdf}, which has in mode {images[0].mode} needs to have channels swapped.")
+      print("Tread carefully, because I'm not sure if a PIL image from {pdf}, which has mode {images[0].mode} needs to have channels swapped.")
 
     # The code above seems sometimes to return an image that is not the
     # correct size, off by one in the width.  Fix it.
