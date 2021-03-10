@@ -888,7 +888,8 @@ class resample(Audio):
 
   def compute_samples(self):
     data = self.audio.get_samples()
-    return scipy.signal.resample(data, self.new_length)
+    x = scipy.signal.resample(data, self.new_length)
+    return x
 
 def change_sample_rate(audio, new_sample_rate):
   return resample(audio, new_sample_rate, round(audio.length() * new_sample_rate/audio.sample_rate()))
@@ -917,7 +918,7 @@ class chain_audio(Audio):
     for audio in self.audios: assert isinstance(audio, Audio)
     assert len(self.audios) > 0, "Need at least one audio to form a chain."
     assert len(set(map(lambda x: x.sample_rate(), self.audios))) == 1, "Cannot chain audios because the sample rates do not match." + str(list(map(lambda x: x.sample_rate(), self.audios)))
-    assert len(set(map(lambda x: x.sample_rate(), self.audios))) == 1, "Cannot chain audios because the numbers of channels do not match." + str(list(map(lambda x: x.num_channels(), self.audios)))
+    assert len(set(map(lambda x: x.num_channels(), self.audios))) == 1, "Cannot chain audios because the numbers of channels do not match." + str(list(map(lambda x: x.num_channels(), self.audios)))
 
   def __repr__(self):
     return f'chain_audio({self.audios})'
