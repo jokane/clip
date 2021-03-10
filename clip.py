@@ -145,7 +145,11 @@ def ffmpeg(*args, task=None, num_frames=None):
     t.join()
     
     if proc.returncode != 0:
-      raise Exception(f'Alas, ffmpeg failed with return code {proc.returncode}.\nCommand was: {command}')
+      message = f'Alas, ffmpeg failed with return code {proc.returncode}.\nCommand was: {command}'
+      print(message)
+      print("(starting shell to examine temporary directory)")
+      os.system('bash')
+      raise Exception(message)
 
 @contextlib.contextmanager
 def temporary_current_directory():
