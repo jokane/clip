@@ -1913,6 +1913,28 @@ class mono_to_stereo(Audio):
     data = self.audio.get_samples()
     return np.concatenate((data, data), axis=1)
 
+class stereo_to_mono(Audio):
+  def __init__(self, audio):
+    assert isinstance(audio, Audio)
+    assert audio.num_channels() == 2
+    self.audio = audio
+
+  def __repr__(self):
+    return f'stereo_to_mono({self.audio})'
+
+  def length(self):
+    return self.audio.length()
+
+  def num_channels(self):
+    return 1
+
+  def sample_rate(self):
+    return self.audio.sample_rate()
+
+  def compute_samples(self):
+    data = self.audio.get_samples()
+    return (0.5*data[:,0] + 0.5*data[:,1]).reshape(self.length(), 1)
+
 
 if __name__ == "__main__":
   # Some basic tests/illustrations.  The source font and video are part of
