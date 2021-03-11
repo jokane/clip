@@ -41,27 +41,30 @@ Possibly relevant implementation details:
 """
 
 from abc import ABC, abstractmethod
-from PIL import Image, ImageFont, ImageDraw
+from zipfile import ZipFile
 import collections
 import contextlib
-import cv2
+import glob
+import glob
 import hashlib
-import itertools
 import io
-import numpy as np
+import itertools
 import math
 import os
-import progressbar
 import re
-import scipy.signal
-import soundfile
 import subprocess
 import sys
 import tempfile
 import threading
 import time
+
+from PIL import Image, ImageFont, ImageDraw
+import cv2
+import numpy as np
 import pdf2image
-from zipfile import ZipFile
+import progressbar
+import scipy.signal
+import soundfile
 
 def isfloat(x):
   try:
@@ -232,7 +235,7 @@ class Clip(ABC):
     return f'{secs}s {self.width()}x{self.height()} {self.frame_rate()}fps'
 
   @abstractmethod
-  def frame_signature(index):
+  def frame_signature(self, index):
     """A string that uniquely describes the appearance of the given frame."""
     pass
 
@@ -1708,7 +1711,7 @@ def fade_chain(overlap_frames, *args):
 
   chunks = list()
 
-  for ((i, a), (j, b)) in pairwise(enumerate(clips)):
+  for ((i, a), (_, b)) in pairwise(enumerate(clips)):
     if i == 0:
       offset = 0
     else:
@@ -1825,7 +1828,7 @@ def change_framerate(clip, new_frame_rate):
   assert isfloat(new_frame_rate)
   assert new_frame_rate > 0
   new_length = int(new_frame_rate*clip.length()/clip.frame_rate())
-  return resample_frames(clip, new_frame_rate, int(new_frame_rate*clip.length()/clip.frame_rate()))
+  return resample_frames(clip, new_frame_rate, new_length)
 
 class pdf_page(Clip):
   """A silent video constructed from a single page of a PDF."""
@@ -1976,30 +1979,5 @@ class zip_file(Clip):
 
 
 if __name__ == "__main__":
-  # Some basic tests/illustrations.  The source font and video are part of
-  # texlive, which might be installed on your computer already.
-  # TODO More here.
-  # TODO Did the audio upgrade break any of these?
-
-  font_filename = "/usr/local/texlive/2019/texmf-dist/fonts/truetype/sorkin/merriweather/MerriweatherSans-Regular.ttf"
-  video_filename = "/usr/local/texlive/2019/texmf-dist/tex/latex/mwe/example-movie.mp4"
-
-  vid = video_file(video_filename)
-  vid = slice_by_frames(vid, 0, 7.5*vid.frame_rate())
-
-  small_vid = slice_by_frames(filter_frames(vid, lambda x: cv2.resize(x, (150, 100))), 0, 100)
-
-  vid = superimpose(vid, small_vid, 200, 100, 30)
-  vid = superimpose_center(vid, small_vid, 100)
-
-  title = add_text(black(vid.height(), vid.width(), vid.frame_rate(), 5*vid.frame_rate()), [
-    (70, font_filename, "Test Video for clip.py"),
-    (10, font_filename, "If you can read this, you don't need glasses.")
-  ], color=(0,0,255))
-  title = fade_in(title, 0.5*vid.frame_rate())
-  title = fade_out(title, 0.5*vid.frame_rate())
-
-  fade = fade_chain(title, vid, 1)
-
-  fade.play()
+  pass
 
