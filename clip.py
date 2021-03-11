@@ -227,7 +227,6 @@ class Clip(ABC):
     @abstractmethod
     def __repr__():
         """A string that describes this clip."""
-        pass
 
     def summary(self):
         secs = self.length()/self.frame_rate()
@@ -438,7 +437,7 @@ class video_file(Clip):
             self.frame_rate_ = float(self.frame_rate_)
             self.length_ = int(self.length_)
             if forced_length:
-                assert forced_length == self.length
+                assert forced_length == self.length()
             return
 
 
@@ -457,7 +456,7 @@ class video_file(Clip):
 
         if not forced_length:
             match = re.search(r'Duration: (\d\d):(\d\d):(\d\d\.\d\d)', deets)
-            assert match, f"Could not find length for {fname}."
+            assert match, f"Could not find length for {self.fname}."
             hours = int(match.group(1))
             minutes = int(match.group(2))
             seconds = float(match.group(3))
@@ -496,7 +495,7 @@ class video_file(Clip):
 
         # Make sure it's in the cache.    If it's not, expand a segment of the video
         # starting from here to acquire it.
-        cached_filename, exists = cache.lookup(self.frame_signature(index), Clip.cache_format)
+        _, exists = cache.lookup(self.frame_signature(index), Clip.cache_format)
         if not exists:
             if self.decode_chunk_size is None:
                 self.explode(0, self.length())
@@ -635,7 +634,7 @@ class Audio(ABC):
 
     def get_samples(self):
         if not hasattr(self, '_samples'):
-            self._samples = self.compute_samples()
+            self._samples = self.compute_samples()  #pylint disable:
             assert len(self._samples.shape) == 2, self._samples.shape
             assert self._samples.shape[0] == self.length()
             assert self._samples.shape[1] == self.num_channels()
@@ -669,7 +668,6 @@ class audio_from_data(Audio):
 
     def length(self):
         return self.data.shape[0]
-        pass
 
     def sample_rate(self):
         return self.sample_rate_
@@ -692,7 +690,8 @@ def audio_file(fname):
     if ext in direct_formats:
         data, sample_rate = soundfile.read(fname, always_2d=True)
         return audio_from_data(fname, data, sample_rate)
-    elif ext in video_formats:
+
+    if ext in video_formats:
         cached_filename, success = cache.lookup(fname, 'flac')
         if not success:
             print(f'Extracting audio from {fname}')
@@ -706,8 +705,8 @@ def audio_file(fname):
                 os.rename(audio_fname, cached_filename)
                 cache.insert(cached_filename)
         return audio_file(cached_filename)
-    else:
-        raise Exception(f"Don't know how to extract audio from {ext} format: {fname}")
+
+    raise Exception(f"Don't know how to extract audio from {ext} format: {fname}")
 
 def silence(length, sample_rate, num_channels):
     """ Create an audio clip of the requested amount of silence. """
@@ -940,7 +939,7 @@ class fade_audio(Audio):
     def __init__(self, audio1, audio2):
         assert isinstance(audio1, Audio)
         assert isinstance(audio2, Audio)
-        assert audio1.sample_rate() == audio2.sample_rate(), "Mismatched sample rates %d and %d" % (self.audio1.sample_rate(), self.audio2.sample_rate())
+        assert audio1.sample_rate() == audio2.sample_rate(), "Mismatched sample rates %d and %d" % (audio1.sample_rate(), audio2.sample_rate())
         assert audio1.num_channels() == audio2.num_channels()
         assert audio1.length() == audio2.length(), f'Cannot fade audio because the lengths do not match. {audio1.length()} != {audio2.length()}'
 
@@ -1166,7 +1165,7 @@ class fade(Clip):
     def __init__(self, clip1, clip2):
         assert isinstance(clip1, Clip)
         assert isinstance(clip2, Clip)
-        assert clip1.frame_rate() == clip2.frame_rate(), "Mismatched frame rates %d and %d" % (self.clip1.frame_rate(), self.clip2.frame_rate())
+        assert clip1.frame_rate() == clip2.frame_rate(), "Mismatched frame rates %d and %d" % (clip1.frame_rate(), clip2.frame_rate())
         assert clip1.width() == clip2.width(), f'Mismatched widths {clip1.width()} and {clip2.width()}.'
         assert clip1.height() == clip2.height()
         assert clip1.length() == clip2.length()
@@ -1268,6 +1267,7 @@ class chain(Clip):
                 return (i, frame_index)
             frame_index -= self.clips[i].length()
         assert False, f'Could not find chain element index {frame_index} within {len(self.clips)} clips, with lengths {list(map(lambda x: x.length(), self.clips))}    Total length is only {self.length()}.\n{self}'
+        return (None, None)
 
     def frame_signature(self, index):
         i, index = self.find_frame_index(index)
@@ -1329,7 +1329,7 @@ class slice_video(Clip):
     """
     Extract the portion of a clip between the given frames.
     """
-    def __init__(self, clip, start, end, units='frames'):
+    def __init__(self, clip, start, end):
         assert isinstance(clip, Clip)
         assert isinstance(start, int)
         assert isinstance(end, int)
@@ -1404,17 +1404,17 @@ class superimpose(Clip):
 
             before = slice_audio(original_audio, 0, start_sample)
             during = slice_audio(original_audio, start_sample, end_sample)
-            after    = slice_audio(original_audio, end_sample, original_audio.length())
+            after = slice_audio(original_audio, end_sample, original_audio.length())
 
             if audio == 'replace':
                 self.audio = chain_audio(before, new_audio, after)
             else: # mix
                 self.audio = chain_audio(before, mix(during, new_audio), after)
         else:
-            raise Exception(f'Unknown audio mode {self.audio_mode} in superimpose.')
+            raise Exception(f'Unknown audio mode {self.audio} in superimpose.')
 
     def __repr__(self):
-        return f'superimpose({self.under_clip}, {self.over_clip}, {self.x}, {self.y}, {self.start_frame}, audio={self.audio_mode})'
+        return f'superimpose({self.under_clip}, {self.over_clip}, {self.x}, {self.y}, {self.start_frame}, audio={self.audio})'
 
     def frame_rate(self):
         return self.under_clip.frame_rate()
@@ -1656,16 +1656,30 @@ class force_framerate(Clip):
         self.audio = clip.get_audio()
         target_length = self.frame_to_sample(self.length())
         self.audio = force_audio_length(self.audio, target_length)
+
     def __repr__(self):
         return f'force_framerate({self.clip}, {self.frame_rate_})'
 
-    def frame_rate(self): return self.frame_rate_
-    def width(self): return self.clip.width()
-    def height(self): return self.clip.height()
-    def length(self): return self.clip.length()
-    def get_frame(self, index): return self.clip.get_frame(index)
-    def frame_signature(self, index): return self.clip.frame_signature(index)
-    def get_audio(self): return self.audio
+    def frame_rate(self):
+        return self.frame_rate_
+    
+    def width(self):
+        return self.clip.width()
+    
+    def height(self):
+        return self.clip.height()
+    
+    def length(self):
+        return self.clip.length()
+    
+    def get_frame(self, index):
+        return self.clip.get_frame(index)
+    
+    def frame_signature(self, index):
+        return self.clip.frame_signature(index)
+    
+    def get_audio(self):
+        return self.audio
 
 def fade_chain(overlap_frames, *args):
     """Concatenate several clips, with some fading overlap between them."""
@@ -1682,7 +1696,7 @@ def fade_chain(overlap_frames, *args):
 
     for index, clip in enumerate(clips):
         assert isinstance(clip, Clip)
-        if index == 0 or index == len(clips)-1:
+        if index in (0, len(clips)-1):
             assert overlap_frames <= clip.length()
         else:
             assert 2*overlap_frames <= clip.length(), f'Clip should have been at least {2*overlap_frames} frames to chain with fading, but it only has {clip.length()} frames.'
@@ -1966,4 +1980,3 @@ class zip_file(Clip):
 
 if __name__ == "__main__":
     pass
-
