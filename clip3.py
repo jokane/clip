@@ -40,3 +40,49 @@ Possibly relevant implementation details:
 
 """
 
+from abc import ABC, abstractmethod
+
+class Clip(ABC):
+    """The base class for all video clips.    A finite series of frames, each with
+    identical height and width, meant to be played at a given rate, along with an
+    audio clip of the same length."""
+
+    preset = 'slow'
+    bitrate = '1024k'
+    cache_format = 'png'
+
+    @abstractmethod
+    def __repr__():
+        """A string that describes this clip."""
+
+    def summary(self):
+        secs = self.length()/self.frame_rate()
+        return f'{secs}s {self.width()}x{self.height()} {self.frame_rate()}fps'
+
+    @abstractmethod
+    def frame_signature(self, index):
+        """A string that uniquely describes the appearance of the given frame."""
+
+    @abstractmethod
+    def frame_rate(self):
+        """Frame rate of the clip, in frames per second."""
+
+    @abstractmethod
+    def width(self):
+        """Width of each frame in the clip."""
+
+    @abstractmethod
+    def height(self):
+        """Height of each frame in the clip."""
+
+    @abstractmethod
+    def length(self):
+        """Number of frames in the clip."""
+
+    @abstractmethod
+    def get_frame(self, index):
+        """Create and return one frame of the clip."""
+
+    @abstractmethod
+    def get_audio(self):
+        """ Return the corresponding audio clip."""
