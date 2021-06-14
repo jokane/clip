@@ -55,10 +55,6 @@ class Clip(ABC):
     def __repr__():
         """A string that describes this clip."""
 
-    def summary(self):
-        secs = self.length()/self.frame_rate()
-        return f'{secs}s {self.width()}x{self.height()} {self.frame_rate()}fps'
-
     @abstractmethod
     def frame_signature(self, index):
         """A string that uniquely describes the appearance of the given frame."""

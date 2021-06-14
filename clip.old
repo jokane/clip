@@ -173,6 +173,10 @@ class ClipCache:
 
 cache = ClipCache()
 
+    def summary(self):
+        secs = self.length()/self.frame_rate()
+        return f'{secs}s {self.width()}x{self.height()} {self.frame_rate()}fps'
+
 
     def frame_to_sample(self, index):
         assert isinstance(index, int)
