@@ -1,3 +1,3 @@
 coverage run --source=. --omit=.venv* -m pytest
 coverage report -m
-pylint clip3.py
+pylint clip3.py test_clip3.py

@@ -44,6 +44,9 @@ Possibly relevant implementation details:
 #       Result: fewer abstract methods, less boilerplate.
 
 from abc import ABC, abstractmethod
+import contextlib
+import os
+import tempfile
 import numpy as np
 
 def is_float(x):
@@ -77,6 +80,20 @@ def is_color(color):
     if color[2] < 0 or color[2] > 255: return False
     return True
 
+def require(x, func, condition, name):
+    """ Make sure func(x) returns a true value, and complain if not."""
+    if not func(x):
+        raise TypeError(f'Expected {name} to be a {condition}, but got {x} instead.')
+
+def require_positive_int(x, name):
+    """ Raise an informative exception if x is not a positive integer. """
+    require(x, is_positive_int, "positive integer", name)
+
+def require_positive_float(x, name):
+    """ Raise an informative exception if x is not a positive float. """
+    require(x, is_positive_float, "positive real number", name)
+
+
 class Metrics:
     """ A object describing the dimensions of a Clip. """
     def __init__(self, src=None, width=None, height=None, frame_rate=None, length=None,
@@ -92,13 +109,13 @@ class Metrics:
 
     def verify(self):
         """ Make sure we have valid metrics. """
-        assert is_positive_int(self.width)
-        assert is_positive_int(self.height)
-        assert is_positive_float(self.frame_rate)
-        assert is_positive_float(self.length)
-        assert is_positive_int(self.sample_rate)
-        assert is_positive_int(self.num_channels)
-        assert is_positive_float(self.num_samples)
+        require_positive_int(self.width, "width")
+        require_positive_int(self.height, "height")
+        require_positive_float(self.frame_rate, "frame rate")
+        require_positive_float(self.length, "length")
+        require_positive_int(self.sample_rate, "sample rate")
+        require_positive_int(self.num_channels, "number of channels")
+        require_positive_float(self.num_samples, "number of samples")
 
 default_metrics = Metrics(
     width = 640,
@@ -109,6 +126,21 @@ default_metrics = Metrics(
     num_channels = 2,
     num_samples = 1
 )
+
+@contextlib.contextmanager
+def temporary_current_directory():
+    """Create a context in which the current directory is a new temporary
+    directory.  When the context ends, the current directory is restored and
+    the temporary directory is vaporized."""
+    previous_current_directory = os.getcwd()
+
+    with tempfile.TemporaryDirectory() as td:
+        os.chdir(td)
+
+        try:
+            yield
+        finally:
+            os.chdir(previous_current_directory)
 
 class Clip(ABC):
     """The base class for all clips.  A finite series of frames, each with
@@ -134,7 +166,8 @@ class solid(Clip):
             frame_rate=frame_rate,
             length=length
         )
-        self.color = [color[2], color[1], color[0]]
+
+        self.color = [color[2], color[1], color[0], 0]
         self.frame = None
 
     def frame_signature(self, index):
