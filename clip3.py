@@ -45,6 +45,8 @@ Possibly relevant implementation details:
 
 from abc import ABC, abstractmethod
 import contextlib
+import collections
+import hashlib
 import os
 import tempfile
 import numpy as np
@@ -141,6 +143,49 @@ def temporary_current_directory():
             yield
         finally:
             os.chdir(previous_current_directory)
+
+class ClipCache:
+    """An object for managing the cache of already-computed frames, audio
+    segments, and other things."""
+    def __init__(self):
+        self.directory = '/tmp/clipcache/'
+        self.cache = None
+
+    def scan_directory(self):
+        """Examine the cache directory and remember what we see there."""
+        self.cache = dict()
+        try:
+            for cached_frame in os.listdir(self.directory):
+                self.cache[os.path.join(self.directory, cached_frame)] = True
+        except FileNotFoundError:
+            os.mkdir(self.directory)
+
+        counts = '; '.join(map(lambda x: f'{x[1]} {x[0]}',
+          collections.Counter(map(lambda x: os.path.splitext(x)[1][1:],
+          self.cache.keys())).items()))
+        print(f'Found {len(self.cache)} cached items ({counts}) in {self.directory}')
+
+
+    def sig_to_fname(self, sig, ext):
+        """Compute the filename where something with the given signature and
+        extension should live."""
+        blob = hashlib.md5(str(sig).encode()).hexdigest()
+        return os.path.join(self.directory, f'{blob}.{ext}')
+
+    def lookup(self, sig, ext):
+        """Determine the appropriate filename for something with the given
+        signature and extension.  Return a tuple with that filename followed
+        by True or False, indicating whether that file exists or not."""
+        if self.cache is None: self.scan_directory()
+        cached_filename = self.sig_to_fname(sig, ext)
+        return (cached_filename, cached_filename in self.cache)
+
+    def insert(self, fname):
+        """Update the cache to reflect the fact that the given file exists."""
+        if self.cache is None: self.scan_directory()
+        self.cache[fname] = True
+
+cache = ClipCache()
 
 class Clip(ABC):
     """The base class for all clips.  A finite series of frames, each with
