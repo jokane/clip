@@ -1,0 +1,3 @@
+coverage run --source=. --omit=.venv* -m pytest
+coverage report -m
+pylint clip3.py

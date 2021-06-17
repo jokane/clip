@@ -3,3 +3,4 @@ Pipfile
 Pipfile.lock
 __pycache__
 .coverage
+.venv

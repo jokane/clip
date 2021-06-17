@@ -17,18 +17,10 @@ import time
 
 from PIL import Image, ImageFont, ImageDraw
 import cv2
-import numpy as np
 import pdf2image
 import progressbar
 import scipy.signal
 import soundfile
-
-def isfloat(x):
-    try:
-        float(x)
-        return True
-    except TypeError:
-        return False
 
 def isiterable(x):
     try:
@@ -37,15 +29,6 @@ def isiterable(x):
     except TypeError:
         return False
 
-def iscolor(color):
-    if len(color) != 3: return False
-    if not isinstance(color[0], int): return False
-    if not isinstance(color[1], int): return False
-    if not isinstance(color[2], int): return False
-    if color[0] < 0 or color[0] > 255: return False
-    if color[1] < 0 or color[1] > 255: return False
-    if color[2] < 0 or color[2] > 255: return False
-    return True
 
 def sha256sum(filename):
     # https://stackoverflow.com/questions/22058048/hashing-a-file-in-python
@@ -463,57 +446,6 @@ class video_file(Clip):
     def get_audio(self):
         return self.audio
 
-class solid(Clip):
-    """A video clip with the specified size, frame rate, and length, in which each frame has the same solid color."""
-    def __init__(self, height, width, frame_rate, length, color):
-        assert isinstance(height, int)
-        assert height > 0
-
-        assert isinstance(width, int)
-        assert width > 0
-
-        assert isfloat(frame_rate)
-        assert frame_rate > 0
-
-        assert isinstance(length, int)
-        assert length > 0
-
-        assert iscolor(color)
-
-        self.frame_rate_ = frame_rate
-        self.width_ = width
-        self.height_ = height
-        self.length_ = length
-        self.color = [color[2], color[1], color[0]]
-
-    def __repr__(self):
-        return f'solid({self.height_}, {self.width_}, {self.frame_rate_}, {self.length_}, {self.color})'
-
-    def frame_rate(self):
-        return self.frame_rate_
-
-    def length(self):
-        return self.length_
-
-    def width(self):
-        return self.width_
-
-    def height(self):
-        return self.height_
-
-    def frame_signature(self, index):
-        return "(solid%s, %dx%d)" % (self.color, self.width_, self.height_)
-
-    def get_frame(self, index):
-        try:
-            return self.frame
-        except AttributeError:
-            self.frame = np.zeros([self.height_, self.width_, 3], np.uint8)
-            self.frame[:] = self.color
-            return self.frame
-
-    def get_audio(self):
-        return self.default_audio()
 
 def black(height, width, frame_rate, length):
     """A clip with of solid black frames."""
@@ -1895,6 +1827,3 @@ class zip_file(Clip):
     def get_audio(self):
         return self.default_audio()
 
-
-if __name__ == "__main__":
-    pass
