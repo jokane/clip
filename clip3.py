@@ -47,9 +47,12 @@ from abc import ABC, abstractmethod
 import contextlib
 import collections
 import hashlib
+import math
 import os
 import tempfile
+
 import numpy as np
+import progressbar
 
 def is_float(x):
     """ Can the given value be interpreted as a float? """
@@ -144,6 +147,31 @@ def temporary_current_directory():
         finally:
             os.chdir(previous_current_directory)
 
+def custom_progressbar(task, steps):
+    """Return a progress bar (for use as a context manager) customized for
+    our purposes."""
+    digits = int(math.log10(steps))+1
+    widgets = [
+        '|',
+        f'{task:^25s}',
+        ' ',
+        progressbar.Bar(),
+        progressbar.Percentage(),
+        '| ',
+        progressbar.SimpleProgress(format=f'%(value_s){digits}s/%(max_value_s){digits}s'),
+        ' |',
+        progressbar.ETA(
+            format_not_started='',
+            format_finished='%(elapsed)8s',
+            format='%(eta)8s',
+            format_zero='',
+            format_NA=''
+        ),
+        '|'
+    ]
+    return progressbar.ProgressBar(max_value=steps, widgets=widgets)
+
+
 class ClipCache:
     """An object for managing the cache of already-computed frames, audio
     segments, and other things."""
@@ -191,6 +219,8 @@ class Clip(ABC):
     """The base class for all clips.  A finite series of frames, each with
     identical height and width, meant to be played at a given rate, along with
     an audio clip of the same length."""
+    def __init__(self):
+        self.metrics = None
 
     @abstractmethod
     def frame_signature(self, index):
@@ -200,9 +230,28 @@ class Clip(ABC):
     def get_frame(self, index):
         """Create and return one frame of the clip."""
 
+    def length(self):
+        """Length of the clip, in frames."""
+        return self.metrics.length
+
+    def frame_rate(self):
+        """Number of frames per second."""
+        return self.metrics.frame_rate
+
+    def readable_length(self):
+        """Return a human-readable description of the lenth of the clip."""
+        secs = int(self.length() / self.frame_rate())
+        mins, secs = divmod(secs, 60)
+        hours, mins = divmod(mins, 60)
+        if hours > 0:
+            return f'{hours}:{mins:02}:{secs:02}'
+        else:
+            return f'{mins}:{secs:02}'
+
 class solid(Clip):
     """A video clip in which each frame has the same solid color."""
     def __init__(self, width, height, frame_rate, length, color):
+        super().__init__()
         assert is_color(color)
         self.metrics = Metrics(
             default_metrics,

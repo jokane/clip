@@ -6,7 +6,6 @@ import glob
 import hashlib
 import io
 import itertools
-import math
 import os
 import re
 import subprocess
@@ -17,7 +16,6 @@ import time
 from PIL import Image, ImageFont, ImageDraw
 import cv2
 import pdf2image
-import progressbar
 import scipy.signal
 import soundfile
 
@@ -38,28 +36,6 @@ def sha256sum(filename):
         for n in iter(lambda: f.readinto(mv), 0):
             h.update(mv[:n])
     return h.hexdigest()
-
-def custom_progressbar(task, steps):
-    digits = int(math.log10(steps))+1
-    widgets = [
-        '|',
-        f'{task:^25s}',
-        ' ',
-        progressbar.Bar(),
-        progressbar.Percentage(),
-        '| ',
-        progressbar.SimpleProgress(format=f'%(value_s){digits}s/%(max_value_s){digits}s'),
-        ' |',
-        progressbar.ETA(
-            format_not_started='',
-            format_finished='%(elapsed)8s',
-            format='%(eta)8s',
-            format_zero='',
-            format_NA=''
-        ),
-        '|'
-    ]
-    return progressbar.ProgressBar(max_value=steps, widgets=widgets)
 
 
 def ffmpeg(*args, task=None, num_frames=None):
@@ -222,15 +198,6 @@ def ffmpeg(*args, task=None, num_frames=None):
             asecs = self.get_audio().length()/self.get_audio().sample_rate()
             vsecs = self.length()/self.frame_rate()
             print(f'Wrote audio ({asecs:0.2f}s) and video ({vsecs:0.2f}s) to {fname}.')
-
-    def readable_length(self):
-        secs = int(self.length() / self.frame_rate())
-        mins, secs = divmod(secs, 60)
-        hours, mins = divmod(mins, 60)
-        if hours > 0:
-            return f'{hours}:{mins:02}:{secs:02}'
-        else:
-            return f'{mins}:{secs:02}'
 
 
 class video_file(Clip):

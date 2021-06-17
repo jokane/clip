@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 # pylint: disable=missing-module-docstring,missing-function-docstring,wildcard-import
 
-from pprint import pprint
 import shutil
 
 import cv2
@@ -33,9 +32,20 @@ def test_metrics():
 
 def test_solid():
     x = solid(640, 480, 30, 300, [0,0,0])
-    pprint(x.frame_signature(0))
+
+    x.frame_signature(0)
+
     img = x.get_frame(0)
     assert img.shape == (480, 640, 4)
+
+def test_clip_metrics():
+    x = solid(640, 480, 30, 300, [0,0,0])
+    assert x.length() == 300
+    assert x.frame_rate() == 30
+    assert ":10" in x.readable_length()
+
+    x = solid(640, 480, 30, 110000, [0,0,0])
+    assert x.readable_length()[:2] == '1:'
 
 def test_temporary_current_directory():
     with temporary_current_directory():
@@ -67,4 +77,10 @@ def test_cache():
     assert exists1 is True
 
     c.scan_directory()
+
+def test_customprogressbar():
+    with custom_progressbar("Testing", 100) as pb:
+        pb.update(0)
+        for i in range(100):
+            pb.update(i)
 
