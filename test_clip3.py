@@ -24,16 +24,20 @@ def test_validate():
     assert is_non_negative(5)
     assert not is_non_negative(-2)
 
-    require_equal(1, 1, "name")
+    assert is_iterable(list())
+    assert not is_iterable(123)
 
+    require_equal(1, 1, "name")
 
     with pytest.raises(ValueError):
         require_equal(1, "1", "name")
 
 def test_metrics():
-    Metrics(default_metrics)
+    m1 = Metrics(default_metrics)
+    m2 = Metrics(default_metrics, length=0.5)
 
-    Metrics(default_metrics, length=0.5)
+    with pytest.raises(ValueError):
+        m1.verify_compatible_with(m2, check_length=True)
 
     with pytest.raises(TypeError):
         Metrics(default_metrics, width=0.5)
@@ -82,10 +86,7 @@ def test_temporary_current_directory():
 
 def test_cache():
     c = ClipCache()
-    if os.path.exists(c.directory):
-        shutil.rmtree(c.directory)
-
-    c.scan_directory()
+    c.clear()
 
     x = solid(640, 480, 30, 300, [0,0,0])
     sig1 = x.frame_signature(0)
@@ -128,6 +129,9 @@ def test_ffmpeg():
         ffmpeg('-i /dev/zero', '/dev/null', task="Testing", num_frames=100)
 
 def test_save():
+    shutil.rmtree(cache.directory)
+    cache.cache = None
+
     x = solid(640, 480, 30, 10, [0,0,0])
     with temporary_current_directory():
         x.save('test.mp4')
@@ -172,6 +176,10 @@ def test_temporal_composite():
     )
 
     assert z.length() == 11
+
+    cache.clear()
+    z.preview()
+    z.get_samples()
 
 if __name__ == '__main__':  #pragma: no cover
     for name, thing in list(globals().items()):

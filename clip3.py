@@ -50,6 +50,7 @@ import hashlib
 import math
 import os
 import re
+import shutil
 import subprocess
 import tempfile
 import time
@@ -65,8 +66,6 @@ def is_float(x):
     try:
         float(x)
         return True
-    except TypeError:
-        return False
     except ValueError:
         return False
 
@@ -93,7 +92,7 @@ def is_color(color):
     if color[2] < 0 or color[2] > 255: return False
     return True
 
-def isiterable(x):
+def is_iterable(x):
     """ Is this a thing that can be iterated? """
     try:
         iter(x)
@@ -150,7 +149,7 @@ def ffmpeg(*args, task=None, num_frames=None):
                     pb.update(0)
                     while proc.poll() is None:
                         try:
-                            with open(stats.name) as f:
+                            with open(stats.name) as f: #pragma: no cover
                                 fr = int(re.findall(r'frame=\s*(\d+)\s', f.read())[-1])
                                 pb.update(min(fr, num_frames-1))
                         except FileNotFoundError:
@@ -198,20 +197,20 @@ class Metrics:
         require_positive(self.num_channels, "number of channels")
         require_positive(self.length, "length")
 
-    def verify_compatible_with(self, other, video=True, audio=True, length=False):
+    def verify_compatible_with(self, other, check_video=True, check_audio=True, check_length=False):
         """ Make sure two Metrics objects match each other.  Complain if not. """
         assert isinstance(other, Metrics)
 
-        if video:
+        if check_video:
             require_equal(self.width, other.width, "widths")
             require_equal(self.height, other.height, "heights")
             require_equal(self.frame_rate, other.frame_rate, "frame rates")
 
-        if audio:
+        if check_audio:
             require_equal(self.num_channels, other.num_channels, "numbers of channels")
             require_equal(self.sample_rate, other.sample_rate, "sample rates")
 
-        if length:
+        if check_length:
             require_equal(self.length, other.length, "lengths")
 
     def num_frames(self):
@@ -277,6 +276,11 @@ class ClipCache:
     segments, and other things."""
     def __init__(self):
         self.directory = '/tmp/clipcache/'
+        self.cache = None
+
+    def clear(self):
+        """ Delete all the files in the cache. """
+        shutil.rmtree(self.directory)
         self.cache = None
 
     def scan_directory(self):

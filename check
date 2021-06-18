@@ -1,5 +1,5 @@
 #!/bin/bash
 set -e
-coverage run --source=. --omit=.venv* -m pytest
+coverage run --omit=.venv* -m pytest
 pylint clip3.py test_clip3.py
 coverage report -m
