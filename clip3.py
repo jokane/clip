@@ -91,26 +91,32 @@ def is_color(color):
     if color[2] < 0 or color[2] > 255: return False
     return True
 
-def require(x, func, condition, name):
+def require(x, func, condition, name, exception_class):
     """ Make sure func(x) returns a true value, and complain if not."""
     if not func(x):
-        raise TypeError(f'Expected {name} to be a {condition}, but got {x} instead.')
+        raise exception_class(f'Expected {name} to be a {condition}, but got {x} instead.')
 
 def require_int(x, name):
     """ Raise an informative exception if x is not an integer. """
-    require(x, is_int, "integer", name)
+    require(x, is_int, "integer", name, TypeError)
 
 def require_float(x, name):
     """ Raise an informative exception if x is not a float. """
-    require(x, is_float, "positive real number", name)
+    require(x, is_float, "positive real number", name, TypeError)
 
 def require_positive(x, name):
     """ Raise an informative exception if x is not positive. """
-    require(x, is_positive, "positive", name)
+    require(x, is_positive, "positive", name, ValueError)
 
 def require_non_negative(x, name):
     """ Raise an informative exception if x is not 0 or positive. """
-    require(x, is_non_negative, "non-negative", name)
+    require(x, is_non_negative, "non-negative", name, ValueError)
+
+def require_equal(x, y, name):
+    """ Raise an informative exception if x and y are not equal. """
+    if x != y:
+        raise ValueError(f'Expected {name} to be equal, but they are not.  {x} != {y}')
+
 
 class FFMPEGException(Exception):
     """Raised when ffmpeg fails for some reason."""
@@ -176,6 +182,22 @@ class Metrics:
         require_positive(self.sample_rate, "sample rate")
         require_positive(self.num_channels, "number of channels")
         require_positive(self.length, "length")
+
+    def verify_compatible_with(self, other, video=True, audio=True, length=False):
+        """ Make sure two Metrics objects match each other.  Complain if not. """
+        assert isinstance(other, Metrics)
+
+        if video:
+            require_equal(self.width, other.width, "widths")
+            require_equal(self.height, other.height, "heights")
+            require_equal(self.frame_rate, other.frame_rate, "frame rates")
+
+        if audio:
+            require_equal(self.num_channels, other.num_channels, "numbers of channels")
+            require_equal(self.sample_rate, other.sample_rate, "sample rates")
+
+        if length:
+            require_equal(self.length, other.length, "lengths")
 
     def num_frames(self):
         """Length of the clip, in video frames."""

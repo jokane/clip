@@ -24,18 +24,31 @@ def test_validate():
     assert is_non_negative(5)
     assert not is_non_negative(-2)
 
-def test_metrics():
-    _ = Metrics(default_metrics)
+    require_equal(1, 1, "name")
 
-    with pytest.raises(TypeError):
-        Metrics(default_metrics, width=0.5)
-    with pytest.raises(TypeError):
-        Metrics(default_metrics, width=-1)
+
+    with pytest.raises(ValueError):
+        require_equal(1, "1", "name")
+
+def test_metrics():
+    Metrics(default_metrics)
 
     Metrics(default_metrics, length=0.5)
 
     with pytest.raises(TypeError):
+        Metrics(default_metrics, width=0.5)
+
+    with pytest.raises(ValueError):
+        Metrics(default_metrics, width=-1)
+
+    with pytest.raises(ValueError):
         Metrics(default_metrics, length=-1)
+
+    with pytest.raises(ValueError):
+        Metrics(default_metrics, length=0)
+
+    with pytest.raises(TypeError):
+        Metrics(default_metrics, length="really long")
 
 def test_solid():
     x = solid(640, 480, 30, 300, [0,0,0])
@@ -115,7 +128,7 @@ def test_ffmpeg():
         ffmpeg('-i /dev/zero', '/dev/null', task="Testing", num_frames=100)
 
 def test_save():
-    x = solid(640, 480, 30, 1000, [0,0,0])
+    x = solid(640, 480, 30, 10, [0,0,0])
     with temporary_current_directory():
         x.save('test.mp4')
         assert os.path.exists('test.mp4')
@@ -129,7 +142,7 @@ def test_save():
 def test_preview():
     shutil.rmtree(cache.directory)
     cache.scan_directory()
-    x = solid(640, 480, 30, 1000, [0,0,0])
+    x = solid(640, 480, 30, 10, [0,0,0])
     x.preview()
 
 if __name__ == '__main__':  #pragma: no cover
