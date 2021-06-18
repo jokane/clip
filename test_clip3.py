@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
-# pylint: disable=missing-module-docstring,missing-function-docstring,wildcard-import
+# pylint: disable=missing-module-docstring
+# pylint: disable=missing-function-docstring
+# pylint: disable=wildcard-import
 
+import glob
 import shutil
 
 import cv2
@@ -8,14 +11,18 @@ import pytest
 
 from clip3 import *
 
-def test_is_float():
+def test_validate():
     assert is_float(0.3)
     assert is_float(3)
     assert not is_float("abc")
 
-def test_is_color():
     assert is_color([0,0,0])
     assert not is_color([0,0,256])
+
+    assert not is_positive(0)
+    assert is_non_negative(0)
+    assert is_non_negative(5)
+    assert not is_non_negative(-2)
 
 def test_metrics():
     _ = Metrics(default_metrics)
@@ -25,10 +32,10 @@ def test_metrics():
     with pytest.raises(TypeError):
         Metrics(default_metrics, width=-1)
 
-    Metrics(default_metrics, num_samples=0.5)
+    Metrics(default_metrics, length=0.5)
 
     with pytest.raises(TypeError):
-        Metrics(default_metrics, num_samples=-1)
+        Metrics(default_metrics, length=-1)
 
 def test_solid():
     x = solid(640, 480, 30, 300, [0,0,0])
@@ -38,18 +45,26 @@ def test_solid():
     img = x.get_frame(0)
     assert img.shape == (480, 640, 4)
 
-def test_clip_metrics():
-    x = solid(640, 480, 30, 300, [0,0,0])
-    assert x.length() == 300
-    assert x.frame_rate() == 30
-    assert ":10" in x.readable_length()
+    samples = x.get_samples()
+    assert samples.shape == (x.num_samples(), x.num_channels())
 
-    x = solid(640, 480, 30, 110000, [0,0,0])
+def test_clip_metrics():
+    secs = 30
+    x = solid(640, 480, 30, secs, [0,0,0])
+    assert x.length() == secs
+    assert x.frame_rate() == 30
+    assert x.sample_rate() == default_metrics.sample_rate
+    assert x.num_samples() == secs*default_metrics.num_samples()
+    assert x.num_frames() == secs*30
+    assert x.num_channels() == default_metrics.num_channels
+    assert f":{secs:02d}" in x.readable_length()
+
+    x = solid(640, 480, 30, 60*60+1, [0,0,0])
     assert x.readable_length()[:2] == '1:'
 
 def test_temporary_current_directory():
     with temporary_current_directory():
-        pass
+        assert glob.glob('*') == []
 
 def test_cache():
     c = ClipCache()
@@ -83,4 +98,11 @@ def test_customprogressbar():
         pb.update(0)
         for i in range(100):
             pb.update(i)
+
+def test_frame_to_sample():
+    secs = 10
+    x = solid(640, 480, 30, secs, [0,0,0])
+
+    assert x.frame_to_sample(0) == 0
+    assert x.frame_to_sample(x.frame_rate()) == x.sample_rate()
 

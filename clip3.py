@@ -66,13 +66,13 @@ def is_int(x):
     """ Can the given value be interpreted as an int? """
     return isinstance(x, int)
 
-def is_positive_float(x):
-    """ Can the given value be interpreted as a positive float? """
-    return is_float(x) and x>0
+def is_positive(x):
+    """ Can the given value be interpreted as a positive number? """
+    return x>0
 
-def is_positive_int(x):
-    """ Can the given value be interpreted as a positive int? """
-    return is_int(x) and x>0
+def is_non_negative(x):
+    """ Can the given value be interpreted as a non-negative number? """
+    return x>=0
 
 def is_color(color):
     """ Is this a color, in RGB 8-bit format? """
@@ -90,46 +90,66 @@ def require(x, func, condition, name):
     if not func(x):
         raise TypeError(f'Expected {name} to be a {condition}, but got {x} instead.')
 
-def require_positive_int(x, name):
-    """ Raise an informative exception if x is not a positive integer. """
-    require(x, is_positive_int, "positive integer", name)
+def require_int(x, name):
+    """ Raise an informative exception if x is not an integer. """
+    require(x, is_int, "integer", name)
 
-def require_positive_float(x, name):
-    """ Raise an informative exception if x is not a positive float. """
-    require(x, is_positive_float, "positive real number", name)
+def require_float(x, name):
+    """ Raise an informative exception if x is not a float. """
+    require(x, is_float, "positive real number", name)
+
+def require_positive(x, name):
+    """ Raise an informative exception if x is not positive. """
+    require(x, is_positive, "positive", name)
+
+def require_non_negative(x, name):
+    """ Raise an informative exception if x is not 0 or positive. """
+    require(x, is_non_negative, "non-negative", name)
 
 
 class Metrics:
     """ A object describing the dimensions of a Clip. """
-    def __init__(self, src=None, width=None, height=None, frame_rate=None, length=None,
-                 sample_rate=None, num_channels=None, num_samples=None):
+    def __init__(self, src=None, width=None, height=None, frame_rate=None,
+                 sample_rate=None, num_channels=None, length=None):
         self.width = width if width is not None else src.width
         self.height = height if height is not None else src.height
         self.frame_rate = frame_rate if frame_rate is not None else src.frame_rate
-        self.length = length if length is not None else src.length
         self.sample_rate = sample_rate if sample_rate is not None else src.sample_rate
         self.num_channels = num_channels if num_channels is not None else src.num_channels
-        self.num_samples = num_samples if num_samples is not None else src.num_samples
+        self.length = length if length is not None else src.length
         self.verify()
 
     def verify(self):
         """ Make sure we have valid metrics. """
-        require_positive_int(self.width, "width")
-        require_positive_int(self.height, "height")
-        require_positive_float(self.frame_rate, "frame rate")
-        require_positive_float(self.length, "length")
-        require_positive_int(self.sample_rate, "sample rate")
-        require_positive_int(self.num_channels, "number of channels")
-        require_positive_float(self.num_samples, "number of samples")
+        require_int(self.width, "width")
+        require_int(self.height, "height")
+        require_float(self.frame_rate, "frame rate")
+        require_int(self.sample_rate, "sample rate")
+        require_int(self.num_channels, "number of channels")
+        require_float(self.length, "length")
+        require_positive(self.width, "width")
+        require_positive(self.height, "height")
+        require_positive(self.frame_rate, "frame rate")
+        require_positive(self.sample_rate, "sample rate")
+        require_positive(self.num_channels, "number of channels")
+        require_positive(self.length, "length")
+
+    def num_frames(self):
+        """Length of the clip, in video frames."""
+        return int(self.length * self.frame_rate)
+
+    def num_samples(self):
+        """Length of the clip, in audio samples."""
+        return int(self.length * self.sample_rate)
+
 
 default_metrics = Metrics(
     width = 640,
     height = 480,
-    length = 1,
     frame_rate = 30,
     sample_rate = 48000,
     num_channels = 2,
-    num_samples = 1
+    length = 1,
 )
 
 @contextlib.contextmanager
@@ -193,7 +213,6 @@ class ClipCache:
           self.cache.keys())).items()))
         print(f'Found {len(self.cache)} cached items ({counts}) in {self.directory}')
 
-
     def sig_to_fname(self, sig, ext):
         """Compute the filename where something with the given signature and
         extension should live."""
@@ -230,23 +249,54 @@ class Clip(ABC):
     def get_frame(self, index):
         """Create and return one frame of the clip."""
 
+    @abstractmethod
+    def get_samples(self):
+        """Create and return the audio data for the clip."""
+
     def length(self):
-        """Length of the clip, in frames."""
+        """Length of the clip, in seconds."""
         return self.metrics.length
 
     def frame_rate(self):
         """Number of frames per second."""
         return self.metrics.frame_rate
 
+    def num_channels(self):
+        """Number of channels in the clip, i.e. mono or stereo."""
+        return self.metrics.num_channels
+
+    def sample_rate(self):
+        """Number of audio samples per second."""
+        return self.metrics.sample_rate
+
+    def num_frames(self):
+        """Number of audio samples per second."""
+        return self.metrics.num_frames()
+
+    def num_samples(self):
+        """Number of audio samples per second."""
+        return self.metrics.num_samples()
+
+    def frame_to_sample(self, index):
+        """Given a frame index, compute the corresponding sample index."""
+        require_int(index, 'frame index')
+        require_non_negative(index, 'frame index')
+        return int(index * self.sample_rate() / self.frame_rate())
+
     def readable_length(self):
         """Return a human-readable description of the lenth of the clip."""
-        secs = int(self.length() / self.frame_rate())
+        secs = self.length()
         mins, secs = divmod(secs, 60)
         hours, mins = divmod(mins, 60)
         if hours > 0:
             return f'{hours}:{mins:02}:{secs:02}'
         else:
             return f'{mins}:{secs:02}'
+
+    def default_samples(self):
+        """Return audio samples appropriate to use as a default audio.  That
+        is, silence with the appropriate metrics."""
+        return np.zeros([self.metrics.num_samples(), self.metrics.num_channels], np.uint8)
 
 class solid(Clip):
     """A video clip in which each frame has the same solid color."""
@@ -278,3 +328,6 @@ class solid(Clip):
             self.frame = np.zeros([self.metrics.height, self.metrics.width, 4], np.uint8)
             self.frame[:] = self.color
         return self.frame
+
+    def get_samples(self):
+        return self.default_samples()

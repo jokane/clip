@@ -75,16 +75,6 @@ def ffmpeg(*args, task=None, num_frames=None):
 
 
 
-
-    def summary(self):
-        secs = self.length()/self.frame_rate()
-        return f'{secs}s {self.width()}x{self.height()} {self.frame_rate()}fps'
-
-
-    def frame_to_sample(self, index):
-        assert isinstance(index, int)
-        return int(index * self.get_audio().sample_rate() / self.frame_rate())
-
     def get_frame_cached(self, index):
         """Return one frame of the clip, from the cache if possible, but from scratch if necessary."""
         sig = self.frame_signature(index)
@@ -361,33 +351,6 @@ class video_file(Clip):
 def black(height, width, frame_rate, length):
     """A clip with of solid black frames."""
     return solid(height, width, frame_rate, length, (0,0,0))
-
-def white(height, width, frame_rate, length):
-    """A clip with of white black frames."""
-    return solid(height, width, frame_rate, length, (255,255,255))
-
-
-class Audio(ABC):
-    """
-    A base class for all audio clips.
-    """
-
-    @abstractmethod
-    def __repr__(self):
-        pass
-
-    @abstractmethod
-    def length(self):
-        pass
-
-    @abstractmethod
-    def sample_rate(self):
-        pass
-
-
-    @abstractmethod
-    def num_channels(self):
-        pass
 
     @abstractmethod
     def compute_samples(self):
