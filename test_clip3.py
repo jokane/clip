@@ -126,6 +126,12 @@ def test_save():
         assert os.path.exists('foo.flac')
         assert os.path.exists('foo.wav')
 
+def test_preview():
+    shutil.rmtree(cache.directory)
+    cache.scan_directory()
+    x = solid(640, 480, 30, 1000, [0,0,0])
+    x.preview()
+
 if __name__ == '__main__':  #pragma: no cover
     for name, thing in list(globals().items()):
         if 'test_' in name:

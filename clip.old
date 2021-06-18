@@ -30,87 +30,6 @@ def sha256sum(filename):
     return h.hexdigest()
 
 
-
-
-
-    def get_frame_cached(self, index):
-        """Return one frame of the clip, from the cache if possible, but from scratch if necessary."""
-        sig = self.frame_signature(index)
-        cached_filename, success = cache.lookup(sig, frame.cache_format)
-
-        if success:
-            frame = cv2.imread(cached_filename)
-        else:
-            frame = self.get_frame(index)
-            cv2.imwrite(cached_filename, frame)
-            cache.insert(cached_filename)
-
-        # Some sanity checks.
-        assert frame is not None, "Got None instead of a real frame for " + sig
-        assert frame.shape[0] == self.height(), "From %s, I got a frame of height %d instead of %d." % (self.frame_signature(index), frame.shape[0], self.height())
-        assert frame.shape[1] == self.width(), "For %s, I got a frame of width %d instead of %d." % (self.frame_signature(index), frame.shape[1], self.width())
-
-        # Done!
-        return frame
-
-    def length_secs(self):
-        """Return the length of the clip, in seconds."""
-        return self.length()/self.frame_rate()
-
-    def play_silently(self):
-        """Render the video part and display it in a window on screen."""
-        self.realize_video(keep_frame_rate=True, play=True)
-
-    def preview(self):
-        """Render the video part and display it in a window on screen."""
-        self.realize_video(keep_frame_rate=False, play=True)
-
-    def realize_video(self, save_fname=None, play=False, keep_frame_rate=True):
-        """Main function for saving and playing, or both.    Note that the save()
-        method does not use this (anymore) because cv2 cannot handle audio, so it's
-        faster just to give the frames directly to ffmpeg."""
-        if save_fname:
-            vw = cv2.VideoWriter(
-                save_fname,
-                cv2.VideoWriter_fourcc(*"mp4v"),
-                self.frame_rate(),
-                (self.width(), self.height())
-            )
-
-        tasks = []
-        if play and keep_frame_rate:
-            tasks.append('playing')
-        if play and not keep_frame_rate:
-            tasks.append('previewing')
-        if save_fname:
-            tasks.append("saving " + save_fname)
-        task = "+".join(tasks).capitalize()
-
-        try:
-            with custom_progressbar(task, self.length()) as pb:
-                for i in range(0, self.length()):
-                    frame = self.get_frame_cached(i)
-                    pb.update(i)
-                    if save_fname:
-                        vw.write(frame)
-                    if play:
-                        cv2.imshow("", frame)
-                        if keep_frame_rate:
-                            cv2.waitKey(int(1000.0/self.frame_rate()))
-                        else:
-                            cv2.waitKey(1)
-        finally:
-            if save_fname:
-                vw.release()
-
-    def default_audio(self):
-        """Utility to generate an appropriate-length silent audio clip with reasonable parameters."""
-        sample_rate = 48000
-        num_channels = 2
-        return silence(int(self.length() * sample_rate / self.frame_rate()), sample_rate, num_channels)
-
-
-
 class video_file(Clip):
     """Read a video clip from a file, optionally grabbing its audio track.    If we
     don't read audio from the input file, fill in silence instead."""
@@ -273,9 +192,6 @@ def black(height, width, frame_rate, length):
     """A clip with of solid black frames."""
     return solid(height, width, frame_rate, length, (0,0,0))
 
-    @abstractmethod
-    def compute_samples(self):
-        pass
 
     def get_samples(self):
         if not hasattr(self, '_samples'):
@@ -284,8 +200,6 @@ def black(height, width, frame_rate, length):
             assert self._samples.shape[0] == self.length()
             assert self._samples.shape[1] == self.num_channels()
         return self._samples
-
-    def save(self, fname):
 
     def play(self):
         with tempfile.TemporaryDirectory() as td:
@@ -882,8 +796,6 @@ class chain(Clip):
         # the right place.    That way, the errors won't accumulate they way they do
         # now, necessitating the force_audio_length above.
 
-        # TODO: Where can we verify that each clip has the correct-length audio?
-        # Maybe in realize_video()?
 
     def __repr__(self):
         return f'chain({self.clips})'

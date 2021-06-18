@@ -302,6 +302,14 @@ class Clip(ABC):
         """Length of the clip, in seconds."""
         return self.metrics.length
 
+    def width(self):
+        """Width of the video, in pixels."""
+        return self.metrics.width
+
+    def height(self):
+        """Height of the video, in pixels."""
+        return self.metrics.height
+
     def frame_rate(self):
         """Number of frames per second."""
         return self.metrics.frame_rate
@@ -343,6 +351,60 @@ class Clip(ABC):
         is, silence with the appropriate metrics."""
         return np.zeros([self.metrics.num_samples(), self.metrics.num_channels])
 
+    def compute_and_cache_frame(self, index, cached_filename):
+        """Call get_frame to compute one frame, and put it in the cache."""
+        # Get the frame.
+        frame = self.get_frame(index)
+
+        # Make sure we got a legit frame.
+        assert frame is not None, \
+          "Got None instead of a real frame for " + self.frame_signature(index)
+        assert frame.shape[1] == self.width(), \
+          "For %s, I got a frame of width %d instead of %d." % \
+          (self.frame_signature(index), frame.shape[1], self.width())
+        assert frame.shape[0] == self.height(), \
+          "From %s, I got a frame of height %d instead of %d." %  \
+          (self.frame_signature(index), frame.shape[0], self.height())
+
+        # Add to disk and to the cache.
+        cv2.imwrite(cached_filename, frame)
+        cache.insert(cached_filename)
+
+        # Done!;
+        return frame
+
+    def get_frame_cached(self, index):
+        """Return a frame, from the cache if possible, computed from scratch
+        if needed."""
+
+        # Look for the frame we need in the cache.
+        cached_filename, success = cache.lookup(
+          self.frame_signature(index),
+          frame_cache_format)
+
+        # Did we find it?
+        if success:
+            # Yes.  Read from disk.
+            return cv2.imread(cached_filename)
+        else:
+            # No. Generate and save to disk for next time.
+            return self.compute_and_cache_frame(index, cached_filename)
+
+    def get_cached_filename(self, index):
+        """Make sure the frame is in the cache, computing it if necessary,
+        and return its filename."""
+        # Look for the frame we need in the cache.
+        cached_filename, success = cache.lookup(
+          self.frame_signature(index),
+          frame_cache_format)
+
+        # If it wasn't there, generate it and save it there.
+        if not success:
+            self.compute_and_cache_frame(index, cached_filename)
+
+        # Done!
+        return cached_filename
+
     def save(self, fname, bitrate='1024k', preset='slow'):
         """Save to a file."""
 
@@ -372,16 +434,20 @@ class Clip(ABC):
 
             with custom_progressbar(f"Staging {fname}", self.length()) as pb:
                 for i in range(0, self.length()):
-                    cached_filename, success = cache.lookup(
-                      self.frame_signature(i),
-                      frame_cache_format)
-                    if not success:
-                        frame = self.get_frame(i)
-                        cv2.imwrite(cached_filename, frame)
-                        cache.insert(cached_filename)
+                    # Make sure this frame is in the cache, and figure out
+                    # where.
+                    cached_filename = self.get_cached_filename(i)
+
+                    # Add a symlink from this frame in the cache to the
+                    # staging area.
                     os.symlink(cached_filename, f'{i:06d}.{frame_cache_format}')
+
+                    # Update the progress bar.
                     pb.update(i)
 
+            # We have a directory containing the audio and a bunch of
+            # (symlinks to) individual frames.   Invoke ffmpeg to assemble
+            # all of these into the completed video.
             ffmpeg(
                 f'-framerate {self.frame_rate()}',
                 f'-i %06d.{frame_cache_format}',
@@ -398,6 +464,16 @@ class Clip(ABC):
             )
 
             print(f'Wrote {self.readable_length()} to {fname}.')
+
+    def preview(self):
+        """Render the video part and display it in a window on screen."""
+        with custom_progressbar("Previewing", self.length()) as pb:
+            for i in range(0, self.length()):
+                frame = self.get_frame_cached(i)
+                pb.update(i)
+                cv2.imshow("", frame)
+                cv2.waitKey(1)
+
 
 class solid(Clip):
     """A video clip in which each frame has the same solid color."""
