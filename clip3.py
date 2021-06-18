@@ -512,7 +512,7 @@ class Clip(ABC):
                 cv2.waitKey(1)
 
 class VideoClip(Clip):
-    """ Inherit from this for Clip classes that really only have vidoe, to
+    """ Inherit from this for Clip classes that really only have video, to
     default to silent audio. """
     def get_samples(self):
         """Return audio samples appropriate to use as a default audio.  That
@@ -606,7 +606,7 @@ class join(Clip):
         self.metrics = Metrics(
           src=video_clip.metrics,
           sample_rate=audio_clip.sample_rate(),
-          num_channels=audio_clip.sample_rate()
+          num_channels=audio_clip.num_channels()
         )
 
     def frame_signature(self, index):

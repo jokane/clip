@@ -15,6 +15,7 @@ def check_shapes(clip):
     """ Fully realize a clip, ensuring that the right sizes of
     video frames and audio samples are returned. """
     for i in range(clip.num_frames()):
+        clip.frame_signature(i)
         frame = clip.get_frame(i)
         assert frame.shape == (clip.height(), clip.width(), 4)
 
@@ -192,6 +193,16 @@ def test_temporal_composite():
 def test_sine_wave():
     x = sine_wave(880, 0.1, 5, 48000, 2)
     check_shapes(x)
+
+def test_join():
+    x = sine_wave(440, 0.25, 5, 48000, 2)
+    y = solid([0,255,0], 640, 480, 30, 5)
+    z = join(y, x)
+    check_shapes(z)
+
+    with pytest.raises(AssertionError):
+        join(x, y)
+
 
 # If we're run as a script, just execute all of the tests.
 if __name__ == '__main__':  #pragma: no cover
