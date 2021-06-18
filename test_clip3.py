@@ -11,6 +11,16 @@ import pytest
 
 from clip3 import *
 
+def check_shapes(clip):
+    """ Fully realize a clip, ensuring that the right sizes of
+    video frames and audio samples are returned. """
+    for i in range(clip.num_frames()):
+        frame = clip.get_frame(i)
+        assert frame.shape == (clip.height(), clip.width(), 4)
+
+    samples = clip.get_samples()
+    assert samples.shape == (clip.num_samples(), clip.num_channels())
+
 def test_validate():
     assert is_float(0.3)
     assert is_float(3)
@@ -55,20 +65,15 @@ def test_metrics():
         Metrics(default_metrics, length="really long")
 
 def test_solid():
-    x = solid(640, 480, 30, 300, [0,0,0])
-
-    x.frame_signature(0)
-
-    img = x.get_frame(0)
-    assert img.shape == (480, 640, 4)
+    x = solid([0,0,0], 640, 480, 30, 300)
+    check_shapes(x)
 
     samples = x.get_samples()
     assert samples.shape == (x.num_samples(), x.num_channels())
 
-
 def test_clip_metrics():
     secs = 30
-    x = solid(640, 480, 30, secs, [0,0,0])
+    x = solid([0,0,0], 640, 480, 30, secs)
     assert x.length() == secs
     assert x.frame_rate() == 30
     assert x.sample_rate() == default_metrics.sample_rate
@@ -77,7 +82,7 @@ def test_clip_metrics():
     assert x.num_channels() == default_metrics.num_channels
     assert f":{secs:02d}" in x.readable_length()
 
-    x = solid(640, 480, 30, 60*60+1, [0,0,0])
+    x = solid([0,0,0], 640, 480, 30, 60*60+1)
     assert x.readable_length()[:2] == '1:'
 
 def test_temporary_current_directory():
@@ -88,7 +93,7 @@ def test_cache():
     c = ClipCache()
     c.clear()
 
-    x = solid(640, 480, 30, 300, [0,0,0])
+    x = solid([0,0,0], 640, 480, 30, 300)
     sig1 = x.frame_signature(0)
     sig2 = x.frame_signature(1)
 
@@ -116,7 +121,7 @@ def test_customprogressbar():
 
 def test_frame_to_sample():
     secs = 10
-    x = solid(640, 480, 30, secs, [0,0,0])
+    x = solid([0,0,0], 640, 480, 30, secs)
 
     assert x.frame_to_sample(0) == 0
     assert x.frame_to_sample(x.frame_rate()) == x.sample_rate()
@@ -132,7 +137,7 @@ def test_save():
     shutil.rmtree(cache.directory)
     cache.cache = None
 
-    x = solid(640, 480, 30, 10, [0,0,0])
+    x = solid([0,0,0], 640, 480, 30, 10)
     with temporary_current_directory():
         x.save('test.mp4')
         assert os.path.exists('test.mp4')
@@ -146,12 +151,12 @@ def test_save():
 def test_preview():
     shutil.rmtree(cache.directory)
     cache.scan_directory()
-    x = solid(640, 480, 30, 10, [0,0,0])
+    x = solid([0,0,0], 640, 480, 30, 10)
     x.preview()
 
 def test_temporal_composite():
-    x = solid(640, 480, 30, 5, [0,0,0])
-    y = solid(640, 481, 30, 5, [255,0,0])
+    x = solid([0,0,0], 640, 480, 30, 5)
+    y = solid([0,0,0], 640, 481, 30, 5)
 
     with pytest.raises(ValueError):
         # Heights do not match.
@@ -160,15 +165,15 @@ def test_temporal_composite():
           (y, 6)
         )
 
+    x = solid([0,0,0], 640, 480, 30, 5)
+    y = solid([0,0,0], 640, 480, 30, 5)
+
     with pytest.raises(ValueError):
         # Can't start before 0.
         z = temporal_composite(
           (x, -1),
           (y, 6)
         )
-
-    x = solid(640, 480, 30, 5, [0,0,0])
-    y = solid(640, 480, 30, 5, [255,0,0])
 
     z = temporal_composite(
       (x, 0),
@@ -177,10 +182,18 @@ def test_temporal_composite():
 
     assert z.length() == 11
 
+    check_shapes(z)
+
     cache.clear()
     z.preview()
     z.get_samples()
 
+
+def test_sine_wave():
+    x = sine_wave(880, 0.1, 5, 48000, 2)
+    check_shapes(x)
+
+# If we're run as a script, just execute all of the tests.
 if __name__ == '__main__':  #pragma: no cover
     for name, thing in list(globals().items()):
         if 'test_' in name:

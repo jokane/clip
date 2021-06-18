@@ -2,11 +2,11 @@
 
 from clip3 import *
 
-# solid(640, 480, 30, 300, [0,0,0]).save('black.mp4')
-# solid(640, 480, 30, 300, [255,0,0]).save('red.mp4')
-# solid(640, 480, 30, 300, [0,255,0]).save('green.mp4')
-# solid(640, 480, 30, 300, [0,0,255]).save('blue.mp4')
-# solid(640, 480, 30, 300, [255,255,255]).save('white.mp4')
+# solid([0,0,0], 640, 480, 30, 300]).save('black.mp4')
+# solid([255,0,0], 640, 480, 30, 300).save('red.mp4')
+# solid([0,255,0], 640, 480, 30, 300).save('green.mp4')
+# solid([0,0,255], 640, 480, 30, 300).save('blue.mp4')
+# solid([255,255,255], 640, 480, 30, 300).save('white.mp4')
 
 
 # temporal_composite(
@@ -14,9 +14,10 @@ from clip3 import *
 #   (solid(640, 480, 30, 5, [255,0,0]), 4.5)
 # ).save('tc.mp4')
 
-# class sine_wave(Clip):
-#     def __init__(self, hertz, length, sample_rate, num_channels):
-#         super().__init__()
-# x = sine_wave(440, 5, 48000, 2)
-# x.save("A4.flac")
+x = sine_wave(440, 0.25, 5, 48000, 2)
+x.save("A4.flac")
+
+y = solid([0,255,0], 640, 480, 30, 5)
+
+join(y, x).save("green-A4.mp4")
 

@@ -10,7 +10,7 @@ through custom functions.
 The basic currency is the (abstract) Clip class, which encapsulates a sequence
 of identically-sized frames, each a cv2 image, meant to be played at a certain
 frame rate.  Clips may be created by reading from a video file (see:
-video_file), by starting from a blank video (see: black or solid), or by using
+video_file), by starting from a blank video (see: solid), or by using
 one of the other subclasses or functions to modify existing clips.
 All of these methods are non-destructive: Doing, say, a crop() on a
 clip with return a new, cropped clip, but will not affect the original.  Each
@@ -280,7 +280,8 @@ class ClipCache:
 
     def clear(self):
         """ Delete all the files in the cache. """
-        shutil.rmtree(self.directory)
+        if os.path.exists(self.directory):
+            shutil.rmtree(self.directory)
         self.cache = None
 
     def scan_directory(self):
@@ -470,7 +471,6 @@ class Clip(ABC):
 
             with custom_progressbar(f"Staging {fname}", self.num_frames()) as pb:
                 for index in range(0, self.num_frames()):
-                    print(self.frame_signature(index))
                     # Make sure this frame is in the cache, and figure out
                     # where.
                     cached_filename = self.get_cached_filename(index)
@@ -511,18 +511,18 @@ class Clip(ABC):
                 cv2.imshow("", frame)
                 cv2.waitKey(1)
 
-class VideoOnlyClip(Clip):
-    """ Inherit from this for Clip classes that should use the default silent
-    audio. """
+class VideoClip(Clip):
+    """ Inherit from this for Clip classes that really only have vidoe, to
+    default to silent audio. """
     def get_samples(self):
         """Return audio samples appropriate to use as a default audio.  That
         is, silence with the appropriate metrics."""
         return np.zeros([self.metrics.num_samples(), self.metrics.num_channels])
 
 
-class AudioOnlyClip(Clip):
-    """ Inherit from this for Clip classes that should use the default black
-    video. """
+class AudioClip(Clip):
+    """ Inherit from this for Clip classes that only really have audio, to default to
+    simple black frames for the video. """
     def __init__(self):
         super().__init__()
         self.color = [0, 0, 0, 255]
@@ -543,7 +543,7 @@ class AudioOnlyClip(Clip):
 
 class solid(Clip):
     """A video clip in which each frame has the same solid color."""
-    def __init__(self, width, height, frame_rate, length, color):
+    def __init__(self, color, width, height, frame_rate, length):
         super().__init__()
         assert is_color(color)
         self.metrics = Metrics(
@@ -557,10 +557,64 @@ class solid(Clip):
         self.color = [color[2], color[1], color[0], 255]
         self.frame = None
 
-    frame_signature = AudioOnlyClip.frame_signature
-    get_frame = AudioOnlyClip.get_frame
-    get_samples = VideoOnlyClip.get_samples
+    # Avoiding both code duplication and multiple inheritance here...
+    frame_signature = AudioClip.frame_signature
+    get_frame = AudioClip.get_frame
+    get_samples = VideoClip.get_samples
 
+class sine_wave(AudioClip):
+    """ A sine wave with the given frequency. """
+    def __init__(self, frequency, volume, length, sample_rate, num_channels):
+        super().__init__()
+
+        require_float(frequency, "frequency")
+        require_positive(frequency, "frequency")
+        require_float(volume, "volume")
+        require_positive(volume, "volume")
+
+        self.frequency = frequency
+        self.volume = volume
+        self.metrics = Metrics(
+          default_metrics,
+          length = length,
+          sample_rate = sample_rate,
+          num_channels = num_channels
+        )
+
+    def get_samples(self):
+        samples = np.arange(self.num_samples()) / self.sample_rate()
+        samples = self.volume * np.sin(2 * np.pi * self.frequency * samples)
+        samples = np.stack([samples]*self.num_channels(), axis=1)
+        return samples
+
+class join(Clip):
+    """ Create a new clip that combines the video of one clip with the audio of
+    another. """
+    def __init__(self, video_clip, audio_clip):
+        super().__init__()
+
+        require_clip(video_clip, "video clip")
+        require_clip(audio_clip, "audio clip")
+        require_equal(video_clip.length(), audio_clip.length(), "clip lengths")
+        assert not isinstance(video_clip, AudioClip)
+        assert not isinstance(audio_clip, VideoClip)
+        assert not isinstance(audio_clip, solid)
+
+        self.video_clip = video_clip
+        self.audio_clip = audio_clip
+
+        self.metrics = Metrics(
+          src=video_clip.metrics,
+          sample_rate=audio_clip.sample_rate(),
+          num_channels=audio_clip.sample_rate()
+        )
+
+    def frame_signature(self, index):
+        return self.video_clip.frame_signature(index)
+    def get_frame(self, index):
+        return self.video_clip.get_frame(index)
+    def get_samples(self):
+        return self.audio_clip.get_samples()
 
 
 class temporal_composite(Clip):
@@ -571,10 +625,10 @@ class temporal_composite(Clip):
     def __init__(self, *args):
         super().__init__()
 
-        self.elements = args
+        elements = list(args)
 
         # Sanity check on the inputs.
-        for (i, element) in enumerate(self.elements):
+        for (i, element) in enumerate(elements):
             assert len(element) == 2
             (clip, start_time) = element
             require_clip(clip, f'clip {i}')
@@ -584,27 +638,36 @@ class temporal_composite(Clip):
         # Compute our metrics.  Same as all of the clips, except for the
         # length.
         length = 0
-        for (i, element) in enumerate(self.elements):
+        for (i, element) in enumerate(elements):
             (clip, start_time) = element
             length = max(length, start_time + clip.length())
         self.metrics = Metrics(
-          src=self.elements[0][0].metrics,
+          src=elements[0][0].metrics,
           length=length
         )
 
         # Check for metric mismatches.
-        for (i, element) in enumerate(self.elements[1:]):
+        for (i, element) in enumerate(elements[1:]):
             (clip, start_time) = element
             self.metrics.verify_compatible_with(clip.metrics)
 
+        # Create a solid black background to use as a default, when none of the
+        # supplied clips are being shown.
+        elements.insert(0, (solid(
+          color=[0,0,0],
+          width=self.width(),
+          height=self.height(),
+          frame_rate=self.frame_rate(),
+          length=self.length()
+        ), 0))
+
         # At each step, precompute which frame of which clip will be shown.
         self.resolved_frames = [None] * self.num_frames()
-        for element in self.elements:
+        for element in elements:
             (clip, start_time) = element
             start_index = int(start_time*self.frame_rate())
             for clip_index in range(clip.num_frames()):
                 self.resolved_frames[start_index + clip_index] = (clip, clip_index)
-
 
     def frame_signature(self, index):
         (clip, clip_index) = self.resolved_frames[index]
@@ -614,6 +677,6 @@ class temporal_composite(Clip):
         (clip, clip_index) = self.resolved_frames[index]
         return clip.get_frame(clip_index)
 
-    get_samples = VideoOnlyClip.get_samples
+    get_samples = VideoClip.get_samples
 
 
