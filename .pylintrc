@@ -1,5 +1,5 @@
 [MESSAGES CONTROL]
-disable=C0103,C0302,R0914,R0912,R1705,R0911,R0913,C0321,C0326,R0903,trailing-newlines,unused-wildcard-import
+disable=trailing-newlines,unused-wildcard-import,invalid-name,multiple-statements,too-many-arguments,too-many-return-statements,no-else-return
 
 [TYPECHECK]
 generated-members=cv2.*

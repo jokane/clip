@@ -49,7 +49,11 @@ import collections
 import hashlib
 import math
 import os
+import re
+import subprocess
 import tempfile
+import time
+import threading
 
 import numpy as np
 import progressbar
@@ -105,6 +109,43 @@ def require_positive(x, name):
 def require_non_negative(x, name):
     """ Raise an informative exception if x is not 0 or positive. """
     require(x, is_non_negative, "non-negative", name)
+
+class FFMPEGException(Exception):
+    """Raised when ffmpeg fails for some reason."""
+
+def ffmpeg(*args, task=None, num_frames=None):
+    """Run ffmpeg with the given arguments.  Optionally, maintain a progress bar
+    as it goes."""
+
+    with tempfile.NamedTemporaryFile() as stats:
+        command = f"ffmpeg -y -vstats_file {stats.name} {' '.join(args)} 2> /dev/null"
+        with subprocess.Popen(command, shell=True) as proc:
+            t = threading.Thread(target=proc.communicate)
+            t.start()
+
+            if task is not None:
+                with custom_progressbar(task=task, steps=num_frames) as pb:
+                    pb.update(0)
+                    while proc.poll() is None:
+                        try:
+                            with open(stats.name) as f:
+                                fr = int(re.findall(r'frame=\s*(\d+)\s', f.read())[-1])
+                                pb.update(min(fr, num_frames-1))
+                        except FileNotFoundError:
+                            pass # pragma: no cover
+                        except IndexError:
+                            pass # pragma: no cover
+                        time.sleep(1)
+
+            t.join()
+
+            if proc.returncode != 0:
+                message = ('Alas, ffmpeg failed with return code ' +
+                           f'{proc.returncode}.\nCommand was: {command}')
+                # print(message)
+                # print("(starting shell to examine temporary directory)")
+                # os.system('bash')
+                raise FFMPEGException(message)
 
 
 class Metrics:

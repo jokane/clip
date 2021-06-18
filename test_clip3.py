@@ -106,3 +106,10 @@ def test_frame_to_sample():
     assert x.frame_to_sample(0) == 0
     assert x.frame_to_sample(x.frame_rate()) == x.sample_rate()
 
+def test_ffmpeg():
+    with pytest.raises(FFMPEGException):
+        ffmpeg('-i /dev/zero', '/dev/null')
+
+    with pytest.raises(FFMPEGException):
+        ffmpeg('-i /dev/zero', '/dev/null', task="Testing", num_frames=100)
+
