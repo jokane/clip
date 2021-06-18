@@ -48,6 +48,7 @@ def test_solid():
     samples = x.get_samples()
     assert samples.shape == (x.num_samples(), x.num_channels())
 
+
 def test_clip_metrics():
     secs = 30
     x = solid(640, 480, 30, secs, [0,0,0])
@@ -112,4 +113,21 @@ def test_ffmpeg():
 
     with pytest.raises(FFMPEGException):
         ffmpeg('-i /dev/zero', '/dev/null', task="Testing", num_frames=100)
+
+def test_save():
+    x = solid(640, 480, 30, 1000, [0,0,0])
+    with temporary_current_directory():
+        x.save('test.mp4')
+        assert os.path.exists('test.mp4')
+
+    with temporary_current_directory():
+        x.save('foo.flac')
+        x.save('foo.wav')
+        assert os.path.exists('foo.flac')
+        assert os.path.exists('foo.wav')
+
+if __name__ == '__main__':  #pragma: no cover
+    for name, thing in list(globals().items()):
+        if 'test_' in name:
+            thing()
 

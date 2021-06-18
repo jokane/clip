@@ -55,8 +55,10 @@ import tempfile
 import time
 import threading
 
+import cv2
 import numpy as np
 import progressbar
+import soundfile
 
 def is_float(x):
     """ Can the given value be interpreted as a float? """
@@ -114,8 +116,8 @@ class FFMPEGException(Exception):
     """Raised when ffmpeg fails for some reason."""
 
 def ffmpeg(*args, task=None, num_frames=None):
-    """Run ffmpeg with the given arguments.  Optionally, maintain a progress bar
-    as it goes."""
+    """Run ffmpeg with the given arguments.  Optionally, maintain a progress
+    bar as it goes."""
 
     with tempfile.NamedTemporaryFile() as stats:
         command = f"ffmpeg -y -vstats_file {stats.name} {' '.join(args)} 2> /dev/null"
@@ -275,6 +277,8 @@ class ClipCache:
 
 cache = ClipCache()
 
+frame_cache_format = 'png'
+
 class Clip(ABC):
     """The base class for all clips.  A finite series of frames, each with
     identical height and width, meant to be played at a given rate, along with
@@ -337,7 +341,63 @@ class Clip(ABC):
     def default_samples(self):
         """Return audio samples appropriate to use as a default audio.  That
         is, silence with the appropriate metrics."""
-        return np.zeros([self.metrics.num_samples(), self.metrics.num_channels], np.uint8)
+        return np.zeros([self.metrics.num_samples(), self.metrics.num_channels])
+
+    def save(self, fname, bitrate='1024k', preset='slow'):
+        """Save to a file."""
+
+        # First, a simple case: If we're saving to an audio-only format, it's
+        # easy.
+        if re.search('.(flac|wav)$', fname):
+            data = self.get_samples()
+            assert data is not None
+            soundfile.write(fname, data, self.sample_rate())
+            return
+
+        # So we need to save video.  First, construct the complete path name.
+        # We'll need this during the ffmpeg step, because that runs in a
+        # temporary current directory.
+        full_fname = os.path.join(os.getcwd(), fname)
+
+        # Force the frame cache to be read before we change to the temp
+        # directory.
+        if cache.cache is None:
+            cache.scan_directory()
+
+        with temporary_current_directory():
+            audio_fname = 'audio.flac'
+            data = self.get_samples()
+            assert data is not None
+            soundfile.write(audio_fname, data, self.sample_rate())
+
+            with custom_progressbar(f"Staging {fname}", self.length()) as pb:
+                for i in range(0, self.length()):
+                    cached_filename, success = cache.lookup(
+                      self.frame_signature(i),
+                      frame_cache_format)
+                    if not success:
+                        frame = self.get_frame(i)
+                        cv2.imwrite(cached_filename, frame)
+                        cache.insert(cached_filename)
+                    os.symlink(cached_filename, f'{i:06d}.{frame_cache_format}')
+                    pb.update(i)
+
+            ffmpeg(
+                f'-framerate {self.frame_rate()}',
+                f'-i %06d.{frame_cache_format}',
+                f'-i {audio_fname}',
+                '-vcodec libx264',
+                '-f mp4 ',
+                f'-vb {bitrate}' if bitrate else '',
+                f'-preset {preset}' if preset else '',
+                '-profile:v high',
+                '-vf format=yuv420p ',
+                f'{full_fname}',
+                task=f"Encoding {fname}",
+                num_frames=self.length()
+            )
+
+            print(f'Wrote {self.readable_length()} to {fname}.')
 
 class solid(Clip):
     """A video clip in which each frame has the same solid color."""

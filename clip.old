@@ -10,7 +10,6 @@ from PIL import Image, ImageFont, ImageDraw
 import cv2
 import pdf2image
 import scipy.signal
-import soundfile
 
 def isiterable(x):
     try:
@@ -37,7 +36,7 @@ def sha256sum(filename):
     def get_frame_cached(self, index):
         """Return one frame of the clip, from the cache if possible, but from scratch if necessary."""
         sig = self.frame_signature(index)
-        cached_filename, success = cache.lookup(sig, Clip.cache_format)
+        cached_filename, success = cache.lookup(sig, frame.cache_format)
 
         if success:
             frame = cv2.imread(cached_filename)
@@ -110,43 +109,6 @@ def sha256sum(filename):
         num_channels = 2
         return silence(int(self.length() * sample_rate / self.frame_rate()), sample_rate, num_channels)
 
-    def save(self, fname):
-        """Save both audio and video, in a format suitable for embedding in HTML5."""
-        full_fname = os.path.join(os.getcwd(), fname)
-
-        # Force the frame cache to be read before we change to the temp directory.
-        self.get_frame_cached(0)
-
-        with temporary_current_directory():
-
-            audio_fname = 'audio.flac'
-            self.get_audio().save(audio_fname)
-
-            with custom_progressbar(f"Staging {fname}", self.length()) as pb:
-                for i in range(0, self.length()):
-                    cached_filename, success = cache.lookup(self.frame_signature(i), Clip.cache_format)
-                    if not success:
-                        frame = self.get_frame_cached(i)
-                        cv2.imwrite(cached_filename, frame)
-                        cache.insert(cached_filename)
-                    os.symlink(cached_filename, f'{i:06d}.{Clip.cache_format}')
-                    pb.update(i)
-
-            ffmpeg(
-                f'-framerate {self.frame_rate()} -i %06d.{Clip.cache_format} -i {audio_fname} ',
-                f'-vcodec libx264 -f mp4 ',
-                f'-vb {Clip.bitrate}' if Clip.bitrate else '',
-                f'-preset {Clip.preset}' if Clip.preset else '',
-                f'-profile:v high',
-                f'-vf format=yuv420p',
-                f'{full_fname}',
-                task=f"Encoding {fname}",
-                num_frames=self.length()
-            )
-
-            asecs = self.get_audio().length()/self.get_audio().sample_rate()
-            vsecs = self.length()/self.frame_rate()
-            print(f'Wrote audio ({asecs:0.2f}s) and video ({vsecs:0.2f}s) to {fname}.')
 
 
 class video_file(Clip):
@@ -256,7 +218,7 @@ class video_file(Clip):
 
         # Make sure it's in the cache.    If it's not, expand a segment of the video
         # starting from here to acquire it.
-        _, exists = cache.lookup(self.frame_signature(index), Clip.cache_format)
+        _, exists = cache.lookup(self.frame_signature(index), frame.cache_format)
         if not exists:
             if self.decode_chunk_size is None:
                 self.explode(0, self.length())
@@ -276,7 +238,7 @@ class video_file(Clip):
                     f'-t {(length)/self.frame_rate_}',
                     f'-i {self.fname}',
                     f'-r {self.frame_rate_}',
-                    f'%06d.{Clip.cache_format}',
+                    f'%06d.{frame_cache_format}',
                     task=f'Exploding {os.path.basename(self.fname)}:{start_index}',
                     num_frames=length
                 )
@@ -288,8 +250,8 @@ class video_file(Clip):
 
             # Add each frame to the cache.
             for index in range(start_index, min(start_index+length, self.length())):
-                sequential_filename = os.path.abspath(f'{index-start_index+1:06d}.{Clip.cache_format}')
-                cached_filename, exists = cache.lookup(self.frame_signature(index), Clip.cache_format)
+                sequential_filename = os.path.abspath(f'{index-start_index+1:06d}.{frame_cache_format}')
+                cached_filename, exists = cache.lookup(self.frame_signature(index), frame_cache_format)
                 if not exists:
                     try:
                         os.rename(sequential_filename, cached_filename)
@@ -324,9 +286,6 @@ def black(height, width, frame_rate, length):
         return self._samples
 
     def save(self, fname):
-        data = self.get_samples()
-        assert data is not None
-        soundfile.write(fname, data, self.sample_rate())
 
     def play(self):
         with tempfile.TemporaryDirectory() as td:
