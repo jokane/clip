@@ -686,4 +686,34 @@ class temporal_composite(Clip):
             samples[start_sample:end_sample] = clip_samples
         return samples
 
+def chain(*args):
+    """ Concatenate a series of clips.  The clips may be given individually, in
+    lists or other iterables, or a mixture of both.  """
+
+    # Construct our list of clips.  Flatten each list; keep each individual
+    # clip.
+    clips = list()
+    for x in args:
+        if is_iterable(x):
+            clips += x
+        else:
+            clips.append(x)
+
+    # Sanity checks.
+    for clip in clips:
+        require_clip(clip, "clip")
+      
+    if len(clips) == 0:
+      raise ValueError("Need at least one clip to form a chain.")
+
+    # Figure out when each clip should start and make a list of elements for
+    # temporal_composite.
+    start_time = 0
+    elements = list()
+    for clip in clips:
+        elements.append((clip, start_time))
+        start_time += clip.length()
+
+    # Let temporal_composite do all the work.
+    return temporal_composite(*elements)
 

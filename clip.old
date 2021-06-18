@@ -1,10 +1,8 @@
-
 from zipfile import ZipFile
 import glob
 import hashlib
 import io
 import itertools
-import os
 
 from PIL import Image, ImageFont, ImageDraw
 import cv2
@@ -756,111 +754,6 @@ class fade(Clip):
 
     def get_audio(self):
         return fade_audio(self.clip1.get_audio(), self.clip2.get_audio())
-
-class chain(Clip):
-    """
-    Concatenate a series of clips.    The clips may be given individually, in
-    lists, or a mixture of both.
-    """
-
-    def __init__(self, *args):
-        # Construct our list of clips.
-        self.clips = list()
-        for x in args:
-            if isiterable(x):
-                self.clips += x
-            else:
-                self.clips.append(x)
-        for clip in self.clips: assert isinstance(clip, Clip), f'Got {type(clip)} instead of Clip.'
-        assert len(self.clips) > 0, "Need at least one clip to form a chain."
-
-
-        self.audio = force_audio_length(chain_audio(map(lambda x: x.get_audio(), self.clips)), self.default_audio().length())
-        # TODO: Looks like chain_audio is bad choice here, especially if there are
-        # many clips in the chain.    Each one many have a roundoff error in the
-        # audio length, and they will all add up.    Instead, let's make a big empty
-        # numpy array, and then paste in the data from each clip in the chain at
-        # the right place.    That way, the errors won't accumulate they way they do
-        # now, necessitating the force_audio_length above.
-
-
-    def __repr__(self):
-        return f'chain({self.clips})'
-
-    def frame_rate(self):
-        return self.clips[0].frame_rate()
-
-    def width(self):
-        return self.clips[0].width()
-
-    def height(self):
-        return self.clips[0].height()
-
-    def length(self):
-        return sum(map(lambda x: x.length(), self.clips))
-
-    def find_frame_index(self, frame_index):
-        # Given a frame index for the chained video, find and return the index of
-        # the source clip that would contain that frame, along with the index
-        # within that clip.    TODO: Binary search.
-        for i in range(0, len(self.clips)):
-            if frame_index < self.clips[i].length():
-                return (i, frame_index)
-            frame_index -= self.clips[i].length()
-        assert False, f'Could not find chain element index {frame_index} within {len(self.clips)} clips, with lengths {list(map(lambda x: x.length(), self.clips))}    Total length is only {self.length()}.\n{self}'
-        return (None, None)
-
-    def frame_signature(self, index):
-        i, index = self.find_frame_index(index)
-        return self.clips[i].frame_signature(index)
-
-    def get_frame(self, index):
-        i, index = self.find_frame_index(index)
-        return self.clips[i].get_frame(index)
-
-    def get_audio(self):
-        return self.audio
-
-
-class replace_audio(Clip):
-    """
-    Replace the audio in a clip with something else, usually forcing the length to match.
-    """
-
-    def __init__(self, clip, audio, force_to=None):
-        assert isinstance(clip, Clip)
-        assert isinstance(audio, Audio)
-        self.clip = clip
-        self.audio = audio
-        if force_to is None:
-            force_to = self.frame_to_sample(self.length())
-        else:
-            assert isinstance(force_to, int)
-        self.audio = force_audio_length(self.audio, force_to)
-
-    def __repr__(self):
-        return f'replace_audio({self.clip}, {self.audio})'
-
-    def frame_rate(self):
-        return self.clip.frame_rate()
-
-    def width(self):
-        return self.clip.width()
-
-    def height(self):
-        return self.clip.height()
-
-    def length(self):
-        return self.clip.length()
-
-    def frame_signature(self, index):
-        return self.clip.frame_signature(index)
-
-    def get_frame(self, index):
-        return self.clip.get_frame(index)
-
-    def get_audio(self):
-        return self.audio
 
 
 def slice_out(clip, start, end):

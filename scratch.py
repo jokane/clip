@@ -20,9 +20,6 @@ x = join(x, sine_wave(440, 0.25, 5, 48000, 2))
 y = solid([0,0,255], 640, 480, 30, 5)
 y = join(y, sine_wave(880, 0.25, 5, 48000, 2))
 
-z = temporal_composite(
-  (x, 0),
-  (y, x.length())
-)
+z = chain(x, y)
 
 z.save("twotone.mp4")
