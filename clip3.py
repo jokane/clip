@@ -387,11 +387,6 @@ class Clip(ABC):
         else:
             return f'{mins}:{secs:02}'
 
-    def default_samples(self):
-        """Return audio samples appropriate to use as a default audio.  That
-        is, silence with the appropriate metrics."""
-        return np.zeros([self.metrics.num_samples(), self.metrics.num_channels])
-
     def compute_and_cache_frame(self, index, cached_filename):
         """Call get_frame to compute one frame, and put it in the cache."""
         # Get the frame.
@@ -516,6 +511,35 @@ class Clip(ABC):
                 cv2.imshow("", frame)
                 cv2.waitKey(1)
 
+class VideoOnlyClip(Clip):
+    """ Inherit from this for Clip classes that should use the default silent
+    audio. """
+    def get_samples(self):
+        """Return audio samples appropriate to use as a default audio.  That
+        is, silence with the appropriate metrics."""
+        return np.zeros([self.metrics.num_samples(), self.metrics.num_channels])
+
+
+class AudioOnlyClip(Clip):
+    """ Inherit from this for Clip classes that should use the default black
+    video. """
+    def __init__(self):
+        super().__init__()
+        self.color = [0, 0, 0, 255]
+        self.frame = None
+
+    def frame_signature(self, index):
+        return ['solid', {
+            'width': self.metrics.width,
+            'height': self.metrics.height,
+            'color': self.color
+        }]
+
+    def get_frame(self, index):
+        if self.frame is None:
+            self.frame = np.zeros([self.metrics.height, self.metrics.width, 4], np.uint8)
+            self.frame[:] = self.color
+        return self.frame
 
 class solid(Clip):
     """A video clip in which each frame has the same solid color."""
@@ -533,21 +557,11 @@ class solid(Clip):
         self.color = [color[2], color[1], color[0], 255]
         self.frame = None
 
-    def frame_signature(self, index):
-        return ['solid', {
-            'width': self.metrics.width,
-            'height': self.metrics.height,
-            'color': self.color
-        }]
+    frame_signature = AudioOnlyClip.frame_signature
+    get_frame = AudioOnlyClip.get_frame
+    get_samples = VideoOnlyClip.get_samples
 
-    def get_frame(self, index):
-        if self.frame is None:
-            self.frame = np.zeros([self.metrics.height, self.metrics.width, 4], np.uint8)
-            self.frame[:] = self.color
-        return self.frame
 
-    def get_samples(self):
-        return self.default_samples()
 
 class temporal_composite(Clip):
     """ Given a collection of (clip, start_time) tuples, form a clip
@@ -583,7 +597,7 @@ class temporal_composite(Clip):
             (clip, start_time) = element
             self.metrics.verify_compatible_with(clip.metrics)
 
-        # Precompute which frame of which clips will be shown at each step.
+        # At each step, precompute which frame of which clip will be shown.
         self.resolved_frames = [None] * self.num_frames()
         for element in self.elements:
             (clip, start_time) = element
@@ -600,7 +614,6 @@ class temporal_composite(Clip):
         (clip, clip_index) = self.resolved_frames[index]
         return clip.get_frame(clip_index)
 
-    def get_samples(self):
-        return self.default_samples()
+    get_samples = VideoOnlyClip.get_samples
 
 

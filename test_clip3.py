@@ -161,7 +161,7 @@ def test_temporal_composite():
         )
 
     with pytest.raises(ValueError):
-        # Can start before 0.
+        # Can't start before 0.
         z = temporal_composite(
           (x, -1),
           (y, 6)
