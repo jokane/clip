@@ -11,12 +11,6 @@ import cv2
 import pdf2image
 import scipy.signal
 
-def isiterable(x):
-    try:
-        iter(x)
-        return True
-    except TypeError:
-        return False
 
 
 def sha256sum(filename):

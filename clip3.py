@@ -65,6 +65,8 @@ def is_float(x):
     try:
         float(x)
         return True
+    except TypeError:
+        return False
     except ValueError:
         return False
 
@@ -91,6 +93,14 @@ def is_color(color):
     if color[2] < 0 or color[2] > 255: return False
     return True
 
+def isiterable(x):
+    """ Is this a thing that can be iterated? """
+    try:
+        iter(x)
+        return True
+    except TypeError:
+        return False
+
 def require(x, func, condition, name, exception_class):
     """ Make sure func(x) returns a true value, and complain if not."""
     if not func(x):
@@ -103,6 +113,10 @@ def require_int(x, name):
 def require_float(x, name):
     """ Raise an informative exception if x is not a float. """
     require(x, is_float, "positive real number", name, TypeError)
+
+def require_clip(x, name):
+    """ Raise an informative exception if x is not a Clip. """
+    require(x, lambda x: isinstance(x, Clip), "Clip", name, TypeError)
 
 def require_positive(x, name):
     """ Raise an informative exception if x is not positive. """
@@ -160,6 +174,7 @@ class Metrics:
     """ A object describing the dimensions of a Clip. """
     def __init__(self, src=None, width=None, height=None, frame_rate=None,
                  sample_rate=None, num_channels=None, length=None):
+        assert src is None or isinstance(src, Metrics), f'src should be Metrics, not {type(src)}'
         self.width = width if width is not None else src.width
         self.height = height if height is not None else src.height
         self.frame_rate = frame_rate if frame_rate is not None else src.frame_rate
@@ -454,18 +469,19 @@ class Clip(ABC):
             assert data is not None
             soundfile.write(audio_fname, data, self.sample_rate())
 
-            with custom_progressbar(f"Staging {fname}", self.length()) as pb:
-                for i in range(0, self.length()):
+            with custom_progressbar(f"Staging {fname}", self.num_frames()) as pb:
+                for index in range(0, self.num_frames()):
+                    print(self.frame_signature(index))
                     # Make sure this frame is in the cache, and figure out
                     # where.
-                    cached_filename = self.get_cached_filename(i)
+                    cached_filename = self.get_cached_filename(index)
 
                     # Add a symlink from this frame in the cache to the
                     # staging area.
-                    os.symlink(cached_filename, f'{i:06d}.{frame_cache_format}')
+                    os.symlink(cached_filename, f'{index:06d}.{frame_cache_format}')
 
                     # Update the progress bar.
-                    pb.update(i)
+                    pb.update(index)
 
             # We have a directory containing the audio and a bunch of
             # (symlinks to) individual frames.   Invoke ffmpeg to assemble
@@ -482,7 +498,7 @@ class Clip(ABC):
                 '-vf format=yuv420p ',
                 f'{full_fname}',
                 task=f"Encoding {fname}",
-                num_frames=self.length()
+                num_frames=self.num_frames()
             )
 
             print(f'Wrote {self.readable_length()} to {fname}.')
@@ -510,15 +526,13 @@ class solid(Clip):
             length=length
         )
 
-        self.color = [color[2], color[1], color[0], 0]
+        self.color = [color[2], color[1], color[0], 255]
         self.frame = None
 
     def frame_signature(self, index):
         return ['solid', {
             'width': self.metrics.width,
             'height': self.metrics.height,
-            'frame_rate': self.metrics.frame_rate,
-            'length': self.metrics.length,
             'color': self.color
         }]
 
@@ -530,3 +544,59 @@ class solid(Clip):
 
     def get_samples(self):
         return self.default_samples()
+
+class temporal_composite(Clip):
+    """ Given a collection of (clip, start_time) tuples, form a clip
+    composited from those elements as described.  When two or more
+    clips overlap, the last one listed prevails."""
+
+    def __init__(self, *args):
+        super().__init__()
+
+        self.elements = args
+
+        # Sanity check on the inputs.
+        for (i, element) in enumerate(self.elements):
+            assert len(element) == 2
+            (clip, start_time) = element
+            require_clip(clip, f'clip {i}')
+            require_float(start_time, f'start time {i}')
+            require_non_negative(start_time, f'start time {i}')
+
+        # Compute our metrics.  Same as all of the clips, except for the
+        # length.
+        length = 0
+        for (i, element) in enumerate(self.elements):
+            (clip, start_time) = element
+            length = max(length, start_time + clip.length())
+        self.metrics = Metrics(
+          src=self.elements[0][0].metrics,
+          length=length
+        )
+
+        # Check for metric mismatches.
+        for (i, element) in enumerate(self.elements[1:]):
+            (clip, start_time) = element
+            self.metrics.verify_compatible_with(clip.metrics)
+
+        # Precompute which frame of which clips will be shown at each step.
+        self.resolved_frames = [None] * self.num_frames()
+        for element in self.elements:
+            (clip, start_time) = element
+            start_index = int(start_time*self.frame_rate())
+            for clip_index in range(clip.num_frames()):
+                self.resolved_frames[start_index + clip_index] = (clip, clip_index)
+
+
+    def frame_signature(self, index):
+        (clip, clip_index) = self.resolved_frames[index]
+        return clip.frame_signature(clip_index)
+
+    def get_frame(self, index):
+        (clip, clip_index) = self.resolved_frames[index]
+        return clip.get_frame(clip_index)
+
+    def get_samples(self):
+        return self.default_samples()
+
+

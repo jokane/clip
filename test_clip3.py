@@ -145,6 +145,34 @@ def test_preview():
     x = solid(640, 480, 30, 10, [0,0,0])
     x.preview()
 
+def test_temporal_composite():
+    x = solid(640, 480, 30, 5, [0,0,0])
+    y = solid(640, 481, 30, 5, [255,0,0])
+
+    with pytest.raises(ValueError):
+        # Heights do not match.
+        z = temporal_composite(
+          (x, 0),
+          (y, 6)
+        )
+
+    with pytest.raises(ValueError):
+        # Can start before 0.
+        z = temporal_composite(
+          (x, -1),
+          (y, 6)
+        )
+
+    x = solid(640, 480, 30, 5, [0,0,0])
+    y = solid(640, 480, 30, 5, [255,0,0])
+
+    z = temporal_composite(
+      (x, 0),
+      (y, 6)
+    )
+
+    assert z.length() == 11
+
 if __name__ == '__main__':  #pragma: no cover
     for name, thing in list(globals().items()):
         if 'test_' in name:
