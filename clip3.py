@@ -625,35 +625,35 @@ class temporal_composite(Clip):
     def __init__(self, *args):
         super().__init__()
 
-        elements = list(args)
+        self.elements = list(args)
 
         # Sanity check on the inputs.
-        for (i, element) in enumerate(elements):
+        for (i, element) in enumerate(self.elements):
             assert len(element) == 2
             (clip, start_time) = element
             require_clip(clip, f'clip {i}')
             require_float(start_time, f'start time {i}')
             require_non_negative(start_time, f'start time {i}')
 
-        # Compute our metrics.  Same as all of the clips, except for the
-        # length.
+        # Compute our metrics.  Same as all of the clips, except for the length
+        # computed from ending time of the final-ending clip.
         length = 0
-        for (i, element) in enumerate(elements):
+        for (i, element) in enumerate(self.elements):
             (clip, start_time) = element
             length = max(length, start_time + clip.length())
         self.metrics = Metrics(
-          src=elements[0][0].metrics,
+          src=self.elements[0][0].metrics,
           length=length
         )
 
         # Check for metric mismatches.
-        for (i, element) in enumerate(elements[1:]):
+        for (i, element) in enumerate(self.elements[1:]):
             (clip, start_time) = element
             self.metrics.verify_compatible_with(clip.metrics)
 
         # Create a solid black background to use as a default, when none of the
         # supplied clips are being shown.
-        elements.insert(0, (solid(
+        self.elements.insert(0, (solid(
           color=[0,0,0],
           width=self.width(),
           height=self.height(),
@@ -663,7 +663,7 @@ class temporal_composite(Clip):
 
         # At each step, precompute which frame of which clip will be shown.
         self.resolved_frames = [None] * self.num_frames()
-        for element in elements:
+        for element in self.elements:
             (clip, start_time) = element
             start_index = int(start_time*self.frame_rate())
             for clip_index in range(clip.num_frames()):
@@ -677,6 +677,13 @@ class temporal_composite(Clip):
         (clip, clip_index) = self.resolved_frames[index]
         return clip.get_frame(clip_index)
 
-    get_samples = VideoClip.get_samples
+    def get_samples(self):
+        samples = np.zeros([self.metrics.num_samples(), self.metrics.num_channels])
+        for (clip, start_time) in self.elements:
+            clip_samples = clip.get_samples()
+            start_sample = int(start_time*clip.sample_rate())
+            end_sample = start_sample + clip.num_samples()
+            samples[start_sample:end_sample] = clip_samples
+        return samples
 
 

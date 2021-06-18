@@ -176,6 +176,18 @@ def test_temporal_composite():
           (y, 6)
         )
 
+    x = sine_wave(880, 0.1, 5, 48000, 2)
+    y = sine_wave(880, 0.1, 5, 48001, 2)
+
+    with pytest.raises(ValueError):
+        # Sample rates don't match.
+        z = temporal_composite(
+          (x, 0),
+          (y, 5)
+        )
+
+    x = solid([0,0,0], 640, 480, 30, 5)
+    y = solid([0,0,0], 640, 480, 30, 5)
     z = temporal_composite(
       (x, 0),
       (y, 6)
