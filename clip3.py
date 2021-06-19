@@ -46,9 +46,12 @@ Possibly relevant implementation details:
 from abc import ABC, abstractmethod
 import contextlib
 import collections
+from dataclasses import dataclass
+from enum import Enum
 import hashlib
 import math
 import os
+from pprint import pprint
 import re
 import shutil
 import subprocess
@@ -66,6 +69,8 @@ def is_float(x):
     try:
         float(x)
         return True
+    except TypeError:
+        return False
     except ValueError:
         return False
 
@@ -471,6 +476,8 @@ class Clip(ABC):
 
             with custom_progressbar(f"Staging {fname}", self.num_frames()) as pb:
                 for index in range(0, self.num_frames()):
+                    #pprint(self.frame_signature(index))
+
                     # Make sure this frame is in the cache, and figure out
                     # where.
                     cached_filename = self.get_cached_filename(index)
@@ -541,6 +548,23 @@ class AudioClip(Clip):
             self.frame[:] = self.color
         return self.frame
 
+class MutatorClip(Clip):
+    """ Inherit from this for Clip classes that modify another clip.  Override
+    only the parts that need to change."""
+    def __init__(self, clip):
+      super().__init__()
+      require_clip(clip, "base clip")
+      self.clip = clip
+
+    def frame_signature(self, index):
+      return self.clip.frame_signature(index)
+
+    def get_frame(self, index):
+      return self.clip.get_frame(index)
+
+    def get_samples(self):
+      return self.clip.get_samples()
+
 class solid(Clip):
     """A video clip in which each frame has the same solid color."""
     def __init__(self, color, width, height, frame_rate, length):
@@ -561,6 +585,14 @@ class solid(Clip):
     frame_signature = AudioClip.frame_signature
     get_frame = AudioClip.get_frame
     get_samples = VideoClip.get_samples
+
+def black(width, height, frame_rate, length):
+    """ A silent solid black clip. """
+    return solid([0,0,0], width, height, frame_rate, length)
+
+def white(width, height, frame_rate, length):
+    """ A silent white black clip. """
+    return solid([255,255,255], width, height, frame_rate, length)
 
 class sine_wave(AudioClip):
     """ A sine wave with the given frequency. """
@@ -616,11 +648,21 @@ class join(Clip):
     def get_samples(self):
         return self.audio_clip.get_samples()
 
+@dataclass
+class TCE:
+    """An element to be included in a composite."""
+    class VideoMode(Enum):
+        REPLACE = 1
+        BLEND = 2
+
+    clip : Clip
+    start_time : float
+    video_mode : VideoMode = VideoMode.REPLACE
+
 
 class temporal_composite(Clip):
-    """ Given a collection of (clip, start_time) tuples, form a clip
-    composited from those elements as described.  When two or more
-    clips overlap, the last one listed prevails."""
+    """ Given a collection of temporal composite elements (TCE), form a clip
+    composited from those elements as described."""
 
     def __init__(self, *args):
         super().__init__()
@@ -628,67 +670,88 @@ class temporal_composite(Clip):
         self.elements = list(args)
 
         # Sanity check on the inputs.
-        for (i, element) in enumerate(self.elements):
-            assert len(element) == 2
-            (clip, start_time) = element
-            require_clip(clip, f'clip {i}')
-            require_float(start_time, f'start time {i}')
-            require_non_negative(start_time, f'start time {i}')
+        for (i, e) in enumerate(self.elements):
+            assert isinstance(e, TCE)
+            require_clip(e.clip, f'clip {i}')
+            require_float(e.start_time, f'start time {i}')
+            require_non_negative(e.start_time, f'start time {i}')
 
-        # Compute our metrics.  Same as all of the clips, except for the length
-        # computed from ending time of the final-ending clip.
+        # Compute our metrics.  Same as all of the clips, except for the
+        # length computed from ending time of the final-ending clip.
         length = 0
-        for (i, element) in enumerate(self.elements):
-            (clip, start_time) = element
-            length = max(length, start_time + clip.length())
+        for (i, e) in enumerate(self.elements):
+            length = max(length, e.start_time + e.clip.length())
         self.metrics = Metrics(
-          src=self.elements[0][0].metrics,
+          src=self.elements[0].clip.metrics,
           length=length
         )
 
         # Check for metric mismatches.
-        for (i, element) in enumerate(self.elements[1:]):
-            (clip, start_time) = element
-            self.metrics.verify_compatible_with(clip.metrics)
+        for (i, e) in enumerate(self.elements[1:]):
+            self.metrics.verify_compatible_with(e.clip.metrics)
 
-        # Create a solid black background to use as a default, when none of the
-        # supplied clips are being shown.
-        self.elements.insert(0, (solid(
-          color=[0,0,0],
+        # Create a solid black background to use as a default, when none of
+        # the supplied clips are being shown.
+        self.elements.insert(0, TCE(black(
           width=self.width(),
           height=self.height(),
           frame_rate=self.frame_rate(),
           length=self.length()
         ), 0))
 
-        # At each step, precompute which frame of which clip will be shown.
-        self.resolved_frames = [None] * self.num_frames()
-        for element in self.elements:
-            (clip, start_time) = element
-            start_index = int(start_time*self.frame_rate())
-            for clip_index in range(clip.num_frames()):
-                self.resolved_frames[start_index + clip_index] = (clip, clip_index)
+    def get_frame_or_signature(self, index, make_frame):
+        if make_frame:
+            ret = np.zeros([self.metrics.height, self.metrics.width, 4], np.uint8)
+        else:
+            ret = ""
+
+        for e in self.elements:
+            start_index = int(e.start_time*self.frame_rate())
+            if index < start_index: continue
+            if index >= start_index + e.clip.num_frames(): continue
+
+            if e.video_mode == TCE.VideoMode.REPLACE:
+                if make_frame:
+                    ret = e.clip.get_frame(index-start_index)
+                else:
+                    ret = e.clip.frame_signature(index-start_index)
+            elif e.video_mode == TCE.VideoMode.BLEND:
+                if make_frame:
+                    over_frame = e.clip.get_frame(index-start_index)
+                    over_bgr = over_frame[:,:,:3]
+                    over_alpha = over_frame[:,:,3]/255
+                    over_alpha = np.stack([over_alpha]*3, axis=2)
+                    # print("bgr", over_bgr.shape)
+                    # print("alpha", over_alpha.shape)
+                    over_alpha*over_bgr
+                    (1-over_alpha)*ret[:,:,:3]
+                    ret[:,:,:3] = over_alpha*over_bgr + (1-over_alpha)*ret[:,:,:3]
+                else:
+                    ret = ['blend', e.clip.frame_signature(index-start_index), ret]
+
+        return ret
 
     def frame_signature(self, index):
-        (clip, clip_index) = self.resolved_frames[index]
-        return clip.frame_signature(clip_index)
-
+        return self.get_frame_or_signature(index, make_frame=False)
+ 
     def get_frame(self, index):
-        (clip, clip_index) = self.resolved_frames[index]
-        return clip.get_frame(clip_index)
+        return self.get_frame_or_signature(index, make_frame=True)
 
     def get_samples(self):
         samples = np.zeros([self.metrics.num_samples(), self.metrics.num_channels])
-        for (clip, start_time) in self.elements:
-            clip_samples = clip.get_samples()
-            start_sample = int(start_time*clip.sample_rate())
-            end_sample = start_sample + clip.num_samples()
+        for e in self.elements:
+            clip_samples = e.clip.get_samples()
+            start_sample = int(e.start_time*e.clip.sample_rate())
+            end_sample = start_sample + e.clip.num_samples()
             samples[start_sample:end_sample] = clip_samples
         return samples
 
 def chain(*args):
-    """ Concatenate a series of clips.  The clips may be given individually, in
-    lists or other iterables, or a mixture of both.  """
+  return fade_chain(0, *args)
+
+def fade_chain(fade, *args):
+    """ Concatenate a series of clips.  The clips may be given individually,
+    in lists or other iterables, or a mixture of both.  """
 
     # Construct our list of clips.  Flatten each list; keep each individual
     # clip.
@@ -700,20 +763,50 @@ def chain(*args):
             clips.append(x)
 
     # Sanity checks.
+    require_float(fade, "fade time")
+    require_non_negative(fade, "fade time")
+
     for clip in clips:
         require_clip(clip, "clip")
-      
+
     if len(clips) == 0:
-      raise ValueError("Need at least one clip to form a chain.")
+        raise ValueError("Need at least one clip to form a chain.")
 
     # Figure out when each clip should start and make a list of elements for
     # temporal_composite.
     start_time = 0
     elements = list()
-    for clip in clips:
-        elements.append((clip, start_time))
-        start_time += clip.length()
+    for i, clip in enumerate(clips):
+        if i>0:
+          clip = scale_alpha(clip, lambda index: min(index/clip.frame_rate()/fade, 1.0))
+        if i<len(clips)-1:
+          clip = scale_alpha(clip, lambda index: min((clip.num_frames()-index)/clip.frame_rate()/fade, 1.0))
+
+        elements.append(TCE(clip, start_time, video_mode=TCE.VideoMode.BLEND))
+        start_time += clip.length() - fade
 
     # Let temporal_composite do all the work.
     return temporal_composite(*elements)
+
+class scale_alpha(MutatorClip):
+    def __init__(self, clip, factor):
+        super().__init__(clip)
+        if is_float(factor):
+          factor = lambda x: x
+        self.factor = factor
+        self.metrics = Metrics(clip.metrics)
+
+    def frame_signature(self, index):
+        factor = self.factor(index)
+        return ['scale_alpha', self.clip.frame_signature(index), factor]
+
+    def get_frame(self, index):
+        factor = self.factor(index)
+        frame = self.clip.get_frame(index)  
+        frame = frame.astype('float')
+        frame[:,:,3] *= factor
+        frame = frame.astype('uint8')
+        return frame
+
+  
 

@@ -26,6 +26,7 @@ def test_validate():
     assert is_float(0.3)
     assert is_float(3)
     assert not is_float("abc")
+    assert not is_float(print)
 
     assert is_color([0,0,0])
     assert not is_color([0,0,256])
@@ -162,8 +163,8 @@ def test_temporal_composite():
     with pytest.raises(ValueError):
         # Heights do not match.
         z = temporal_composite(
-          (x, 0),
-          (y, 6)
+          TCE(x, 0),
+          TCE(y, 6)
         )
 
     x = solid([0,0,0], 640, 480, 30, 5)
@@ -172,8 +173,8 @@ def test_temporal_composite():
     with pytest.raises(ValueError):
         # Can't start before 0.
         z = temporal_composite(
-          (x, -1),
-          (y, 6)
+          TCE(x, -1),
+          TCE(y, 6)
         )
 
     x = sine_wave(880, 0.1, 5, 48000, 2)
@@ -182,15 +183,15 @@ def test_temporal_composite():
     with pytest.raises(ValueError):
         # Sample rates don't match.
         z = temporal_composite(
-          (x, 0),
-          (y, 5)
+          TCE(x, 0),
+          TCE(y, 5)
         )
 
     x = solid([0,0,0], 640, 480, 30, 5)
     y = solid([0,0,0], 640, 480, 30, 5)
     z = temporal_composite(
-      (x, 0),
-      (y, 6)
+      TCE(x, 0),
+      TCE(y, 6)
     )
 
     assert z.length() == 11
@@ -214,6 +215,22 @@ def test_join():
 
     with pytest.raises(AssertionError):
         join(x, y)
+
+def test_chain():
+    a = black(640, 480, 30, 5)
+    b = white(640, 480, 30, 5)
+    c = solid([255,0,0], 640, 480, 30, 5)
+
+    d = chain(a, [b, c])
+    assert d.length() == a.length() + b.length() + c.length()
+
+    with pytest.raises(ValueError):
+        chain()
+
+
+def test_black_and_white():
+    check_shapes(black(640, 480, 30, 300))
+    check_shapes(white(640, 480, 30, 300))
 
 
 # If we're run as a script, just execute all of the tests.
