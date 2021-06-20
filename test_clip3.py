@@ -11,9 +11,9 @@ import pytest
 
 from clip3 import *
 
-def check_shapes(clip):
-    """ Fully realize a clip, ensuring that the right sizes of
-    video frames and audio samples are returned. """
+def check_clip(clip):
+    """ Fully realize a clip, ensuring that no exception occur and that the
+    right sizes of video frames and audio samples are returned. """
     for i in range(clip.num_frames()):
         clip.frame_signature(i)
         frame = clip.get_frame(i)
@@ -68,7 +68,7 @@ def test_metrics():
 
 def test_solid():
     x = solid([0,0,0], 640, 480, 30, 300)
-    check_shapes(x)
+    check_clip(x)
 
     samples = x.get_samples()
     assert samples.shape == (x.num_samples(), x.num_channels())
@@ -151,9 +151,8 @@ def test_save():
         assert os.path.exists('foo.wav')
 
 def test_preview():
-    shutil.rmtree(cache.directory)
-    cache.scan_directory()
-    x = solid([0,0,0], 640, 480, 30, 10)
+    cache.clear()
+    x = solid([0,0,0], 640, 480, 30, 2)
     x.preview()
 
 def test_temporal_composite():
@@ -196,7 +195,7 @@ def test_temporal_composite():
 
     assert z.length() == 11
 
-    check_shapes(z)
+    check_clip(z)
 
     cache.clear()
     z.preview()
@@ -205,16 +204,17 @@ def test_temporal_composite():
 
 def test_sine_wave():
     x = sine_wave(880, 0.1, 5, 48000, 2)
-    check_shapes(x)
+    check_clip(x)
 
 def test_join():
     x = sine_wave(440, 0.25, 5, 48000, 2)
     y = solid([0,255,0], 640, 480, 30, 5)
     z = join(y, x)
-    check_shapes(z)
+    check_clip(z)
 
     with pytest.raises(AssertionError):
         join(x, y)
+
 
 def test_chain():
     a = black(640, 480, 30, 5)
@@ -223,14 +223,32 @@ def test_chain():
 
     d = chain(a, [b, c])
     assert d.length() == a.length() + b.length() + c.length()
+    check_clip(d)
+
+    e = fade_chain(2, a, [b, c])
+    assert e.length() == a.length() + b.length() + c.length() - 4
+    check_clip(e)
 
     with pytest.raises(ValueError):
         chain()
 
+    with pytest.raises(ValueError):
+        fade_chain(3)
+
 
 def test_black_and_white():
-    check_shapes(black(640, 480, 30, 300))
-    check_shapes(white(640, 480, 30, 300))
+    check_clip(black(640, 480, 30, 300))
+    check_clip(white(640, 480, 30, 300))
+
+def test_mutator():
+    a = black(640, 480, 30, 5)
+    b = MutatorClip(a)
+    check_clip(b)
+
+def test_scale_alpha():
+    a = black(640, 480, 30, 5)
+    b = scale_alpha(a, 0.5)
+    check_clip(b)
 
 
 # If we're run as a script, just execute all of the tests.

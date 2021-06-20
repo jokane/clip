@@ -51,7 +51,7 @@ from enum import Enum
 import hashlib
 import math
 import os
-from pprint import pprint
+#from pprint import pprint
 import re
 import shutil
 import subprocess
@@ -135,6 +135,9 @@ def require_equal(x, y, name):
     if x != y:
         raise ValueError(f'Expected {name} to be equal, but they are not.  {x} != {y}')
 
+def require_callable(x, name):
+    """ Raise an informative exception if x is not callable. """
+    require(x, callable, "callable", name, TypeError)
 
 class FFMPEGException(Exception):
     """Raised when ffmpeg fails for some reason."""
@@ -549,21 +552,22 @@ class AudioClip(Clip):
         return self.frame
 
 class MutatorClip(Clip):
-    """ Inherit from this for Clip classes that modify another clip.  Override
-    only the parts that need to change."""
+    """ Inherit from this for Clip classes that modify another clip.
+    Override only the parts that need to change."""
     def __init__(self, clip):
-      super().__init__()
-      require_clip(clip, "base clip")
-      self.clip = clip
+        super().__init__()
+        require_clip(clip, "base clip")
+        self.clip = clip
+        self.metrics = clip.metrics
 
     def frame_signature(self, index):
-      return self.clip.frame_signature(index)
+        return self.clip.frame_signature(index)
 
     def get_frame(self, index):
-      return self.clip.get_frame(index)
+        return self.clip.get_frame(index)
 
     def get_samples(self):
-      return self.clip.get_samples()
+        return self.clip.get_samples()
 
 class solid(Clip):
     """A video clip in which each frame has the same solid color."""
@@ -652,6 +656,8 @@ class join(Clip):
 class TCE:
     """An element to be included in a composite."""
     class VideoMode(Enum):
+        """ How should the video for this element be composited into the final
+        clip?"""
         REPLACE = 1
         BLEND = 2
 
@@ -700,6 +706,8 @@ class temporal_composite(Clip):
         ), 0))
 
     def get_frame_or_signature(self, index, make_frame):
+        """ Combined logic for frame_signature and get_frame.  If make_frame is
+        True, act like get_frame; otherwise, act like frame_signature. """
         if make_frame:
             ret = np.zeros([self.metrics.height, self.metrics.width, 4], np.uint8)
         else:
@@ -721,10 +729,6 @@ class temporal_composite(Clip):
                     over_bgr = over_frame[:,:,:3]
                     over_alpha = over_frame[:,:,3]/255
                     over_alpha = np.stack([over_alpha]*3, axis=2)
-                    # print("bgr", over_bgr.shape)
-                    # print("alpha", over_alpha.shape)
-                    over_alpha*over_bgr
-                    (1-over_alpha)*ret[:,:,:3]
                     ret[:,:,:3] = over_alpha*over_bgr + (1-over_alpha)*ret[:,:,:3]
                 else:
                     ret = ['blend', e.clip.frame_signature(index-start_index), ret]
@@ -733,7 +737,7 @@ class temporal_composite(Clip):
 
     def frame_signature(self, index):
         return self.get_frame_or_signature(index, make_frame=False)
- 
+
     def get_frame(self, index):
         return self.get_frame_or_signature(index, make_frame=True)
 
@@ -747,11 +751,14 @@ class temporal_composite(Clip):
         return samples
 
 def chain(*args):
-  return fade_chain(0, *args)
-
-def fade_chain(fade, *args):
     """ Concatenate a series of clips.  The clips may be given individually,
     in lists or other iterables, or a mixture of both.  """
+    return fade_chain(0, *args)
+
+def fade_chain(fade, *args):
+    """ Concatenate a series of clips, with a given amount of overlap between
+    each successive pair.  The clips may be given individually, in lists or
+    other iterables, or a mixture of both.  """
 
     # Construct our list of clips.  Flatten each list; keep each individual
     # clip.
@@ -777,10 +784,11 @@ def fade_chain(fade, *args):
     start_time = 0
     elements = list()
     for i, clip in enumerate(clips):
-        if i>0:
-          clip = scale_alpha(clip, lambda index: min(index/clip.frame_rate()/fade, 1.0))
-        if i<len(clips)-1:
-          clip = scale_alpha(clip, lambda index: min((clip.num_frames()-index)/clip.frame_rate()/fade, 1.0))
+        if i>0 and fade>0:
+            clip = scale_alpha(clip, lambda index: min(index/clip.frame_rate()/fade, 1.0))
+        if i<len(clips)-1 and fade>0:
+            clip = scale_alpha(clip,
+              lambda index: min((clip.num_frames()-index)/clip.frame_rate()/fade, 1.0))
 
         elements.append(TCE(clip, start_time, video_mode=TCE.VideoMode.BLEND))
         start_time += clip.length() - fade
@@ -789,24 +797,33 @@ def fade_chain(fade, *args):
     return temporal_composite(*elements)
 
 class scale_alpha(MutatorClip):
+    """ Scale the alpha channel of a given clip by the given factor, which may
+    be a float (for a constant factor) or a float-returning function (for a
+    factor that changes across time)."""
     def __init__(self, clip, factor):
         super().__init__(clip)
+
+        # Make sure we got either a constant float or a callable.
         if is_float(factor):
-          factor = lambda x: x
+            factor = lambda x: x
+        require_callable(factor, "factor function")
+
         self.factor = factor
         self.metrics = Metrics(clip.metrics)
 
     def frame_signature(self, index):
         factor = self.factor(index)
+        require_float(factor, f'factor at index {index}')
         return ['scale_alpha', self.clip.frame_signature(index), factor]
 
     def get_frame(self, index):
         factor = self.factor(index)
-        frame = self.clip.get_frame(index)  
+        require_float(factor, f'factor at index {index}')
+        frame = self.clip.get_frame(index)
         frame = frame.astype('float')
         frame[:,:,3] *= factor
         frame = frame.astype('uint8')
         return frame
 
-  
+
 
