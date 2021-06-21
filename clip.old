@@ -7,88 +7,6 @@ from PIL import Image, ImageFont, ImageDraw
 import pdf2image
 import scipy.signal
 
-
-        if audio:
-            # Grab the audio.
-            self.audio = audio_file(fname)
-
-            # Make sure it has the length we expect.    Small differences seem to be
-            # normal, but complain if the difference is big.    Chop it or add silence
-            # if needed.
-            target_length = self.frame_to_sample(self.length())
-            difference_in_samples = abs(self.audio.length() - target_length)
-            difference_in_frames = difference_in_samples * self.frame_rate() / self.audio.sample_rate()
-            if difference_in_frames > 1.0*self.frame_rate():
-                print(f'WARNING: In {fname}, video length differs from audio length by {difference_in_frames} frames.    Correcting.', file=sys.stderr)
-            self.audio = force_audio_length(self.audio, target_length)
-        else:
-            self.audio = self.default_audio()
-
-        assert self.audio.length() == self.frame_to_sample(self.length())
-
-    match = re.search(r'displaymatrix: rotation of -90.00 degrees', deets)
-    if match:
-        self.width_, self.height_ = self.height_, self.width_
-
-class audio_from_data(Audio):
-    """ Form an audio clip from a numpy array. """
-    def __init__(self, name, data, sample_rate):
-        assert isinstance(name, str)
-        assert isinstance(data, np.ndarray)
-        assert isfloat(sample_rate)
-        self.name = name
-        self.data = data
-        self.sample_rate_ = sample_rate
-
-    def __repr__(self):
-        return "audio_from_data('%s', [%d samples], %s)" % (self.name, self.data.shape[0], self.sample_rate_)
-
-    def length(self):
-        return self.data.shape[0]
-
-    def sample_rate(self):
-        return self.sample_rate_
-
-    def num_channels(self):
-        return self.data.shape[1]
-
-    def compute_samples(self):
-        return self.data
-
-def silence(length, sample_rate, num_channels):
-    """ Create an audio clip of the requested amount of silence. """
-    return audio_from_data("silence", np.zeros((length, num_channels)), sample_rate)
-
-class slice_audio(Audio):
-    """Extract the portion of a sound between the given times, which are specified in samples."""
-    def __init__(self, audio, start_sample, end_sample):
-        assert isinstance(audio, Audio)
-        assert isinstance(start_sample, int)
-        assert isinstance(end_sample, int)
-        assert start_sample >= 0, f"Slicing {audio} but slice start should be at least 0.    Got {start_sample} instead."
-        assert end_sample <= audio.length(), "Slice end %d is beyond the end of the sound (%d)" % (end_sample, audio.length())
-
-        assert start_sample <= end_sample, "Slice end %d is before slice start %d" % (end_sample, start_sample)
-
-        self.audio = audio
-        self.start_sample = start_sample
-        self.end_sample = end_sample
-
-    def __repr__(self):
-        return f'slice_audio({self.audio}, {self.start_sample}, {self.end_sample})'
-
-    def sample_rate(self):
-        return self.audio.sample_rate()
-
-    def num_channels(self):
-        return self.audio.num_channels()
-
-    def length(self):
-        return self.end_sample - self.start_sample
-
-    def compute_samples(self):
-        return self.audio.get_samples()[self.start_sample:self.end_sample]
-
 class mix(Audio):
     """
     Add together a series of audio clips, sample by sample.    The sample rates
@@ -229,45 +147,6 @@ def change_sample_rate(audio, new_sample_rate):
 
 def timewarp_audio(audio, factor):
     return resample(audio, audio.sample_rate(), int(audio.length()*factor))
-
-class chain_audio(Audio):
-    """
-    Concatenate a series of audio clips.    The clips may be given individually, in
-    lists, or a mixture of both.
-
-    The sample rates and number of channels must match.
-    """
-
-    def __init__(self, *args):
-        # Construct our list of audios.
-        self.audios = list()
-        for x in args:
-            if isiterable(x):
-                self.audios += x
-            else:
-                self.audios.append(x)
-
-        # Sanity checks.
-        for audio in self.audios: assert isinstance(audio, Audio)
-        assert len(self.audios) > 0, "Need at least one audio to form a chain."
-        assert len(set(map(lambda x: x.sample_rate(), self.audios))) == 1, "Cannot chain audios because the sample rates do not match." + str(list(map(lambda x: x.sample_rate(), self.audios)))
-        assert len(set(map(lambda x: x.num_channels(), self.audios))) == 1, "Cannot chain audios because the numbers of channels do not match." + str(list(map(lambda x: x.num_channels(), self.audios)))
-
-    def __repr__(self):
-        return f'chain_audio({self.audios})'
-
-    def sample_rate(self):
-        return self.audios[0].sample_rate()
-
-    def num_channels(self):
-        return self.audios[0].num_channels()
-
-    def length(self):
-        return sum(map(lambda x: x.length(), self.audios))
-
-    def compute_samples(self):
-        chunks = list(map(lambda x: x.get_samples(), self.audios))
-        return np.concatenate(chunks)
 
 def force_audio_length(audio, target_length):
     """Return an audio clip with exactly the given length.    Trim the end or add silence to achieve this."""
@@ -562,9 +441,6 @@ def slice_out(clip, start, end):
     return chain(slice(clip, 0, start), slice(clip, end, clip.length()))
 
 class slice_video(Clip):
-    """
-    Extract the portion of a clip between the given frames.
-    """
     def __init__(self, clip, start, end):
         assert isinstance(clip, Clip)
         assert isinstance(start, int)
@@ -583,21 +459,6 @@ class slice_video(Clip):
             self.frame_to_sample(self.end_frame)
         )
 
-    def __repr__(self):
-        return f'slice_video({self.clip}, {self.start_frame}, {self.end_frame})'
-
-    def frame_rate(self):
-        return self.clip.frame_rate()
-    def width(self):
-        return self.clip.width()
-    def height(self):
-        return self.clip.height()
-    def length(self):
-        return self.end_frame - self.start_frame
-    def frame_signature(self, index):
-        return self.clip.frame_signature(self.start_frame + index)
-    def get_frame(self, index):
-        return self.clip.get_frame(self.start_frame + index)
     def get_audio(self):
         return self.audio
 
@@ -1167,4 +1028,9 @@ def sha256sum(filename):
         for n in iter(lambda: f.readinto(mv), 0):
             h.update(mv[:n])
     return h.hexdigest()
+
+
+match = re.search(r'displaymatrix: rotation of -90.00 degrees', deets)
+if match:
+    self.width_, self.height_ = self.height_, self.width_
 

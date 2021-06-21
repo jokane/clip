@@ -4,5 +4,5 @@ Pipfile.lock
 __pycache__
 .coverage
 .venv
-*.mp4
+*.mp?
 *.flac

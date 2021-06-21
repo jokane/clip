@@ -137,6 +137,11 @@ def require_equal(x, y, name):
     if x != y:
         raise ValueError(f'Expected {name} to be equal, but they are not.  {x} != {y}')
 
+def require_less_equal(x, y, name1, name2):
+    """ Raise an informative exception if x is not less than or equal to y. """
+    if x > y:
+        raise ValueError(f'Expected {name1} less than or equak to {name2}, but it is not. {x} > {y}')
+
 def require_callable(x, name):
     """ Raise an informative exception if x is not callable. """
     require(x, callable, "callable", name, TypeError)
@@ -1131,5 +1136,36 @@ class from_file(Clip):
             else:
                 self.samples = np.zeros([self.metrics.num_samples(), self.metrics.num_channels])
         return self.samples
+
+
+class slice_clip(MutatorClip):
+    """ Extract the portion of a clip between the given times. Endpoints
+    default to the start and end of the clip."""
+    def __init__(self, clip, start=0, end=None):
+        super().__init__(clip)
+        if end is None:
+          end = self.clip.length()
+
+        require_float(start, "start time")
+        require_non_negative(start, "start time")
+        require_float(end, "end time")
+        require_non_negative(end, "end time")
+        require_less_equal(start, end, "start time", "end time")
+        require_less_equal(end, clip.length(), "start time", "end time")
+
+        self.metrics = Metrics(self.metrics, length=end-start)
+
+        self.start_frame = int(start * self.frame_rate())
+        self.start_sample = int(start * self.sample_rate())
+
+    def frame_signature(self, index):
+        return self.clip.frame_signature(self.start_frame + index)
+
+    def get_frame(self, index):
+        return self.clip.get_frame(self.start_frame + index)
+
+    def get_samples(self):
+      original_samples = self.clip.get_samples()
+      return original_samples[self.start_sample:self.start_sample+self.num_samples()]
 
 

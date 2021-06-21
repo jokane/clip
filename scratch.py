@@ -34,7 +34,11 @@ from clip3 import *
 # x.verify()
 # x.save("newer_books.mp4")
 
-x = from_file("music.mp3")
-x.verify()
-x.save("music.mp3")
+# x = from_file("music.mp3")
+# x.verify()
+# x.save("music.mp3")
+
+x = from_file("intro.mp4")
+x = slice_clip(x, start=80)
+x.save("sliced.mp4")
 
