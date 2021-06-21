@@ -43,6 +43,8 @@ Possibly relevant implementation details:
 # - New Metrics class.  Each Clip should have an attribute called metrics.
 #       Result: fewer abstract methods, less boilerplate.
 
+# pylint: disable=too-many-lines
+
 from abc import ABC, abstractmethod
 import contextlib
 import collections
@@ -147,7 +149,7 @@ def ffmpeg(*args, task=None, num_frames=None):
     bar as it goes."""
 
     with tempfile.NamedTemporaryFile() as stats:
-        command = f"ffmpeg -y -vstats_file {stats.name} {' '.join(args)} 2> /dev/null"
+        command = f"ffmpeg -y -vstats_file {stats.name} {' '.join(args)} 2> errors"
         with subprocess.Popen(command, shell=True) as proc:
             t = threading.Thread(target=proc.communicate)
             t.start()
@@ -169,8 +171,13 @@ def ffmpeg(*args, task=None, num_frames=None):
             t.join()
 
             if proc.returncode != 0:
-                message = ('Alas, ffmpeg failed with return code ' +
-                           f'{proc.returncode}.\nCommand was: {command}')
+                with open('errors', 'r') as f:
+                    errors = f.read()
+                message = (
+                  f'Alas, ffmpeg failed with return code {proc.returncode}.\n'
+                  f'Command was: {command}\n'
+                  f'Standard error was:\n{errors}'
+                )
                 raise FFMPEGException(message)
 
 
@@ -398,6 +405,7 @@ class Clip(ABC):
         hours, mins = divmod(mins, 60)
         mins = int(mins)
         hours = int(hours)
+        secs = int(secs)
         if hours > 0:
             return f'{hours}:{mins:02}:{secs:02}'
         else:
@@ -407,10 +415,12 @@ class Clip(ABC):
         """Call get_frame to compute one frame, and put it in the cache."""
         # Get the frame.
         frame = self.get_frame(index)
+        assert frame is not None, ("A clip of type " + type(self) +
+          " returned None instead of a real frame.")
 
         # Make sure we got a legit frame.
         assert frame is not None, \
-          "Got None instead of a real frame for " + self.frame_signature(index)
+          "Got None instead of a real frame for " + str(self.frame_signature(index))
         assert frame.shape[1] == self.width(), \
           "For %s, I got a frame of width %d instead of %d." % \
           (self.frame_signature(index), frame.shape[1], self.width())
@@ -437,7 +447,13 @@ class Clip(ABC):
         # Did we find it?
         if success:
             # Yes.  Read from disk.
-            return cv2.imread(cached_filename)
+            frame = cv2.imread(cached_filename, cv2.IMREAD_UNCHANGED)
+            assert frame is not None
+            if frame.shape[2] == 3:
+                frame = cv2.cvtColor(frame, cv2.COLOR_RGB2RGBA)
+                assert frame is not None
+            assert frame.shape == (self.height(), self.width(), 4)
+            return frame
         else:
             # No. Generate and save to disk for next time.
             return self.compute_and_cache_frame(index, cached_filename)
@@ -448,7 +464,8 @@ class Clip(ABC):
         # Look for the frame we need in the cache.
         cached_filename, success = cache.lookup(
           self.frame_signature(index),
-          frame_cache_format)
+          frame_cache_format
+        )
 
         # If it wasn't there, generate it and save it there.
         if not success:
@@ -528,6 +545,19 @@ class Clip(ABC):
                 cv2.waitKey(1)
 
         cv2.destroyWindow("")
+
+    def verify(self):
+        """ Fully realize a clip, ensuring that no exceptions occur and that
+        the right sizes of video frames and audio samples are returned. """
+        with custom_progressbar(task="Verifying", steps=self.num_frames()) as pb:
+            for i in range(self.num_frames()):
+                self.frame_signature(i)
+                frame = self.get_frame(i)
+                assert frame.shape == (self.height(), self.width(), 4)
+                pb.update(i)
+
+        samples = self.get_samples()
+        assert samples.shape == (self.num_samples(), self.num_channels())
 
 class VideoClip(Clip):
     """ Inherit from this for Clip classes that really only have video, to
@@ -864,18 +894,19 @@ def metrics_from_ffprobe_output(ffprobe_output, fname):
               "which has an unknown stream of type {stream['codec_type']}.")
 
     if video_stream and audio_stream:
-        vlen = video_stream['duration']
-        alen = audio_stream['duration']
-        if vlen != alen:
+        vlen = float(video_stream['duration'])
+        alen = float(audio_stream['duration'])
+        if abs(vlen - alen) > 0.5:
             raise ValueError(f"In {fname}, video length ({vlen}) and audio length ({alen}) "
               "do not match. Perhaps load video and audio separately?")
+
         return Metrics(
           width = eval(video_stream['width']),
           height = eval(video_stream['height']),
           frame_rate = eval(video_stream['avg_frame_rate']),
           sample_rate = eval(audio_stream['sample_rate']),
           num_channels = eval(audio_stream['channels']),
-          length = eval(video_stream['duration'])
+          length = min(vlen, alen)
         ), True, True
     elif video_stream:
         return Metrics(
@@ -896,7 +927,8 @@ def metrics_from_ffprobe_output(ffprobe_output, fname):
         # Should be impossible to get here, but just in case...
         raise ValueError(f"File {fname} contains neither audio nor video.") # pragma: no cover
 
-def audio_samples_from_file(fname):
+def audio_samples_from_file(fname, expected_sample_rate, expected_num_channels,
+  expected_num_samples):
     """ Extract audio data from a file, which may be either a pure audio
     format or a video file containing an audio stream."""
 
@@ -909,8 +941,35 @@ def audio_samples_from_file(fname):
       soundfile.available_formats().keys()))
     if ext in direct_formats:
         print("Reading audio from", fname)
+
+        # Acquire the data from the file.
         data, sample_rate = soundfile.read(fname, always_2d=True)
-        return data, sample_rate
+
+        # Complain if the sample rates or numbers of channels don't match.
+        if sample_rate != expected_sample_rate:
+            raise ValueError(f"From {fname}, expected sample rate {expected_sample_rate},"
+                f" but found {sample_rate} instead.")
+        if data.shape[1] != expected_num_channels:
+            raise ValueError(f"From {fname}, expected {expected_num_channels} channels,"
+                f" but found {data.shape[1]} instead.")
+
+        # Complain if there's a length mismatch longer than about half a
+        # second.
+        if abs(data.shape[0] - expected_num_samples) > expected_sample_rate:
+            raise ValueError(f"From {fname}, got {data.shape[0]}"
+              f" samples instead of {expected_num_samples}.")
+
+        # If there's a small mismatch, just patch it.
+        # - Too short?
+        if data.shape[0] < expected_num_samples:
+            new_data = np.zeros([expected_num_samples, expected_num_channels], dtype=np.uint8)
+            new_data[0:data.shape[0],:] = data
+            data = new_data
+        # - Too long?
+        if data.shape[0] > expected_num_samples:
+            data = data[:expected_num_samples,:]
+
+        return data
 
     # Not a format we can read directly.  Instead, let's use ffmpeg to get it
     # indirectly.  (...or simply pull it from the cache, if it happens to be
@@ -923,12 +982,17 @@ def audio_samples_from_file(fname):
             audio_fname = os.path.join(td, 'audio.flac')
             ffmpeg(
                 f'-i {fname}',
-                f'-vn',
+                '-vn',
                 f'{audio_fname}',
             )
             os.rename(audio_fname, cached_filename)
             cache.insert(cached_filename)
-    return audio_samples_from_file(cached_filename)
+    return audio_samples_from_file(
+      cached_filename,
+      expected_sample_rate,
+      expected_num_channels,
+      expected_num_samples
+    )
 
 
 class from_file(Clip):
@@ -953,7 +1017,7 @@ class from_file(Clip):
 
     def acquire_metrics(self, forced_length=None):
         """ Set the metrics attribute, either by grabbing the metrics from the
-        cache, or by getting them the hard way from ffprobe."""
+        cache, or by getting them the hard way via ffprobe."""
 
         # Do we have the metrics in the cache?
         cached_filename, exists = cache.lookup(hashlib.md5(self.fname.encode()).hexdigest(), 'dim')
@@ -972,8 +1036,10 @@ class from_file(Clip):
                 print(deets, file=f)
             cache.insert(cached_filename)
 
-        # Parse the (very detailed) ffprobe response to get the metrics we need.
-        self.metrics, self.has_video, self.has_audio = metrics_from_ffprobe_output(deets, self.fname)
+        # Parse the (very detailed) ffprobe response to get the metrics we
+        # need.
+        response = metrics_from_ffprobe_output(deets, self.fname)
+        self.metrics, self.has_video, self.has_audio = response
 
         # Adjust the length if our user insists.
         if forced_length is not None:
@@ -994,7 +1060,7 @@ class from_file(Clip):
     def get_frame(self, index):
         require_int(index, "frame index")
         require_non_negative(index, "frame index")
-        
+
         if self.has_video:
             # Make sure the frame we want is in the cache.  If not,
             # expand a segment of the video starting from here to
@@ -1002,19 +1068,23 @@ class from_file(Clip):
             _, exists = cache.lookup(self.frame_signature(index), frame_cache_format)
             if not exists:
                 if self.decode_chunk_length is None:
-                    self.explode(0, self.num_frames)
+                    self.explode(0, self.num_frames())
                 else:
                     self.explode(max(0, index), int(self.decode_chunk_length*self.frame_rate()))
 
             # Return the frame from the cache.
-            return self.get_frame_cached(index)
+            frame = self.get_frame_cached(index)
+            assert frame is not None
+            return frame
         else:
-            self.frame = np.zeros([self.metrics.height, self.metrics.width, 4], np.uint8)
+            return np.zeros([self.metrics.height, self.metrics.width, 4], np.uint8)
 
     def explode(self, start_index, length):
         """Exand a segment of the video into individual frames, then cache
         those frames for later."""
-        assert(self.has_video)
+        assert self.has_video
+        assert is_int(start_index)
+        assert is_int(length)
 
         with temporary_current_directory():
             ffmpeg(
@@ -1028,12 +1098,13 @@ class from_file(Clip):
             )
 
             # Add each frame to the cache.
-            for index in range(start_index, min(start_index+length, self.num_frames())):
-                sequential_filename = os.path.abspath(f'{index-start_index+1:06d}.{frame_cache_format}')
-                cached_filename, exists = cache.lookup(self.frame_signature(index), frame_cache_format)
+            rng = range(start_index, min(start_index+length, self.num_frames()))
+            for index in rng:
+                seq_fname = os.path.abspath(f'{index-start_index+1:06d}.{frame_cache_format}')
+                cached_fname, exists = cache.lookup(self.frame_signature(index), frame_cache_format)
                 if not exists:
                     try:
-                        os.rename(sequential_filename, cached_filename)
+                        os.rename(seq_fname, cached_fname)
                     except FileNotFoundError:
                         # If we get here, that means ffmpeg thought a frame
                         # should exist, that ultimately was not extracted.
@@ -1041,20 +1112,24 @@ class from_file(Clip):
                         # video length, or sometimes from simply missing
                         # frames.  To keep things rolling, let's fill in a
                         # black frame instead.
-                        print(f"[Exploding {self.fname} did not produce frame {index}.  Using black instead.]")
-                        fr = np.zeros([self.height_, self.width_, 3], np.uint8)
-                        cv2.imwrite(cached_filename, fr)
+                        print(f"[Exploding {self.fname} did not produce frame {index}. "
+                          "Using black instead.]")
+                        fr = np.zeros([self.height(), self.width(), 3], np.uint8)
+                        cv2.imwrite(cached_fname, fr)
 
-                    cache.insert(cached_filename)
+                    cache.insert(cached_fname)
 
     def get_samples(self):
         if self.samples is None:
-          if self.has_audio:
-              data, sample_rate = audio_samples_from_file(self.fname)
-              assert self.sample_rate() == sample_rate
-              self.samples = data
-          else:
-              self.samples = np.zeros([self.metrics.num_samples(), self.metrics.num_channels])
+            if self.has_audio:
+                self.samples = audio_samples_from_file(
+                  self.fname,
+                  self.sample_rate(),
+                  self.num_channels(),
+                  self.num_samples()
+                )
+            else:
+                self.samples = np.zeros([self.metrics.num_samples(), self.metrics.num_channels])
         return self.samples
 
 

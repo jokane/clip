@@ -1168,4 +1168,3 @@ def sha256sum(filename):
             h.update(mv[:n])
     return h.hexdigest()
 
-

@@ -5,6 +5,7 @@
 
 import glob
 import shutil
+import sys
 import urllib.request
 
 import cv2
@@ -12,17 +13,17 @@ import pytest
 
 from clip3 import *
 
+def get_sample_files():  # pragma: no cover
+    opener = urllib.request.build_opener()
+    opener.addheaders = [('User-agent', 'Mozilla/5.0')]
+    urllib.request.install_opener(opener)
 
-def check_clip(clip):
-    """ Fully realize a clip, ensuring that no exception occur and that the
-    right sizes of video frames and audio samples are returned. """
-    for i in range(clip.num_frames()):
-        clip.frame_signature(i)
-        frame = clip.get_frame(i)
-        assert frame.shape == (clip.height(), clip.width(), 4)
+    if not os.path.exists("books.mp4"):
+        urllib.request.urlretrieve("https://www.pexels.com/video/5224014/download", "books.mp4")
 
-    samples = clip.get_samples()
-    assert samples.shape == (clip.num_samples(), clip.num_channels())
+    if not os.path.exists("music.mp3"):
+        urllib.request.urlretrieve("https://www.dropbox.com/s/mvvwaw1msplnteq/City%20Lights%20-%20The%20Lemming%20Shepherds.mp3?dl=1", "music.mp3") # pylint: disable=line-too-long
+
 
 def test_validate():
     assert is_float(0.3)
@@ -70,7 +71,7 @@ def test_metrics():
 
 def test_solid():
     x = solid([0,0,0], 640, 480, 30, 300)
-    check_clip(x)
+    x.verify()
 
     samples = x.get_samples()
     assert samples.shape == (x.num_samples(), x.num_channels())
@@ -189,25 +190,18 @@ def test_temporal_composite():
       TCE(x, 0),
       TCE(y, 6)
     )
-
     assert z.length() == 11
-
-    check_clip(z)
-
-    cache.clear()
-    z.preview()
-    z.get_samples()
-
+    z.verify()
 
 def test_sine_wave():
     x = sine_wave(880, 0.1, 5, 48000, 2)
-    check_clip(x)
+    x.verify()
 
 def test_join():
     x = sine_wave(440, 0.25, 5, 48000, 2)
     y = solid([0,255,0], 640, 480, 30, 5)
     z = join(y, x)
-    check_clip(z)
+    z.verify()
 
     with pytest.raises(AssertionError):
         join(x, y)
@@ -220,11 +214,11 @@ def test_chain_and_fade_chain():
 
     d = chain(a, [b, c])
     assert d.length() == a.length() + b.length() + c.length()
-    check_clip(d)
+    d.verify()
 
     e = fade_chain(2, a, [b, c])
     assert e.length() == a.length() + b.length() + c.length() - 4
-    check_clip(e)
+    e.verify()
 
     with pytest.raises(ValueError):
         chain()
@@ -234,18 +228,18 @@ def test_chain_and_fade_chain():
 
 
 def test_black_and_white():
-    check_clip(black(640, 480, 30, 300))
-    check_clip(white(640, 480, 30, 300))
+    black(640, 480, 30, 300).verify()
+    white(640, 480, 30, 300).verify()
 
 def test_mutator():
     a = black(640, 480, 30, 5)
     b = MutatorClip(a)
-    check_clip(b)
+    b.verify()
 
 def test_scale_alpha():
     a = black(640, 480, 30, 5)
     b = scale_alpha(a, 0.5)
-    check_clip(b)
+    b.verify()
 
 
 def test_preview():
@@ -256,7 +250,7 @@ def test_preview():
 def test_metrics_from_ffprobe_output():
     video_deets = "stream|index=0|codec_name=h264|codec_long_name=H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10|profile=High|codec_type=video|codec_time_base=1/60|codec_tag_string=avc1|codec_tag=0x31637661|width=1024|height=576|coded_width=1024|coded_height=576|has_b_frames=2|sample_aspect_ratio=N/A|display_aspect_ratio=N/A|pix_fmt=yuv420p|level=32|color_range=unknown|color_space=unknown|color_transfer=unknown|color_primaries=unknown|chroma_location=left|field_order=unknown|timecode=N/A|refs=1|is_avc=true|nal_length_size=4|id=N/A|r_frame_rate=30/1|avg_frame_rate=30/1|time_base=1/15360|start_pts=0|start_time=0.000000|duration_ts=1416192|duration=92.200000|bit_rate=1134131|max_bit_rate=N/A|bits_per_raw_sample=8|nb_frames=2766|nb_read_frames=N/A|nb_read_packets=N/A|disposition:default=1|disposition:dub=0|disposition:original=0|disposition:comment=0|disposition:lyrics=0|disposition:karaoke=0|disposition:forced=0|disposition:hearing_impaired=0|disposition:visual_impaired=0|disposition:clean_effects=0|disposition:attached_pic=0|disposition:timed_thumbnails=0|tag:language=und|tag:handler_name=VideoHandler" # pylint: disable=line-too-long
     audio_deets = "stream|index=1|codec_name=aac|codec_long_name=AAC (Advanced Audio Coding)|profile=LC|codec_type=audio|codec_time_base=1/44100|codec_tag_string=mp4a|codec_tag=0x6134706d|sample_fmt=fltp|sample_rate=44100|channels=2|channel_layout=stereo|bits_per_sample=0|id=N/A|r_frame_rate=0/0|avg_frame_rate=0/0|time_base=1/44100|start_pts=0|start_time=0.000000|duration_ts=4066020|duration=92.200000|bit_rate=128751|max_bit_rate=128751|bits_per_raw_sample=N/A|nb_frames=3972|nb_read_frames=N/A|nb_read_packets=N/A|disposition:default=1|disposition:dub=0|disposition:original=0|disposition:comment=0|disposition:lyrics=0|disposition:karaoke=0|disposition:forced=0|disposition:hearing_impaired=0|disposition:visual_impaired=0|disposition:clean_effects=0|disposition:attached_pic=0|disposition:timed_thumbnails=0|tag:language=und|tag:handler_name=SoundHandler" # pylint: disable=line-too-long
-    short_audio_deets = "stream|index=1|codec_name=aac|codec_long_name=AAC (Advanced Audio Coding)|profile=LC|codec_type=audio|codec_time_base=1/44100|codec_tag_string=mp4a|codec_tag=0x6134706d|sample_fmt=fltp|sample_rate=44100|channels=2|channel_layout=stereo|bits_per_sample=0|id=N/A|r_frame_rate=0/0|avg_frame_rate=0/0|time_base=1/44100|start_pts=0|start_time=0.000000|duration_ts=4066020|duration=92.000000|bit_rate=128751|max_bit_rate=128751|bits_per_raw_sample=N/A|nb_frames=3972|nb_read_frames=N/A|nb_read_packets=N/A|disposition:default=1|disposition:dub=0|disposition:original=0|disposition:comment=0|disposition:lyrics=0|disposition:karaoke=0|disposition:forced=0|disposition:hearing_impaired=0|disposition:visual_impaired=0|disposition:clean_effects=0|disposition:attached_pic=0|disposition:timed_thumbnails=0|tag:language=und|tag:handler_name=SoundHandler" # pylint: disable=line-too-long
+    short_audio_deets = "stream|index=1|codec_name=aac|codec_long_name=AAC (Advanced Audio Coding)|profile=LC|codec_type=audio|codec_time_base=1/44100|codec_tag_string=mp4a|codec_tag=0x6134706d|sample_fmt=fltp|sample_rate=44100|channels=2|channel_layout=stereo|bits_per_sample=0|id=N/A|r_frame_rate=0/0|avg_frame_rate=0/0|time_base=1/44100|start_pts=0|start_time=0.000000|duration_ts=4066020|duration=91.000000|bit_rate=128751|max_bit_rate=128751|bits_per_raw_sample=N/A|nb_frames=3972|nb_read_frames=N/A|nb_read_packets=N/A|disposition:default=1|disposition:dub=0|disposition:original=0|disposition:comment=0|disposition:lyrics=0|disposition:karaoke=0|disposition:forced=0|disposition:hearing_impaired=0|disposition:visual_impaired=0|disposition:clean_effects=0|disposition:attached_pic=0|disposition:timed_thumbnails=0|tag:language=und|tag:handler_name=SoundHandler" # pylint: disable=line-too-long
     bogus_deets = "stream|index=1|codec_name=aac|profile=LC|codec_type=trash"
 
     correct_metrics = Metrics(
@@ -281,20 +275,20 @@ def test_metrics_from_ffprobe_output():
     with pytest.raises(ValueError):
         metrics_from_ffprobe_output('', 'test.mp4')
 
-    m = metrics_from_ffprobe_output(f'{audio_deets}\n{video_deets}', 'test.mp4')
+    m, _, _ = metrics_from_ffprobe_output(f'{audio_deets}\n{video_deets}', 'test.mp4')
     assert m == correct_metrics
 
-    m = metrics_from_ffprobe_output(f'{video_deets}\n{audio_deets}', 'test.mp4')
+    m, _, _ = metrics_from_ffprobe_output(f'{video_deets}\n{audio_deets}', 'test.mp4')
     assert m == correct_metrics
 
-    m = metrics_from_ffprobe_output(f'{video_deets}', 'test.mp4')
+    m, _, _ = metrics_from_ffprobe_output(f'{video_deets}', 'test.mp4')
     assert m == Metrics(
       src=correct_metrics,
       sample_rate=default_metrics.sample_rate,
       num_channels=default_metrics.num_channels
     )
 
-    m = metrics_from_ffprobe_output(f'{audio_deets}', 'test.mp4')
+    m, _, _ = metrics_from_ffprobe_output(f'{audio_deets}', 'test.mp4')
     assert m == Metrics(
       src=correct_metrics,
       width=default_metrics.width,
@@ -302,26 +296,91 @@ def test_metrics_from_ffprobe_output():
       frame_rate=default_metrics.frame_rate,
     )
 
-
 def test_from_file():
-    if not os.path.exists("books.mp4"):  # pragma: no cover
-        opener = urllib.request.build_opener()
-        opener.addheaders = [('User-agent', 'Mozilla/5.0')]
-        urllib.request.install_opener(opener)
-        urllib.request.urlretrieve("https://www.pexels.com/video/5224014/download", "books.mp4")
-
+    get_sample_files()
     with pytest.raises(FileNotFoundError):
         from_file("books12312312.mp4")
 
-    from_file("books.mp4")
-    # check_clip(a)
+    a = from_file("books.mp4", decode_chunk_length=None)
+    a.verify()
 
-    from_file("books.mp4", forced_length=30)
+    b = from_file("books.mp4", forced_length=30)
+    b.verify()
+
+    c = from_file("music.mp3")
+    c.verify()
+
+def test_audio_samples_from_file():
+    get_sample_files()
+
+    with pytest.raises(FFMPEGException):
+        # No audio track.
+        audio_samples_from_file(
+          "books.mp4",
+          expected_num_samples=0,
+          expected_num_channels=1,
+          expected_sample_rate=0
+        )
+
+    with pytest.raises(ValueError):
+        # Wrong sample rate.
+        audio_samples_from_file(
+          "music.mp3",
+          expected_num_samples=3335168,
+          expected_num_channels=2,
+          expected_sample_rate=48000
+        )
+
+    with pytest.raises(ValueError):
+        # Wrong number of channels
+        audio_samples_from_file(
+          "music.mp3",
+          expected_num_samples=3335168,
+          expected_num_channels=1,
+          expected_sample_rate=44100
+        )
+
+    with pytest.raises(ValueError):
+        # Wrong length.
+        audio_samples_from_file(
+          "music.mp3",
+          expected_num_samples=4335170,
+          expected_num_channels=2,
+          expected_sample_rate=44100
+        )
+
+    # # Slightly too long.
+    audio_samples_from_file(
+      "music.mp3",
+      expected_num_samples=3337343,
+      expected_num_channels=2,
+      expected_sample_rate=44100
+    )
+
+    # Slightly too short.
+    audio_samples_from_file(
+      "music.mp3",
+      expected_num_samples=3337345,
+      expected_num_channels=2,
+      expected_sample_rate=44100
+    )
+
+    # All good.
+    audio_samples_from_file(
+      "music.mp3",
+      expected_num_samples=3337344,
+      expected_num_channels=2,
+      expected_sample_rate=44100
+    )
 
 
 # If we're run as a script, just execute all of the tests.
 if __name__ == '__main__':  #pragma: no cover
+    try:
+        pattern = sys.argv[1]
+    except IndexError:
+        pattern = ""
     for name, thing in list(globals().items()):
-        if 'test_' in name:
+        if 'test_' in name and pattern in name:
             thing()
 

@@ -27,6 +27,14 @@ from clip3 import *
 # 
 # z.save("twotone.mp4")
 
-x = from_file("intro.mp4")
-x.save("new_intro.mp4")
+# x = from_file("books.mp4", decode_chunk_length=None)
+# x.save("new_books.mp4")
+
+# x = from_file("new_books.mp4", decode_chunk_length=None)
+# x.verify()
+# x.save("newer_books.mp4")
+
+x = from_file("music.mp3")
+x.verify()
+x.save("music.mp3")
 
