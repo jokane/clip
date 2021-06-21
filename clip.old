@@ -440,28 +440,6 @@ class fade(Clip):
 def slice_out(clip, start, end):
     return chain(slice(clip, 0, start), slice(clip, end, clip.length()))
 
-class slice_video(Clip):
-    def __init__(self, clip, start, end):
-        assert isinstance(clip, Clip)
-        assert isinstance(start, int)
-        assert isinstance(end, int)
-        assert start <= end, "Chopping %s, but end %d is before start %d." % (clip, end, start)
-
-        self.clip = clip
-
-        self.start_frame = start
-        self.end_frame = end
-
-        self.audio = clip.get_audio()
-        self.audio = slice_audio(
-            self.audio,
-            self.frame_to_sample(self.start_frame),
-            self.frame_to_sample(self.end_frame)
-        )
-
-    def get_audio(self):
-        return self.audio
-
 class superimpose(Clip):
     """Superimpose one clip on another, at a given place in each frame, starting
     at a given time."""

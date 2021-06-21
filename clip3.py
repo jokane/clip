@@ -140,7 +140,8 @@ def require_equal(x, y, name):
 def require_less_equal(x, y, name1, name2):
     """ Raise an informative exception if x is not less than or equal to y. """
     if x > y:
-        raise ValueError(f'Expected {name1} less than or equak to {name2}, but it is not. {x} > {y}')
+        raise ValueError(f'Expected {name1} less than or equak to {name2},'
+          f'but it is not. {x} > {y}')
 
 def require_callable(x, name):
     """ Raise an informative exception if x is not callable. """
@@ -1144,7 +1145,7 @@ class slice_clip(MutatorClip):
     def __init__(self, clip, start=0, end=None):
         super().__init__(clip)
         if end is None:
-          end = self.clip.length()
+            end = self.clip.length()
 
         require_float(start, "start time")
         require_non_negative(start, "start time")
@@ -1165,7 +1166,7 @@ class slice_clip(MutatorClip):
         return self.clip.get_frame(self.start_frame + index)
 
     def get_samples(self):
-      original_samples = self.clip.get_samples()
-      return original_samples[self.start_sample:self.start_sample+self.num_samples()]
+        original_samples = self.clip.get_samples()
+        return original_samples[self.start_sample:self.start_sample+self.num_samples()]
 
 

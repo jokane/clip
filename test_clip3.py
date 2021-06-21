@@ -47,6 +47,9 @@ def test_validate():
     with pytest.raises(ValueError):
         require_equal(1, "1", "name")
 
+    with pytest.raises(ValueError):
+        require_less_equal(2, 1, "two", "one")
+
 def test_metrics():
     m1 = Metrics(default_metrics)
     m2 = Metrics(default_metrics, length=0.5)
@@ -373,6 +376,27 @@ def test_audio_samples_from_file():
       expected_sample_rate=44100
     )
 
+def test_slice_clip():
+    a = join(
+      solid([0,0,0], 640, 480, 30, 10),
+      sine_wave(880, 0.1, 10, 48000, 2)
+    )
+
+    with pytest.raises(ValueError):
+        slice_clip(a, -1, 1)
+
+    with pytest.raises(ValueError):
+        slice_clip(a, 3, 1)
+
+
+    d = slice_clip(a, 3, 4)
+    d.verify()
+
+    e = slice_clip(a, 3)
+    e.verify()
+
+    f = slice_clip(a, end=3)
+    f.verify()
 
 # If we're run as a script, just execute all of the tests.
 if __name__ == '__main__':  #pragma: no cover
