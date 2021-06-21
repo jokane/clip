@@ -4,7 +4,6 @@ import hashlib
 import io
 
 from PIL import Image, ImageFont, ImageDraw
-import cv2
 import pdf2image
 import scipy.signal
 
@@ -27,123 +26,9 @@ import scipy.signal
 
         assert self.audio.length() == self.frame_to_sample(self.length())
 
-    def acquire_dimensions(self, forced_length=None):
-        # Get the width, height, length, and frame rate.
-
-        # Do we have this information in the cache?
-        cached_filename, exists = cache.lookup(hashlib.md5(self.fname.encode()).hexdigest(), 'dim')
-        if exists:
-            print(f"Using cached dimensions for {self.fname}")
-            (self.width_, self.height_, self.frame_rate_, self.length_, _) = open(cached_filename, 'r').read().split('\t')
-            self.width_ = int(self.width_)
-            self.height_ = int(self.height_)
-            self.frame_rate_ = float(self.frame_rate_)
-            self.length_ = int(self.length_)
-            if forced_length:
-                assert forced_length == self.length()
-            return
-
-
-        # Here the length is computed from the reported duration; it seems
-        # plausible that this might be off by a few frames, so we'll need to be
-        # careful later.
-        match = re.search(r'Stream.*Video.* (\d+)x(\d+).*, ([0-9\.]+) fps', deets)
-        assert match, f"Could not find dimensions for {self.fname}"
-
-        self.width_ = int(match.group(1))
-        self.height_ = int(match.group(2))
-        self.frame_rate_ = float(match.group(3))
-
-        if not forced_length:
-            match = re.search(r'Duration: (\d\d):(\d\d):(\d\d\.\d\d)', deets)
-            assert match, f"Could not find length for {self.fname}."
-            hours = int(match.group(1))
-            minutes = int(match.group(2))
-            seconds = float(match.group(3))
-            self.length_ = int((60*(60*hours + minutes)+seconds) * self.frame_rate_)
-        else:
-            self.length_ = forced_length
-
-        with open(cached_filename, 'w') as f:
-            print('\t'.join(map(lambda x: str(x), [self.width_, self.height_, self.frame_rate_, self.length_, self.fname])), file=f)
-
-        match = re.search(r'displaymatrix: rotation of -90.00 degrees', deets)
-        if match:
-            self.width_, self.height_ = self.height_, self.width_
-
-
-    def __repr__(self):
-        return f'video_file("{self.fname}")'
-
-    def frame_rate(self):
-        return self.frame_rate_
-
-    def width(self):
-        return self.width_
-
-    def height(self):
-        return self.height_
-
-    def length(self):
-        return self.length_
-
-    def frame_signature(self, index):
-        return "%s:%06d" % (self.fname, index)
-
-    def get_frame(self, index):
-        assert index < self.length(), "Requesting frame %d from %s, which only has %d frames." % (index, self.fname, self.length())
-
-        # Make sure it's in the cache.    If it's not, expand a segment of the video
-        # starting from here to acquire it.
-        _, exists = cache.lookup(self.frame_signature(index), frame.cache_format)
-        if not exists:
-            if self.decode_chunk_size is None:
-                self.explode(0, self.length())
-            else:
-                self.explode(max(0, index-int(self.frame_rate())), self.decode_chunk_size)
-
-        # Return the frame from the cache.
-        return self.get_frame_cached(index)
-
-    def explode(self, start_index, length):
-        # Explode a segment of the video into individual frames, then cache those
-        # frames for later.
-        with temporary_current_directory():
-            try:
-                ffmpeg(
-                    f'-ss {start_index/self.frame_rate_}',
-                    f'-t {(length)/self.frame_rate_}',
-                    f'-i {self.fname}',
-                    f'-r {self.frame_rate_}',
-                    f'%06d.{frame_cache_format}',
-                    task=f'Exploding {os.path.basename(self.fname)}:{start_index}',
-                    num_frames=length
-                )
-            except Exception as e:
-                print(e)
-                print("(starting shell to examine temporary directory)")
-                os.system('bash')
-                raise
-
-            # Add each frame to the cache.
-            for index in range(start_index, min(start_index+length, self.length())):
-                sequential_filename = os.path.abspath(f'{index-start_index+1:06d}.{frame_cache_format}')
-                cached_filename, exists = cache.lookup(self.frame_signature(index), frame_cache_format)
-                if not exists:
-                    try:
-                        os.rename(sequential_filename, cached_filename)
-                    except FileNotFoundError:
-                        # If we get here, that means ffmpeg thought there were more
-                        # frames than there really were.    To keep things rolling, let's
-                        # fill in a black frame instead.
-                        print(f"[Exploding {self.fname} did not produce frame {index}.    Using black instead.]")
-                        fr = np.zeros([self.height_, self.width_, 3], np.uint8)
-                        cv2.imwrite(cached_filename, fr)
-
-                    cache.insert(cached_filename)
-
-    def get_audio(self):
-        return self.audio
+    match = re.search(r'displaymatrix: rotation of -90.00 degrees', deets)
+    if match:
+        self.width_, self.height_ = self.height_, self.width_
 
 class audio_from_data(Audio):
     """ Form an audio clip from a numpy array. """
@@ -169,36 +54,6 @@ class audio_from_data(Audio):
 
     def compute_samples(self):
         return self.data
-
-
-def audio_file(fname):
-    assert isinstance(fname, str)
-    assert os.path.isfile(fname), f'Trying to open {fname}, which does not exist.'
-
-    direct_formats = list(map(lambda x: "." + x.lower(), soundfile.available_formats().keys()))
-    video_formats = ['.mp4', '.mov', '.mkv', '.wmv']
-
-    ext = os.path.splitext(fname)[1].lower()
-    if ext in direct_formats:
-        data, sample_rate = soundfile.read(fname, always_2d=True)
-        return audio_from_data(fname, data, sample_rate)
-
-    if ext in video_formats:
-        cached_filename, success = cache.lookup(fname, 'flac')
-        if not success:
-            print(f'Extracting audio from {fname}')
-            with tempfile.TemporaryDirectory() as td:
-                audio_fname = os.path.join(td, 'audio.flac')
-                ffmpeg(
-                    f'-i {fname}',
-                    f'-vn',
-                    f'{audio_fname}',
-                )
-                os.rename(audio_fname, cached_filename)
-                cache.insert(cached_filename)
-        return audio_file(cached_filename)
-
-    raise Exception(f"Don't know how to extract audio from {ext} format: {fname}")
 
 def silence(length, sample_rate, num_channels):
     """ Create an audio clip of the requested amount of silence. """
@@ -233,7 +88,6 @@ class slice_audio(Audio):
 
     def compute_samples(self):
         return self.audio.get_samples()[self.start_sample:self.end_sample]
-
 
 class mix(Audio):
     """

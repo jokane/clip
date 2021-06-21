@@ -28,5 +28,5 @@ from clip3 import *
 # z.save("twotone.mp4")
 
 x = from_file("intro.mp4")
+x.save("new_intro.mp4")
 
-print(x.metrics)
