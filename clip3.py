@@ -51,7 +51,7 @@ from enum import Enum
 import hashlib
 import math
 import os
-#from pprint import pprint
+from pprint import pprint # pylint: disable=unused-import
 import re
 import shutil
 import subprocess
@@ -177,8 +177,16 @@ def ffmpeg(*args, task=None, num_frames=None):
                 raise FFMPEGException(message)
 
 
+@dataclass
 class Metrics:
     """ A object describing the dimensions of a Clip. """
+    width: int
+    height: int
+    frame_rate: float
+    sample_rate: int
+    num_channels: int
+    length: float
+
     def __init__(self, src=None, width=None, height=None, frame_rate=None,
                  sample_rate=None, num_channels=None, length=None):
         assert src is None or isinstance(src, Metrics), f'src should be Metrics, not {type(src)}'
@@ -479,7 +487,6 @@ class Clip(ABC):
 
             with custom_progressbar(f"Staging {fname}", self.num_frames()) as pb:
                 for index in range(0, self.num_frames()):
-                    #pprint(self.frame_signature(index))
 
                     # Make sure this frame is in the cache, and figure out
                     # where.
@@ -520,6 +527,8 @@ class Clip(ABC):
                 pb.update(i)
                 cv2.imshow("", frame)
                 cv2.waitKey(1)
+
+        cv2.destroyWindow("")
 
 class VideoClip(Clip):
     """ Inherit from this for Clip classes that really only have video, to
@@ -820,10 +829,112 @@ class scale_alpha(MutatorClip):
         factor = self.factor(index)
         require_float(factor, f'factor at index {index}')
         frame = self.clip.get_frame(index)
-        frame = frame.astype('float')
-        frame[:,:,3] *= factor
-        frame = frame.astype('uint8')
+        if factor != 1.0:
+            frame = frame.astype('float')
+            frame[:,:,3] *= factor
+            frame = frame.astype('uint8')
         return frame
 
+def metrics_from_ffprobe_output(ffprobe_output, fname):
+    """ Given the output of a run of ffprobe -of compact -show_entries
+    stream, return a Metrics object based on that data, or complain if
+    something strange is in there. """
+
+    video_stream = None
+    audio_stream = None
+
+    for line in ffprobe_output.strip().split('\n'):
+        stream = dict()
+        for pair in line[7:].split('|'):
+            key, val = pair.split('=')
+            assert key not in stream
+            stream[key] = val
+
+        if stream['codec_type'] == 'video':
+            if video_stream is not None:
+                raise ValueError(f"Don't know what to do with {fname},"
+                  "which has multiple video streams.")
+            video_stream = stream
+        elif stream['codec_type'] == 'audio':
+            if audio_stream is not None:
+                raise ValueError(f"Don't know what to do with {fname},"
+                  "which has multiple audio streams.")
+            audio_stream = stream
+        else:
+            raise ValueError(f"Don't know what to do with {fname},"
+              "which has an unknown stream of type {stream['codec_type']}.")
+
+    if video_stream and audio_stream:
+        vlen = video_stream['duration']
+        alen = audio_stream['duration']
+        if vlen != alen:
+            raise ValueError(f"In {fname}, video length ({vlen}) and audio length ({alen}) "
+              "do not match. Perhaps load video and audio separately?")
+        return Metrics(
+          width = eval(video_stream['width']),
+          height = eval(video_stream['height']),
+          frame_rate = eval(video_stream['avg_frame_rate']),
+          sample_rate = eval(audio_stream['sample_rate']),
+          num_channels = eval(audio_stream['channels']),
+          length = eval(video_stream['duration'])
+        )
+    elif video_stream:
+        return Metrics(
+          src = default_metrics,
+          width = eval(video_stream['width']),
+          height = eval(video_stream['height']),
+          frame_rate = eval(video_stream['avg_frame_rate']),
+          length = eval(video_stream['duration'])
+        )
+    elif audio_stream:
+        return Metrics(
+          src = default_metrics,
+          sample_rate = eval(audio_stream['sample_rate']),
+          num_channels = eval(audio_stream['channels']),
+          length = eval(audio_stream['duration'])
+        )
+    else:
+        # Should be impossible to get here.
+        raise ValueError(f"File {fname} contains neither audio nor video.") # pragma: no cover
+
+
+class from_file(Clip):
+    """ Create a clip from a file such as an mp4, flac, or other format
+    readable by ffmpeg. """
+    def __init__(self, fname, decode_chunk_length=10, forced_length=None):
+        """ Video decoding happens in batches.  Use decode_chunk_length to
+        specify the number of seconds of frames decoded in each batch.
+        Larger values reduce the overhead of starting the decode process,
+        but may waste time decoding frames that are never used.  Use None to
+        decode the entire video at once. """
+        super().__init__()
+
+        # Make sure the file exists.
+        if not os.path.isfile(fname):
+            raise FileNotFoundError(f"Could not open file {fname}.")
+        self.fname = os.path.abspath(fname)
+
+        self.acquire_metrics(forced_length=forced_length)
+        self.decode_chunk_length = decode_chunk_length
+
+    def acquire_metrics(self, forced_length=None):
+        """ Set the metrics attribute, either by grabbing the metrics from the
+        cache, or by getting them the hard way from ffprobe."""
+        print(f"Getting dimensions for {self.fname}")
+        with subprocess.Popen(f'ffprobe -hide_banner -count_frames -v error {self.fname} '
+              '-of compact -show_entries stream', shell=True, stdout=subprocess.PIPE) as proc:
+            deets = proc.stdout.read().decode('utf-8')
+        self.metrics = metrics_from_ffprobe_output(deets, self.fname)
+        if forced_length is not None:
+            self.metrics = Metrics(self.metrics, length=forced_length)
+
+    def frame_signature(self, index):
+        pass
+
+    def get_frame(self, index):
+        pass
+
+    def get_samples(self):
+        pass
 
 

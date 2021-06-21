@@ -2,39 +2,12 @@ from zipfile import ZipFile
 import glob
 import hashlib
 import io
-import itertools
 
 from PIL import Image, ImageFont, ImageDraw
 import cv2
 import pdf2image
 import scipy.signal
 
-
-
-def sha256sum(filename):
-    # https://stackoverflow.com/questions/22058048/hashing-a-file-in-python
-    h = hashlib.sha256()
-    b = bytearray(128*1024)
-    mv = memoryview(b)
-    with open(filename, 'rb', buffering=0) as f:
-        for n in iter(lambda: f.readinto(mv), 0):
-            h.update(mv[:n])
-    return h.hexdigest()
-
-
-class video_file(Clip):
-    """Read a video clip from a file, optionally grabbing its audio track.    If we
-    don't read audio from the input file, fill in silence instead."""
-
-    def __init__(self, fname, audio=True, decode_chunk_size=1000, forced_length=None):
-        assert isinstance(fname, str)
-        assert os.path.isfile(fname), f'Trying to open {fname}, which does not exist.'
-
-        self.fname = os.path.abspath(fname)
-
-        self.acquire_dimensions(forced_length=forced_length)
-
-        self.decode_chunk_size = decode_chunk_size
 
         if audio:
             # Grab the audio.
@@ -74,9 +47,6 @@ class video_file(Clip):
         # Here the length is computed from the reported duration; it seems
         # plausible that this might be off by a few frames, so we'll need to be
         # careful later.
-        print(f"Getting dimensions for {self.fname}")
-        proc = subprocess.Popen(f'ffprobe {self.fname}', shell=True, stderr=subprocess.PIPE)
-        deets = proc.stderr.read().decode('utf-8')
         match = re.search(r'Stream.*Video.* (\d+)x(\d+).*, ([0-9\.]+) fps', deets)
         assert match, f"Could not find dimensions for {self.fname}"
 
@@ -1093,61 +1063,6 @@ class force_framerate(Clip):
     def get_audio(self):
         return self.audio
 
-def fade_chain(overlap_frames, *args):
-    """Concatenate several clips, with some fading overlap between them."""
-    clips = list()
-    for x in args:
-        if isiterable(x):
-            clips += x
-        else:
-            clips.append(x)
-
-    # Sanity checks.
-    assert isinstance(overlap_frames, int), "Cannot overlap by non-integer number of frames. " + overlap_frames
-    assert overlap_frames >= 0
-
-    for index, clip in enumerate(clips):
-        assert isinstance(clip, Clip)
-        if index in (0, len(clips)-1):
-            assert overlap_frames <= clip.length()
-        else:
-            assert 2*overlap_frames <= clip.length(), f'Clip should have been at least {2*overlap_frames} frames to chain with fading, but it only has {clip.length()} frames.'
-
-    # For some reason, this is shown in the itertools docs, instead of being part
-    # of itertools.    ?
-    def pairwise(iterable):
-        "s -> (s0,s1), (s1,s2), (s2, s3), ..."
-        a, b = itertools.tee(iterable)
-        next(b, None)
-        return zip(a, b)
-
-    chunks = list()
-
-    for ((i, a), (_, b)) in pairwise(enumerate(clips)):
-        if i == 0:
-            offset = 0
-        else:
-            offset = overlap_frames
-
-        t1_frames = a.length()-overlap_frames-offset
-
-        v1 = slice_video(a, offset, offset+t1_frames)
-        v2 = slice_video(a, offset+t1_frames, a.length())
-        v3 = slice_video(b, 0, overlap_frames)
-
-        a2 = v2.get_audio()
-        a3 = v3.get_audio()
-        if a2.length() != a3.length():
-            v3 = replace_audio(v3, a3, force_to=a2.length())
-
-        chunks.append(v1)
-        chunks.append(fade(v2, v3))
-    v4 = slice_video(clips[-1], overlap_frames, clips[-1].length())
-    chunks.append(v4)
-
-    return chain(chunks)
-
-
 def fade_in(clip, fade_frames, color=(0,0,0)):
     """Fade in from a solid color, defaulting to black."""
     assert isinstance(clip, Clip)
@@ -1388,4 +1303,15 @@ class zip_file(Clip):
 
     def get_audio(self):
         return self.default_audio()
+
+def sha256sum(filename):
+    # https://stackoverflow.com/questions/22058048/hashing-a-file-in-python
+    h = hashlib.sha256()
+    b = bytearray(128*1024)
+    mv = memoryview(b)
+    with open(filename, 'rb', buffering=0) as f:
+        for n in iter(lambda: f.readinto(mv), 0):
+            h.update(mv[:n])
+    return h.hexdigest()
+
 

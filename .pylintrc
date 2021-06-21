@@ -1,5 +1,5 @@
 [MESSAGES CONTROL]
-disable=trailing-newlines,unused-wildcard-import,invalid-name,multiple-statements,too-many-arguments,too-many-return-statements,no-else-return
+disable=trailing-newlines,unused-wildcard-import,invalid-name,multiple-statements,too-many-arguments,too-many-return-statements,no-else-return,eval-used
 
 [TYPECHECK]
 generated-members=cv2.*

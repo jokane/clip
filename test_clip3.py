@@ -5,11 +5,13 @@
 
 import glob
 import shutil
+import urllib.request
 
 import cv2
 import pytest
 
 from clip3 import *
+
 
 def check_clip(clip):
     """ Fully realize a clip, ensuring that no exception occur and that the
@@ -150,11 +152,6 @@ def test_save():
         assert os.path.exists('foo.flac')
         assert os.path.exists('foo.wav')
 
-def test_preview():
-    cache.clear()
-    x = solid([0,0,0], 640, 480, 30, 2)
-    x.preview()
-
 def test_temporal_composite():
     x = solid([0,0,0], 640, 480, 30, 5)
     y = solid([0,0,0], 640, 481, 30, 5)
@@ -216,10 +213,10 @@ def test_join():
         join(x, y)
 
 
-def test_chain():
-    a = black(640, 480, 30, 5)
-    b = white(640, 480, 30, 5)
-    c = solid([255,0,0], 640, 480, 30, 5)
+def test_chain_and_fade_chain():
+    a = black(640, 480, 30, 3)
+    b = white(640, 480, 30, 3)
+    c = solid([255,0,0], 640, 480, 30, 3)
 
     d = chain(a, [b, c])
     assert d.length() == a.length() + b.length() + c.length()
@@ -249,6 +246,77 @@ def test_scale_alpha():
     a = black(640, 480, 30, 5)
     b = scale_alpha(a, 0.5)
     check_clip(b)
+
+
+def test_preview():
+    cache.clear()
+    x = solid([0,0,0], 640, 480, 30, 5)
+    x.preview()
+
+def test_metrics_from_ffprobe_output():
+    video_deets = "stream|index=0|codec_name=h264|codec_long_name=H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10|profile=High|codec_type=video|codec_time_base=1/60|codec_tag_string=avc1|codec_tag=0x31637661|width=1024|height=576|coded_width=1024|coded_height=576|has_b_frames=2|sample_aspect_ratio=N/A|display_aspect_ratio=N/A|pix_fmt=yuv420p|level=32|color_range=unknown|color_space=unknown|color_transfer=unknown|color_primaries=unknown|chroma_location=left|field_order=unknown|timecode=N/A|refs=1|is_avc=true|nal_length_size=4|id=N/A|r_frame_rate=30/1|avg_frame_rate=30/1|time_base=1/15360|start_pts=0|start_time=0.000000|duration_ts=1416192|duration=92.200000|bit_rate=1134131|max_bit_rate=N/A|bits_per_raw_sample=8|nb_frames=2766|nb_read_frames=N/A|nb_read_packets=N/A|disposition:default=1|disposition:dub=0|disposition:original=0|disposition:comment=0|disposition:lyrics=0|disposition:karaoke=0|disposition:forced=0|disposition:hearing_impaired=0|disposition:visual_impaired=0|disposition:clean_effects=0|disposition:attached_pic=0|disposition:timed_thumbnails=0|tag:language=und|tag:handler_name=VideoHandler" # pylint: disable=line-too-long
+    audio_deets = "stream|index=1|codec_name=aac|codec_long_name=AAC (Advanced Audio Coding)|profile=LC|codec_type=audio|codec_time_base=1/44100|codec_tag_string=mp4a|codec_tag=0x6134706d|sample_fmt=fltp|sample_rate=44100|channels=2|channel_layout=stereo|bits_per_sample=0|id=N/A|r_frame_rate=0/0|avg_frame_rate=0/0|time_base=1/44100|start_pts=0|start_time=0.000000|duration_ts=4066020|duration=92.200000|bit_rate=128751|max_bit_rate=128751|bits_per_raw_sample=N/A|nb_frames=3972|nb_read_frames=N/A|nb_read_packets=N/A|disposition:default=1|disposition:dub=0|disposition:original=0|disposition:comment=0|disposition:lyrics=0|disposition:karaoke=0|disposition:forced=0|disposition:hearing_impaired=0|disposition:visual_impaired=0|disposition:clean_effects=0|disposition:attached_pic=0|disposition:timed_thumbnails=0|tag:language=und|tag:handler_name=SoundHandler" # pylint: disable=line-too-long
+    short_audio_deets = "stream|index=1|codec_name=aac|codec_long_name=AAC (Advanced Audio Coding)|profile=LC|codec_type=audio|codec_time_base=1/44100|codec_tag_string=mp4a|codec_tag=0x6134706d|sample_fmt=fltp|sample_rate=44100|channels=2|channel_layout=stereo|bits_per_sample=0|id=N/A|r_frame_rate=0/0|avg_frame_rate=0/0|time_base=1/44100|start_pts=0|start_time=0.000000|duration_ts=4066020|duration=92.000000|bit_rate=128751|max_bit_rate=128751|bits_per_raw_sample=N/A|nb_frames=3972|nb_read_frames=N/A|nb_read_packets=N/A|disposition:default=1|disposition:dub=0|disposition:original=0|disposition:comment=0|disposition:lyrics=0|disposition:karaoke=0|disposition:forced=0|disposition:hearing_impaired=0|disposition:visual_impaired=0|disposition:clean_effects=0|disposition:attached_pic=0|disposition:timed_thumbnails=0|tag:language=und|tag:handler_name=SoundHandler" # pylint: disable=line-too-long
+    bogus_deets = "stream|index=1|codec_name=aac|profile=LC|codec_type=trash"
+
+    correct_metrics = Metrics(
+      width=1024,
+      height=576,
+      frame_rate=30.0,
+      sample_rate=44100,
+      num_channels=2,
+      length=92.2
+    )
+
+    with pytest.raises(ValueError):
+        metrics_from_ffprobe_output(f'{video_deets}\n{video_deets}', 'test.mp4')
+    with pytest.raises(ValueError):
+        metrics_from_ffprobe_output(f'{audio_deets}\n{audio_deets}', 'test.mp4')
+    with pytest.raises(ValueError):
+        metrics_from_ffprobe_output(f'{audio_deets}\n{video_deets}\n{video_deets}', 'test.mp4')
+    with pytest.raises(ValueError):
+        metrics_from_ffprobe_output(f'{audio_deets}\n{video_deets}\n{bogus_deets}', 'test.mp4')
+    with pytest.raises(ValueError):
+        metrics_from_ffprobe_output(f'{short_audio_deets}\n{video_deets}', 'test.mp4')
+    with pytest.raises(ValueError):
+        metrics_from_ffprobe_output('', 'test.mp4')
+
+    m = metrics_from_ffprobe_output(f'{audio_deets}\n{video_deets}', 'test.mp4')
+    assert m == correct_metrics
+
+    m = metrics_from_ffprobe_output(f'{video_deets}\n{audio_deets}', 'test.mp4')
+    assert m == correct_metrics
+
+    m = metrics_from_ffprobe_output(f'{video_deets}', 'test.mp4')
+    assert m == Metrics(
+      src=correct_metrics,
+      sample_rate=default_metrics.sample_rate,
+      num_channels=default_metrics.num_channels
+    )
+
+    m = metrics_from_ffprobe_output(f'{audio_deets}', 'test.mp4')
+    assert m == Metrics(
+      src=correct_metrics,
+      width=default_metrics.width,
+      height=default_metrics.height,
+      frame_rate=default_metrics.frame_rate,
+    )
+
+
+def test_from_file():
+    if not os.path.exists("books.mp4"):  # pragma: no cover
+        opener = urllib.request.build_opener()
+        opener.addheaders = [('User-agent', 'Mozilla/5.0')]
+        urllib.request.install_opener(opener)
+        urllib.request.urlretrieve("https://www.pexels.com/video/5224014/download", "books.mp4")
+
+    with pytest.raises(FileNotFoundError):
+        from_file("books12312312.mp4")
+
+    from_file("books.mp4")
+    # check_clip(a)
+
+    from_file("books.mp4", forced_length=30)
 
 
 # If we're run as a script, just execute all of the tests.
