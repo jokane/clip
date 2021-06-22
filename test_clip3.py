@@ -420,6 +420,29 @@ def test_stereo_to_mono():
         # Not a stereo source.
         b = stereo_to_mono(a)
 
+def test_reverse():
+    a = join(
+      solid([0,0,0], 640, 480, 30, 10),
+      sine_wave(880, 0.1, 10, 48000, 2)
+    )
+    b = join(
+      solid([255,0,0], 640, 480, 30, 10),
+      sine_wave(440, 0.1, 10, 48000, 2)
+    )
+    c = chain(a,b)
+    d = reverse(c)
+    d.verify()
+
+    f1 = c.get_frame(5)
+    f2 = d.get_frame(d.num_frames()-6)
+    assert np.array_equal(f1, f2)
+
+    s1 = c.get_samples()
+    s2 = d.get_samples()
+
+    assert np.array_equal(s1[5], s2[s2.shape[0]-6])
+
+
 # If we're run as a script, just execute all of the tests.
 if __name__ == '__main__':  #pragma: no cover
     try:

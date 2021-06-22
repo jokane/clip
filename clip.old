@@ -204,28 +204,6 @@ class fade_audio(Audio):
         #     r[index] = (1-a)*a1[index] + a*a2[index]
         # return r
 
-class reverse_audio(Audio):
-    """Same sound, played backward."""
-
-    def __init__(self, audio):
-        assert isinstance(audio, Audio)
-        self.audio = audio
-
-    def __repr__(self):
-        return 'reverse_audio(%s)' % (self.audio.__repr__())
-
-    def sample_rate(self):
-        return self.audio.sample_rate()
-
-    def num_channels(self):
-        return self.audio.num_channels()
-
-    def length(self):
-        return self.audio.length()
-
-    def compute_samples(self):
-        return np.flip(self.audio.get_samples(), axis=0)
-
 
 if sys.version_info.major == 3 and sys.version_info.minor < 8:
     Label = collections.namedtuple('Label', ['text', 'color', 'font', 'size', 'x', 'y', 'start', 'end'])
@@ -778,29 +756,6 @@ def fade_out(clip, fade_frames, color=(0,0,0)):
 
 
 
-class reverse(Clip):
-    """Reverse the video in a clip.    No change to the audio."""
-    def __init__(self, clip):
-        assert isinstance(clip, Clip)
-        self.clip = clip
-    def __repr__(self):
-        return f'reverse({self.clip})'
-    def frame_rate(self):
-        return self.clip.frame_rate()
-    def width(self):
-        return self.clip.width()
-    def height(self):
-        return self.clip.height()
-    def length(self):
-        return self.clip.length()
-    def frame_signature(self, index):
-        return self.clip.frame_signature(self.clip.length() - index - 1)
-    def get_frame(self, index):
-        return self.clip.get_frame(self.clip.length() - index - 1)
-    def get_audio(self):
-        return self.clip.get_audio()
-
-
 class resample_frames(Clip):
     """
     Modify the frame rate and the length of the video.    No change to the audio.
@@ -963,6 +918,7 @@ def sha256sum(filename):
     return h.hexdigest()
 
 
+# This bit from the ffprobe output was relevant for some video:
 match = re.search(r'displaymatrix: rotation of -90.00 degrees', deets)
 if match:
     self.width_, self.height_ = self.height_, self.width_

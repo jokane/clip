@@ -38,7 +38,10 @@ from clip3 import *
 # x.verify()
 # x.save("music.mp3")
 
-x = from_file("intro.mp4")
-x = slice_clip(x, start=80)
-x.save("sliced.mp4")
+# x = from_file("intro.mp4")
+# x = slice_clip(x, start=80)
+# x.save("sliced.mp4")
 
+x = from_file("intro.mp4", decode_chunk_length=None)
+x = reverse(x)
+x.save("reversed.mp4")
