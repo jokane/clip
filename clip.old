@@ -906,51 +906,6 @@ def loop(clip, length):
     partial_play = length - full_plays*clip.length()
     return chain(full_plays*[clip], slice_video(clip, 0, partial_play))
 
-
-class mono_to_stereo(Audio):
-    def __init__(self, audio):
-        assert isinstance(audio, Audio)
-        assert audio.num_channels() == 1
-        self.audio = audio
-
-    def __repr__(self):
-        return f'mono_to_stereo({self.audio})'
-
-    def length(self):
-        return self.audio.length()
-
-    def num_channels(self):
-        return 2
-
-    def sample_rate(self):
-        return self.audio.sample_rate()
-
-    def compute_samples(self):
-        data = self.audio.get_samples()
-        return np.concatenate((data, data), axis=1)
-
-class stereo_to_mono(Audio):
-    def __init__(self, audio):
-        assert isinstance(audio, Audio)
-        assert audio.num_channels() == 2
-        self.audio = audio
-
-    def __repr__(self):
-        return f'stereo_to_mono({self.audio})'
-
-    def length(self):
-        return self.audio.length()
-
-    def num_channels(self):
-        return 1
-
-    def sample_rate(self):
-        return self.audio.sample_rate()
-
-    def compute_samples(self):
-        data = self.audio.get_samples()
-        return (0.5*data[:,0] + 0.5*data[:,1]).reshape(self.length(), 1)
-
 class zip_file(Clip):
     def __init__(self, fname, frame_rate=None):
         assert isinstance(fname, str)

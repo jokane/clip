@@ -1170,3 +1170,26 @@ class slice_clip(MutatorClip):
         return original_samples[self.start_sample:self.start_sample+self.num_samples()]
 
 
+class mono_to_stereo(MutatorClip):
+    """ Change the number of channels from one to two. """
+    def __init__(self, clip):
+        super().__init__(clip)
+        if self.clip.metrics.num_channels != 1:
+            raise ValueError(f"Expected 1 audio channel, not {self.clip.num_channels()}.")
+        self.metrics = Metrics(self.metrics, num_channels=2)
+    def get_samples(self):
+        data = self.clip.get_samples()
+        return np.concatenate((data, data), axis=1)
+
+class stereo_to_mono(MutatorClip):
+    """ Change the number of channels from two to one. """
+    def __init__(self, clip):
+        super().__init__(clip)
+        if self.clip.metrics.num_channels != 2:
+            raise ValueError(f"Expected 2 audio channels, not {self.clip.num_channels()}.")
+        self.metrics = Metrics(self.metrics, num_channels=1)
+    def get_samples(self):
+        data = self.clip.get_samples()
+        return (0.5*data[:,0] + 0.5*data[:,1]).reshape(self.num_samples(), 1)
+
+

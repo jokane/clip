@@ -398,6 +398,28 @@ def test_slice_clip():
     f = slice_clip(a, end=3)
     f.verify()
 
+def test_mono_to_stereo():
+    a = sine_wave(880, 0.1, 10, 48000, 1)
+    b = mono_to_stereo(a)
+    b.verify()
+    assert b.num_channels() == 2
+
+    a = sine_wave(880, 0.1, 10, 48000, 2)
+    with pytest.raises(ValueError):
+        # Not a mono source.
+        b = mono_to_stereo(a)
+
+def test_stereo_to_mono():
+    a = sine_wave(880, 0.1, 10, 48000, 2)
+    b = stereo_to_mono(a)
+    b.verify()
+    assert b.num_channels() == 1
+
+    a = sine_wave(880, 0.1, 10, 48000, 1)
+    with pytest.raises(ValueError):
+        # Not a stereo source.
+        b = stereo_to_mono(a)
+
 # If we're run as a script, just execute all of the tests.
 if __name__ == '__main__':  #pragma: no cover
     try:
