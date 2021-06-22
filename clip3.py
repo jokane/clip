@@ -143,6 +143,12 @@ def require_less_equal(x, y, name1, name2):
         raise ValueError(f'Expected {name1} less than or equak to {name2},'
           f'but it is not. {x} > {y}')
 
+def require_less(x, y, name1, name2):
+    """ Raise an informative exception if x is greater than y. """
+    if x >= y:
+        raise ValueError(f'Expected {name1} less than {name2},'
+          f'but it is not. {x} >= {y}')
+
 def require_callable(x, name):
     """ Raise an informative exception if x is not callable. """
     require(x, callable, "callable", name, TypeError)
@@ -1211,3 +1217,38 @@ class scale_volume(MutatorClip):
 
     def get_samples(self):
         return self.factor * self.clip.get_samples()
+
+class crop(MutatorClip):
+    """Trim the frames of a clip to show only the rectangle between
+    lower_left and upper_right."""
+    def __init__(self, clip, lower_left, upper_right):
+        super().__init__(clip)
+        require_int(lower_left[0], "lower left")
+        require_positive(lower_left[0], "lower left")
+        require_int(lower_left[1], "lower left")
+        require_positive(lower_left[1], "lower left")
+        require_int(upper_right[0], "upper right")
+        require_less_equal(upper_right[0], clip.width(), "upper right", "width")
+        require_int(upper_right[1], "upper right")
+        require_less_equal(upper_right[1], clip.height(), "upper right", "width")
+        require_less(lower_left[0], upper_right[0], "lower left", "upper right")
+        require_less(lower_left[1], upper_right[1], "lower left", "upper right")
+
+        self.lower_left = lower_left
+        self.upper_right = upper_right
+
+        self.metrics = Metrics(
+          self.metrics,
+          width=upper_right[0]-lower_left[0],
+          height=upper_right[1]-lower_left[1]
+        )
+
+    def frame_signature(self, index):
+        return ['crop', self.lower_left, self.upper_right, self.clip.frame_signature(index)]
+
+    def get_frame(self, index):
+        frame = self.clip.get_frame(index)
+        ll = self.lower_left
+        ur = self.upper_right
+        return frame[ll[1]:ur[1], ll[0]:ur[0], :]
+

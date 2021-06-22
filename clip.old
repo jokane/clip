@@ -648,29 +648,6 @@ class repeat_frame(Clip):
     def get_audio(self):
         return self.default_audio()
 
-def crop(clip, lower_left, upper_right):
-    """Trim the frames of a clip to show only the rectangle between lower_left and upper_right."""
-    assert isinstance(clip, Clip)
-
-    assert isinstance(lower_left[0], int)
-    assert lower_left[0] >= 0
-
-    assert isinstance(lower_left[1], int)
-    assert lower_left[1] >= 0
-
-    assert isinstance(upper_right[0], int)
-    assert upper_right[0] <= clip.width()
-
-    assert isinstance(upper_right[1], int)
-    assert upper_right[1] <= clip.height()
-
-    assert lower_left[0] < upper_right[0]
-    assert lower_left[1] < upper_right[1]
-
-    def crop_filter(frame):
-        return frame[lower_left[1]:upper_right[1], lower_left[0]:upper_right[0], :]
-
-    return filter_frames(clip, crop_filter, name=f'crop{lower_left}{upper_right}')
 
 class force_framerate(Clip):
     """Change the frame rate at which a clip thinks it should be played.    Audio is padded or truncated to match, and thus is likely to become out-of-sync."""
@@ -892,9 +869,7 @@ def sha256sum(filename):
             h.update(mv[:n])
     return h.hexdigest()
 
-
 # This bit from the ffprobe output was relevant for some video:
 match = re.search(r'displaymatrix: rotation of -90.00 degrees', deets)
 if match:
     self.width_, self.height_ = self.height_, self.width_
-

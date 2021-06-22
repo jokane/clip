@@ -442,6 +442,37 @@ def test_reverse():
 
     assert np.array_equal(s1[5], s2[s2.shape[0]-6])
 
+def test_volume():
+    a = sine_wave(880, 0.1, 10, 48000, 2)
+    b = scale_volume(a, 0.1)
+    b.verify()
+
+    with pytest.raises(ValueError):
+        scale_volume(a, -10)
+
+    with pytest.raises(TypeError):
+        scale_volume(a, "tim")
+
+def test_crop():
+    a = join(
+      solid([0,0,0], 640, 480, 30, 10),
+      sine_wave(880, 0.1, 10, 48000, 2)
+    )
+
+    b = crop(a, [10, 10], [100, 100])
+    b.verify()
+    assert b.width() == 90
+    assert b.height() == 90
+
+    with pytest.raises(ValueError):
+        crop(a, [-1, 10], [100, 100])
+
+    with pytest.raises(ValueError):
+        crop(a, [100, 100], [10, 10])
+
+    with pytest.raises(ValueError):
+        crop(a, [10, 10], [100, 10000])
+
 
 # If we're run as a script, just execute all of the tests.
 if __name__ == '__main__':  #pragma: no cover
