@@ -1193,7 +1193,7 @@ class stereo_to_mono(MutatorClip):
         return (0.5*data[:,0] + 0.5*data[:,1]).reshape(self.num_samples(), 1)
 
 class reverse(MutatorClip):
-    """Reverse both the video and audio in a clip."""
+    """ Reverse both the video and audio in a clip. """
     def frame_signature(self, index):
         return self.clip.frame_signature(self.num_frames() - index - 1)
     def get_frame(self, index):
@@ -1201,4 +1201,13 @@ class reverse(MutatorClip):
     def get_samples(self):
         return np.flip(self.clip.get_samples(), axis=0)
 
+class scale_volume(MutatorClip):
+    """ Scale the volume of audio in a clip.  """
+    def __init__(self, clip, factor):
+        super().__init__(clip)
+        require_float(factor, "scaling factor")
+        require_positive(factor, "scaling factor")
+        self.factor = factor
 
+    def get_samples(self):
+        return self.factor * self.clip.get_samples()

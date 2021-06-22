@@ -42,6 +42,11 @@ from clip3 import *
 # x = slice_clip(x, start=80)
 # x.save("sliced.mp4")
 
-x = from_file("intro.mp4", decode_chunk_length=None)
-x = reverse(x)
-x.save("reversed.mp4")
+# x = from_file("intro.mp4", decode_chunk_length=None)
+# x = reverse(x)
+# x.save("reversed.mp4")
+
+
+x = from_file("music.mp3")
+x = scale_volume(x, 0.2)
+x.save("softmusic.mp4")
