@@ -192,8 +192,11 @@ def ffmpeg(*args, task=None, num_frames=None):
             t.join()
 
             if proc.returncode != 0:
-                with open('errors', 'r') as f:
-                    errors = f.read()
+                if os.path.exists('errors'):
+                    with open('errors', 'r') as f:
+                        errors = f.read()
+                else:
+                    errors = '[no errors file found]'
                 message = (
                   f'Alas, ffmpeg failed with return code {proc.returncode}.\n'
                   f'Command was: {command}\n'
@@ -562,7 +565,7 @@ class Clip(ABC):
                 f'-vb {bitrate}' if bitrate else '',
                 f'-preset {preset}' if preset else '',
                 '-profile:v high',
-                '-vf format=yuv420p ',
+                '-filter_complex "color=black,format=rgb24[c];[c][0]scale2ref[c][i];[c][i]overlay=format=auto:shortest=1,setsar=1,format=yuv420p"', #pylint: disable=line-too-long
                 f'{full_fname}',
                 task=f"Encoding {fname}",
                 num_frames=self.num_frames()
@@ -1293,13 +1296,47 @@ class crop(MutatorClip):
         ur = self.upper_right
         return frame[ll[1]:ur[1], ll[0]:ur[0], :]
 
-# class draw_text(VideoClip):
-#     """ A clip consisting of just a bit of text. """
-#     def __init__(self, text, font, font_size):
-#         super().__init__()
-#
-#         require_string(font, "font filename")
-#         require_float(font_size, "font size")
-#         require_positive(font_size, "font size")
-#
-#
+class draw_text(VideoClip):
+    """ A clip consisting of just a bit of text. """
+    def __init__(self, text, font_filename, font_size, frame_rate, length):
+        super().__init__()
+
+        require_string(font_filename, "font filename")
+        require_float(font_size, "font size")
+        require_positive(font_size, "font size")
+
+        # Determine the size of the image we need.
+        draw = ImageDraw.Draw(Image.new("RGBA", (1,1)))
+        font = get_font(font_filename, font_size)
+        size = draw.textsize(text, font=font)
+        size = (size[0]+size[0]%2, size[1]+size[1]%2)
+
+        self.metrics = Metrics(
+          src=default_metrics,
+          width=size[0],
+          height=size[1],
+          frame_rate = frame_rate,
+          length=length
+        )
+
+        self.text = text
+        self.font_filename = font_filename
+        self.font_size = font_size
+        self.frame = None
+    
+    def frame_signature(self, index):
+        return ['text', self.text, self.font_filename, self.font_size, self.frame_rate(), self.length()]
+
+    def get_frame(self, index):
+        if self.frame is None:
+            image = Image.new("RGBA", (self.width(), self.height()))
+            draw = ImageDraw.Draw(image)
+            draw.text(
+              (0,0,),
+              self.text,
+              font=get_font(self.font_filename, self.font_size),
+              fill=(255,0,0,255)
+            )
+            self.frame = np.array(image)
+            
+        return self.frame
