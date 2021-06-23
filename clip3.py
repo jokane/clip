@@ -1030,10 +1030,11 @@ def audio_samples_from_file(fname, expected_sample_rate, expected_num_channels,
     if not success:
         print(f'Extracting audio from {fname}')
         assert '.flac' in direct_formats
-        with tempfile.TemporaryDirectory() as td:
-            audio_fname = os.path.join(td, 'audio.flac')
+        full_fname = os.path.join(os.getcwd(), fname)
+        with temporary_current_directory():
+            audio_fname = 'audio.flac'
             ffmpeg(
-                f'-i {fname}',
+                f'-i {full_fname}',
                 '-vn',
                 f'{audio_fname}',
             )
