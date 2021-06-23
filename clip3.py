@@ -64,6 +64,7 @@ import threading
 import cv2
 import numpy as np
 import progressbar
+from PIL import Image, ImageFont, ImageDraw
 import soundfile
 
 def is_float(x):
@@ -79,6 +80,10 @@ def is_float(x):
 def is_int(x):
     """ Can the given value be interpreted as an int? """
     return isinstance(x, int)
+
+def is_string(x):
+    """ Is the given value actually a string? """
+    return isinstance(x, str)
 
 def is_positive(x):
     """ Can the given value be interpreted as a positive number? """
@@ -118,7 +123,11 @@ def require_int(x, name):
 
 def require_float(x, name):
     """ Raise an informative exception if x is not a float. """
-    require(x, is_float, "positive real number", name, TypeError)
+    require(x, is_float, "float", name, TypeError)
+
+def require_string(x, name):
+    """ Raise an informative exception if x is not a string. """
+    require(x, is_string, "string", name, TypeError)
 
 def require_clip(x, name):
     """ Raise an informative exception if x is not a Clip. """
@@ -191,6 +200,20 @@ def ffmpeg(*args, task=None, num_frames=None):
                   f'Standard error was:\n{errors}'
                 )
                 raise FFMPEGException(message)
+
+def get_font(font, size):
+    """
+    Return a TrueType font for use on Pillow images, with caching to prevent
+    loading the same font again and again.    (The performance improvement seems to
+    be small but non-zero.)
+    """
+    if (font, size) not in get_font.cache:
+        try:
+            get_font.cache[(font, size)] = ImageFont.truetype(font, size)
+        except OSError as e:
+            raise ValueError(f"Failed to open font {font}.") from e
+    return get_font.cache[(font, size)]
+get_font.cache = dict()
 
 
 @dataclass
@@ -711,9 +734,16 @@ class TCE:
         REPLACE = 1
         BLEND = 2
 
+    class AudioMode(Enum):
+        """ How should the video for this element be composited into the final
+        clip?"""
+        REPLACE = 1
+        MIX = 2
+
     clip : Clip
     start_time : float
     video_mode : VideoMode = VideoMode.REPLACE
+    audio_mode : AudioMode = AudioMode.REPLACE
 
 
 class temporal_composite(Clip):
@@ -797,7 +827,12 @@ class temporal_composite(Clip):
             clip_samples = e.clip.get_samples()
             start_sample = int(e.start_time*e.clip.sample_rate())
             end_sample = start_sample + e.clip.num_samples()
-            samples[start_sample:end_sample] = clip_samples
+            if e.audio_mode == TCE.AudioMode.REPLACE:
+                samples[start_sample:end_sample] = clip_samples
+            elif e.audio_mode == TCE.AudioMode.MIX:
+                samples[start_sample:end_sample] = (0.5 * samples[start_sample:end_sample]
+                  + 0.5 * clip_samples)
+
         return samples
 
 def chain(*args):
@@ -840,7 +875,12 @@ def fade_chain(fade, *args):
             clip = scale_alpha(clip,
               lambda index: min((clip.num_frames()-index)/clip.frame_rate()/fade, 1.0))
 
-        elements.append(TCE(clip, start_time, video_mode=TCE.VideoMode.BLEND))
+        elements.append(TCE(
+          clip=clip,
+          start_time=start_time,
+          video_mode=TCE.VideoMode.BLEND,
+          audio_mode=TCE.AudioMode.MIX,
+        ))
         start_time += clip.length() - fade
 
     # Let temporal_composite do all the work.
@@ -1252,3 +1292,13 @@ class crop(MutatorClip):
         ur = self.upper_right
         return frame[ll[1]:ur[1], ll[0]:ur[0], :]
 
+# class draw_text(VideoClip):
+#     """ A clip consisting of just a bit of text. """
+#     def __init__(self, text, font, font_size):
+#         super().__init__()
+#
+#         require_string(font, "font filename")
+#         require_float(font_size, "font size")
+#         require_positive(font_size, "font size")
+#
+#

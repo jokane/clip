@@ -3,7 +3,6 @@ import glob
 import hashlib
 import io
 
-from PIL import Image, ImageFont, ImageDraw
 import pdf2image
 import scipy.signal
 
@@ -186,19 +185,6 @@ else:
     Label = collections.namedtuple('Label', ['text', 'color', 'font', 'size', 'x', 'y', 'start', 'end'], defaults=[None]*4)
 
 
-def get_font(font, size):
-    """
-    Return a TrueType font for use on Pillow images, with caching to prevent
-    loading the same font again and again.    (The performance improvement seems to
-    be small but non-zero.)
-    """
-    if (font, size) not in get_font.cache:
-        try:
-            get_font.cache[(font, size)] = ImageFont.truetype(font, size)
-        except OSError:
-            raise Exception(f"Failed to open font {font}.")
-    return get_font.cache[(font, size)]
-get_font.cache = dict()
 
 class add_labels(Clip):
     """

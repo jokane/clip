@@ -4,9 +4,11 @@
 # pylint: disable=wildcard-import
 
 import glob
+import io
 import shutil
 import sys
 import urllib.request
+import zipfile
 
 import cv2
 import pytest
@@ -23,6 +25,15 @@ def get_sample_files():  # pragma: no cover
 
     if not os.path.exists("music.mp3"):
         urllib.request.urlretrieve("https://www.dropbox.com/s/mvvwaw1msplnteq/City%20Lights%20-%20The%20Lemming%20Shepherds.mp3?dl=1", "music.mp3") # pylint: disable=line-too-long
+
+    if not os.path.exists("ethnocentric_rg.ttf") or not os.path.exists("ethnocentric_rg_it.ttf"):
+        zip_data = urllib.request.urlopen("https://dl.dafont.com/dl/?f=ethnocentric").read()
+        file_like_object = io.BytesIO(zip_data)
+        with zipfile.ZipFile(file_like_object) as z:
+            with open("ethnocentric_rg.ttf", 'wb') as f:
+                f.write(z.open("ethnocentric rg.ttf").read())
+            with open("ethnocentric_rg_it.ttf", 'wb') as f:
+                f.write(z.open("ethnocentric rg it.ttf").read())
 
 
 def test_validate():
@@ -41,6 +52,10 @@ def test_validate():
 
     assert is_iterable(list())
     assert not is_iterable(123)
+
+    assert is_string("Tim")
+    assert not is_string(123)
+    require_string("Tim", "the string")
 
     require_equal(1, 1, "name")
 
@@ -472,6 +487,19 @@ def test_crop():
 
     with pytest.raises(ValueError):
         crop(a, [10, 10], [100, 10000])
+
+def test_get_font():
+    get_sample_files()
+
+    get_font("ethnocentric_rg.ttf", 10)
+    get_font("ethnocentric_rg.ttf", 10)
+    get_font("ethnocentric_rg_it.ttf", 20)
+
+    with pytest.raises(ValueError):
+        get_font("clip3.py", 20)
+
+    with pytest.raises(ValueError):
+        get_font("asdasdasdsad.ttf", 20)
 
 
 # If we're run as a script, just execute all of the tests.
