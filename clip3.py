@@ -49,6 +49,7 @@ from abc import ABC, abstractmethod
 import contextlib
 import collections
 from dataclasses import dataclass
+import dis
 from enum import Enum
 import hashlib
 import math
@@ -577,8 +578,8 @@ class Clip(ABC):
 
     def preview(self):
         """Render the video part and display it in a window on screen."""
-        with custom_progressbar("Previewing", self.length()) as pb:
-            for i in range(0, self.length()):
+        with custom_progressbar("Previewing", self.num_frames()) as pb:
+            for i in range(0, self.num_frames()):
                 frame = self.get_frame_cached(i)
                 pb.update(i)
                 cv2.imshow("", frame)
@@ -594,7 +595,10 @@ class Clip(ABC):
                 self.frame_signature(i)
                 frame = self.get_frame(i)
                 assert isinstance(frame, np.ndarray), f'{type(frame)} ({frame})'
-                assert frame.shape == (self.height(), self.width(), 4)
+                if frame.shape != (self.height(), self.width(), 4):
+                    raise ValueError("Wrong shape of frame returned."
+                      f" Got {frame.shape} "
+                      f" Expecteing {(self.height(), self.width(), 4)}")
                 pb.update(i)
 
         samples = self.get_samples()
@@ -1208,7 +1212,7 @@ class from_file(Clip):
                 if not exists:
                     try:
                         os.rename(seq_fname, cached_fname)
-                    except FileNotFoundError:
+                    except FileNotFoundError: #pragma: no cover
                         # If we get here, that means ffmpeg thought a frame
                         # should exist, that ultimately was not extracted.
                         # This seems to happen from mis-estimations of the
@@ -1388,3 +1392,87 @@ class draw_text(VideoClip):
             self.frame = np.array(image)
 
         return self.frame
+
+class filter_frames(MutatorClip):
+    """A clip formed by passing the frames of another clip through some
+    function.  The function should have one argument, the input frame, and
+    return the output frame.  The output frames may have a different size from
+    the input ones, but must all be the same size across the whole clip.  Audio
+    remains unchanged.
+
+    Optionally, provide an optional name to make the frame signatures more readable.
+
+    Set size to None to infer the width and height of the result by executing
+    the filter function.  Set size to a tuple (width, height) if you know them,
+    to avoid generating a sample frame (which can be slow, for example, if that
+    frame relies on a from_file clip).  Set size to "same" to assume the size
+    is the same as the source clip.
+    """
+
+    def __init__(self, clip, func, name=None, size=None):
+        super().__init__(clip)
+
+        require_callable(func, "filter function")
+        self.func = func
+
+        # Acquire a name for the filter.
+        if name is None:
+            name = self.func.__name__
+        self.name = name
+
+        # Figure out the size.
+        if size is None:
+            sample_frame = func(clip.get_frame(0))
+            height, width, _ = sample_frame.shape
+        else:
+            try:
+                width, height = size
+                require_int(width, 'width')
+                require_positive(width, 'width')
+                require_int(height, 'height')
+                require_positive(height, 'height')
+            except ValueError as e:
+                if size == "same":
+                    width = clip.width()
+                    height = clip.height()
+                else:
+                    raise ValueError(f'In filter_frames, did not understand size={size}.') from e
+
+        self.metrics = Metrics(
+          src = clip.metrics,
+          width = width,
+          height = height
+        )
+
+        # Use the details of the function's bytecode to generate a "signature",
+        # which we'll use in the frame signatures.  This should help to prevent
+        # the need to clear cache if the implementation of a filter function is
+        # changed.
+        bytecode = dis.Bytecode(func, first_line=0)
+        description = bytecode.dis()
+        self.sig = description.__hash__()
+
+
+    def frame_signature(self, index):
+        return ["filter", {
+          'func' : self.name,
+          'sig'  : self.sig,
+          'width' : self.width(),
+          'height' : self.height(),
+          'frame' : self.clip.frame_signature(index)
+        }]
+
+    def get_frame(self, index):
+        return self.func(self.clip.get_frame(index))
+
+def to_monochrome(clip):
+    """ Convert a clip's video to monochrome. """
+    def mono(frame):
+        return cv2.cvtColor(cv2.cvtColor(frame, cv2.COLOR_BGRA2GRAY), cv2.COLOR_GRAY2BGRA)
+
+    return filter_frames(
+      clip=clip,
+      func=mono,
+      name='to_monochrome',
+      size='same'
+    )

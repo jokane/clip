@@ -140,44 +140,6 @@ def slice_out(clip, start, end):
     return chain(slice(clip, 0, start), slice(clip, end, clip.length()))
 
 
-class filter_frames(Clip):
-    """A clip formed by passing the frames of another clip through some function.
-    The function should have one argument, the input frame, and return the output
-    frame.    The output frames may have a different size from the input ones, but
-    must all be the same size across the whole clip.    Audio remains unchanged."""
-
-    def __init__(self, clip, func, name=None):
-        assert isinstance(clip, Clip)
-        assert callable(func)
-        self.clip = clip
-        self.func = func
-        if name:
-            self.func.__name__ = name
-        self.sample_frame = func(clip.get_frame(0))
-
-    def __repr__(self):
-        return f'filter_frames({self.clip}, {self.func.__name__})'
-
-    def frame_rate(self):
-        return self.clip.frame_rate()
-
-    def length(self):
-        return self.clip.length()
-
-    def width(self):
-        return self.sample_frame.shape[1]
-
-    def height(self):
-        return self.sample_frame.shape[0]
-
-    def frame_signature(self, index):
-        return "%s(%s)" % (self.func.__name__, self.clip.frame_signature(index))
-
-    def get_frame(self, index):
-        return self.func(self.clip.get_frame(index))
-
-    def get_audio(self):
-        return self.clip.get_audio()
 
 def scale_by_factor(clip, factor):
     """Scale the frames of a clip by a given factor."""
@@ -1282,8 +1244,6 @@ def pad_to_length(clip, target_length):
         clip = chain(clip, black(height, width, frame_rate, target_length - clip.length()))
     return clip
 
-def to_monochrome(clip):
-    return filter_frames(clip, lambda frame: cv2.cvtColor(cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY), cv2.COLOR_GRAY2BGR))
 
 def static_image(filename, frame_rate, length):
     the_frame = cv2.imread(filename)

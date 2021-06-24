@@ -57,9 +57,15 @@ from clip3 import *
 # x.verify()
 # x.save("hi.mp4")
 
-x = solid([0,255,0], 640, 480, 30, 5)
-x = join(x, sine_wave(440, 0.25, x.length(), 48000, 2))
-y = solid([0,0,255], 640, 480, 30, 5)
-y = join(y, sine_wave(880, 0.25, y.length(), 48000, 2))
-z = fade_chain(2, x, y)
-z.save("twotone.mp4")
+# x = solid([0,255,0], 640, 480, 30, 5)
+# x = join(x, sine_wave(440, 0.25, x.length(), 48000, 2))
+# y = solid([0,0,255], 640, 480, 30, 5)
+# y = join(y, sine_wave(880, 0.25, y.length(), 48000, 2))
+# z = fade_chain(2, x, y)
+# z.save("twotone.mp4")
+
+x = from_file("books.mp4", decode_chunk_length=None)
+x = to_monochrome(x)
+pprint(x.frame_signature(45))
+x.preview()
+

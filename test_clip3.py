@@ -16,30 +16,32 @@ import pytest
 from clip3 import *
 
 def get_sample_files():  # pragma: no cover
+    if not os.path.exists("samples"):
+        os.mkdir("samples")
+
     opener = urllib.request.build_opener()
     opener.addheaders = [('User-agent', 'Mozilla/5.0')]
     urllib.request.install_opener(opener)
 
-    if not os.path.exists("books.mp4"):
-        urllib.request.urlretrieve("https://www.pexels.com/video/5224014/download", "books.mp4")
+    def snag(fname, url):
+        if not os.path.exists("samples/" + fname):
+            urllib.request.urlretrieve(url, "samples/" + fname)
 
-    if not os.path.exists("music.mp3"):
-        urllib.request.urlretrieve("https://www.dropbox.com/s/mvvwaw1msplnteq/City%20Lights%20-%20The%20Lemming%20Shepherds.mp3?dl=1", "music.mp3") # pylint: disable=line-too-long
+    snag("books.mp4", "https://www.pexels.com/video/5224014/download")
+    snag("music.mp3", "https://www.dropbox.com/s/mvvwaw1msplnteq/City%20Lights%20-%20The%20Lemming%20Shepherds.mp3?dl=1") #pylint: disable=line-too-long
+    snag("water.png", "https://cdn.pixabay.com/photo/2017/09/14/11/07/water-2748640_1280.png")
+    snag("flowers.png", "https://cdn.pixabay.com/photo/2017/02/11/17/08/flowers-2058090_1280.png")
 
-    if not os.path.exists("water.png"):
-        urllib.request.urlretrieve("https://cdn.pixabay.com/photo/2017/09/14/11/07/water-2748640_1280.png", "water.png") # pylint: disable=line-too-long
-    if not os.path.exists("flowers.png"):
-        urllib.request.urlretrieve("https://cdn.pixabay.com/photo/2017/02/11/17/08/flowers-2058090_1280.png", 'flowers.png') # pylint: disable=line-too-long
-
-    if not os.path.exists("ethnocentric_rg.ttf") or not os.path.exists("ethnocentric_rg_it.ttf"):
+    exists = os.path.exists("samples/ethnocentric_rg.ttf")
+    exists = exists and os.path.exists("samples/ethnocentric_rg_it.ttf")
+    if not exists:
         zip_data = urllib.request.urlopen("https://dl.dafont.com/dl/?f=ethnocentric").read()
         file_like_object = io.BytesIO(zip_data)
         with zipfile.ZipFile(file_like_object) as z:
-            with open("ethnocentric_rg.ttf", 'wb') as f:
+            with open("samples/ethnocentric_rg.ttf", 'wb') as f:
                 f.write(z.open("ethnocentric rg.ttf").read())
-            with open("ethnocentric_rg_it.ttf", 'wb') as f:
+            with open("samples/ethnocentric_rg_it.ttf", 'wb') as f:
                 f.write(z.open("ethnocentric rg it.ttf").read())
-
 
 def test_validate():
     assert is_float(0.3)
@@ -332,15 +334,18 @@ def test_metrics_from_ffprobe_output():
 def test_from_file():
     get_sample_files()
     with pytest.raises(FileNotFoundError):
-        from_file("books12312312.mp4")
+        from_file("samples/books12312312.mp4")
 
-    a = from_file("books.mp4", decode_chunk_length=None)
+    cache.clear()
+    b = from_file("samples/books.mp4", forced_length=2)
+    b.verify()
+    assert b.length() == 2
+
+
+    a = from_file("samples/books.mp4", decode_chunk_length=None)
     a.verify()
 
-    b = from_file("books.mp4", forced_length=30)
-    b.verify()
-
-    c = from_file("music.mp3")
+    c = from_file("samples/music.mp3")
     c.verify()
 
 def test_audio_samples_from_file():
@@ -349,7 +354,7 @@ def test_audio_samples_from_file():
     with pytest.raises(FFMPEGException):
         # No audio track.
         audio_samples_from_file(
-          "books.mp4",
+          "samples/books.mp4",
           expected_num_samples=0,
           expected_num_channels=1,
           expected_sample_rate=0
@@ -358,7 +363,7 @@ def test_audio_samples_from_file():
     with pytest.raises(ValueError):
         # Wrong sample rate.
         audio_samples_from_file(
-          "music.mp3",
+          "samples/music.mp3",
           expected_num_samples=3335168,
           expected_num_channels=2,
           expected_sample_rate=48000
@@ -367,7 +372,7 @@ def test_audio_samples_from_file():
     with pytest.raises(ValueError):
         # Wrong number of channels
         audio_samples_from_file(
-          "music.mp3",
+          "samples/music.mp3",
           expected_num_samples=3335168,
           expected_num_channels=1,
           expected_sample_rate=44100
@@ -376,7 +381,7 @@ def test_audio_samples_from_file():
     with pytest.raises(ValueError):
         # Wrong length.
         audio_samples_from_file(
-          "music.mp3",
+          "samples/music.mp3",
           expected_num_samples=4335170,
           expected_num_channels=2,
           expected_sample_rate=44100
@@ -384,7 +389,7 @@ def test_audio_samples_from_file():
 
     # # Slightly too long.
     audio_samples_from_file(
-      "music.mp3",
+      "samples/music.mp3",
       expected_num_samples=3337343,
       expected_num_channels=2,
       expected_sample_rate=44100
@@ -392,7 +397,7 @@ def test_audio_samples_from_file():
 
     # Slightly too short.
     audio_samples_from_file(
-      "music.mp3",
+      "samples/music.mp3",
       expected_num_samples=3337345,
       expected_num_channels=2,
       expected_sample_rate=44100
@@ -400,7 +405,7 @@ def test_audio_samples_from_file():
 
     # All good.
     audio_samples_from_file(
-      "music.mp3",
+      "samples/music.mp3",
       expected_num_samples=3337344,
       expected_num_channels=2,
       expected_sample_rate=44100
@@ -506,19 +511,19 @@ def test_crop():
 def test_get_font():
     get_sample_files()
 
-    get_font("ethnocentric_rg.ttf", 10)
-    get_font("ethnocentric_rg.ttf", 10)
-    get_font("ethnocentric_rg_it.ttf", 20)
+    get_font("samples/ethnocentric_rg.ttf", 10)
+    get_font("samples/ethnocentric_rg.ttf", 10)
+    get_font("samples/ethnocentric_rg_it.ttf", 20)
 
     with pytest.raises(ValueError):
         get_font("clip3.py", 20)
 
     with pytest.raises(ValueError):
-        get_font("asdasdasdsad.ttf", 20)
+        get_font("samples/asdasdasdsad.ttf", 20)
 
 def test_draw_text():
     get_sample_files()
-    font = "ethnocentric_rg_it.ttf"
+    font = "samples/ethnocentric_rg_it.ttf"
     x = draw_text("Hello!", font, font_size=200, frame_rate=30, length=5)
     x.verify()
 
@@ -526,15 +531,51 @@ def test_draw_text():
 def test_alpha_blend():
     get_sample_files()
 
-    f0 = cv2.imread("flowers.png", cv2.IMREAD_UNCHANGED)
+    f0 = cv2.imread("samples/flowers.png", cv2.IMREAD_UNCHANGED)
     f1 = np.zeros(shape=f0.shape, dtype=np.uint8)
     f2 = alpha_blend(f0, f1)
-    cv2.imwrite('blended.png', f2)
+    cv2.imwrite('samples/blended.png', f2)
 
-    f0 = cv2.imread("water.png", cv2.IMREAD_UNCHANGED)
+    f0 = cv2.imread("samples/water.png", cv2.IMREAD_UNCHANGED)
     f0 = f0[0:439,:,:]
-    f1 = cv2.imread("flowers.png", cv2.IMREAD_UNCHANGED)
+    f1 = cv2.imread("samples/flowers.png", cv2.IMREAD_UNCHANGED)
     f2 = alpha_blend(f0, f1)
+
+def test_to_monochrome():
+    a = black(640, 480, 30, 3)
+    b = to_monochrome(a)
+    b.verify()
+
+def test_filter_frames():
+
+    a = black(640, 480, 30, 3)
+
+    b = filter_frames(a, lambda x: x)
+    b.verify()
+
+    c = filter_frames(a, lambda x: x, name='identity')
+    c.verify()
+
+    d = filter_frames(a, lambda x: x, size='same')
+    d.verify()
+
+    e = filter_frames(a, lambda x: x, size=(a.width(), a.height()))
+    e.verify()
+
+    # Nonsense size
+    with pytest.raises(ValueError):
+        filter_frames(a, lambda x: x, size='sooom')
+
+    # Wrong size
+    f = filter_frames(a, lambda x: x, size=(10, 10))
+    with pytest.raises(ValueError):
+        f.verify()
+
+    g = filter_frames(a, lambda x: x)
+    h = filter_frames(a, lambda x: x)
+    i = filter_frames(a, lambda x: x+1)
+    assert g.sig == h.sig
+    assert h.sig != i.sig
 
 # If we're run as a script, just execute some or all of the tests.
 if __name__ == '__main__':  #pragma: no cover
