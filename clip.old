@@ -150,16 +150,6 @@ def scale_by_factor(clip, factor):
     new_height = int(factor * clip.height())
     return scale_to_size(clip, new_width, new_height)
 
-def scale_to_size(clip, new_width, new_height):
-    """Scale the frames of a clip to a given size, possibly distorting them."""
-    assert isinstance(clip, Clip)
-    assert isinstance(new_width, int), f'Width should be an integer.    Got {new_width} instead.'
-    assert isinstance(new_height, int), f'Height should be an interger.    Got {new_height} instead.'
-    def scale_filter(frame):
-        return cv2.resize(frame, (new_width, new_height))
-    scale_filter.__name__ = f'scale[{new_width}x{new_height}]'
-    return filter_frames(clip, scale_filter)
-
 def scale_to_fit(clip, max_width, max_height):
     """Scale the frames of a clip to fit within the given constraints,
     maintaining the aspect ratio."""

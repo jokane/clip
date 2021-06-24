@@ -1476,3 +1476,22 @@ def to_monochrome(clip):
       name='to_monochrome',
       size='same'
     )
+
+def scale_to_size(clip, new_width, new_height):
+    """Scale the frames of a clip to a given size, possibly distorting them."""
+    require_clip(clip, "clip")
+    require_int(new_width, "new width")
+    require_positive(new_width, "new width")
+    require_int(new_height, "new height")
+    require_positive(new_height, "new height")
+
+    def scale_filter(frame):
+        return cv2.resize(frame, (new_width, new_height))
+
+    return filter_frames(
+      clip=clip,
+      func=scale_filter,
+      name=f'scale to {new_width}x{new_height}',
+      size=(new_width,new_height)
+    )
+

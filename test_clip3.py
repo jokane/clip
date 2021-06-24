@@ -577,6 +577,16 @@ def test_filter_frames():
     assert g.sig == h.sig
     assert h.sig != i.sig
 
+
+def test_scale_to_size():
+    a = black(640, 480, 30, 3)
+    b = scale_to_size(a, 100, 200) 
+    b.verify()
+    assert b.width() == 100
+    assert b.height() == 200
+
+
+
 # If we're run as a script, just execute some or all of the tests.
 if __name__ == '__main__':  #pragma: no cover
     try:
