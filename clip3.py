@@ -592,6 +592,7 @@ class Clip(ABC):
             for i in range(self.num_frames()):
                 self.frame_signature(i)
                 frame = self.get_frame(i)
+                assert isinstance(frame, np.ndarray), f'{type(frame)} ({frame})'
                 assert frame.shape == (self.height(), self.width(), 4)
                 pb.update(i)
 
@@ -750,11 +751,42 @@ class Element:
     video_mode : VideoMode = VideoMode.REPLACE
     audio_mode : AudioMode = AudioMode.REPLACE
 
+    def apply_to_frame(self, under, index, make_frame):
+        """ Compute the frame signature that results from applying this
+        element (if make_frame==False), or actually compute the frame (if
+        make_frame==False).  The under parameter should be existing signature
+        or the existing frame, respectively for those two cases."""
+
+        # If this element does not apply at this time, make no change.
+        start_index = int(self.start_time*self.clip.frame_rate())
+        if index < start_index or index >= start_index + self.clip.num_frames():
+            return under
+
+        # If there's no frame here yet, or if we're a replace operation, ignore
+        # the existing thing and just use ours.
+        if make_frame and (under is None or self.video_mode == Element.VideoMode.REPLACE):
+            return self.clip.get_frame(index-start_index)
+        if not make_frame and (under == "" or self.video_mode == Element.VideoMode.REPLACE):
+            return self.clip.frame_signature(index-start_index)
+
+        # Should we alpha-blend ourselves in?
+        if self.video_mode == Element.VideoMode.BLEND:
+            if make_frame:
+                over_frame = self.clip.get_frame(index-start_index)
+                over_bgr = over_frame[:,:,:3]
+                over_alpha = over_frame[:,:,3]/255
+                over_alpha = np.stack([over_alpha]*3, axis=2)
+                under[:,:,:3] = over_alpha*over_bgr + (1-over_alpha)*under[:,:,:3]
+                return under
+            else:
+                sig = self.clip.frame_signature(index-start_index)
+                return ['blend', sig, under]
+
+        # Should never get here.
+        assert False #pragma: no cover
 
 class composite(Clip):
-    """ Given a collection of elements, form a clip
-    composited from those elements as described."""
-
+    """ Given a collection of elements, form a composite clip."""
     def __init__(self, *args):
         super().__init__()
 
@@ -781,41 +813,25 @@ class composite(Clip):
         for (i, e) in enumerate(self.elements[1:]):
             self.metrics.verify_compatible_with(e.clip.metrics)
 
-    def get_frame_or_signature(self, index, make_frame):
-        """ Combined logic for frame_signature and get_frame.  If make_frame is
-        True, act like get_frame; otherwise, act like frame_signature. """
-        if make_frame:
-            ret = np.zeros([self.metrics.height, self.metrics.width, 4], np.uint8)
-        else:
-            ret = ""
-
-        for e in self.elements:
-            start_index = int(e.start_time*self.frame_rate())
-            if index < start_index: continue
-            if index >= start_index + e.clip.num_frames(): continue
-
-            if e.video_mode == Element.VideoMode.REPLACE:
-                if make_frame:
-                    ret = e.clip.get_frame(index-start_index)
-                else:
-                    ret = e.clip.frame_signature(index-start_index)
-            elif e.video_mode == Element.VideoMode.BLEND:
-                if make_frame:
-                    over_frame = e.clip.get_frame(index-start_index)
-                    over_bgr = over_frame[:,:,:3]
-                    over_alpha = over_frame[:,:,3]/255
-                    over_alpha = np.stack([over_alpha]*3, axis=2)
-                    ret[:,:,:3] = over_alpha*over_bgr + (1-over_alpha)*ret[:,:,:3]
-                else:
-                    ret = ['blend', e.clip.frame_signature(index-start_index), ret]
-
-        return ret
-
     def frame_signature(self, index):
-        return self.get_frame_or_signature(index, make_frame=False)
+        sig = ""
+        for e in self.elements:
+            sig = e.apply_to_frame(sig, index, False)
+        if sig == "":
+            sig = ['solid', {
+              'width': self.metrics.width,
+              'height': self.metrics.height,
+              'color': [0, 0, 0, 0]
+            }]
+        return sig
 
     def get_frame(self, index):
-        return self.get_frame_or_signature(index, make_frame=True)
+        frame = None
+        for e in self.elements:
+            frame = e.apply_to_frame(frame, index, True)
+        if frame is None:
+            frame = np.zeros([self.metrics.height, self.metrics.width, 4], np.uint8)
+        return frame
 
     def get_samples(self):
         samples = np.zeros([self.metrics.num_samples(), self.metrics.num_channels])

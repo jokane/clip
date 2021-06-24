@@ -178,8 +178,8 @@ def test_composite():
     with pytest.raises(ValueError):
         # Heights do not match.
         z = composite(
-          Element(x, 0),
-          Element(y, 6)
+          Element(x, 0, [0, 0]),
+          Element(y, 6, [0, 0])
         )
 
     x = solid([0,0,0], 640, 480, 30, 5)
@@ -188,8 +188,18 @@ def test_composite():
     with pytest.raises(ValueError):
         # Can't start before 0.
         z = composite(
-          Element(x, -1),
-          Element(y, 6)
+          Element(x, -1, [0, 0]),
+          Element(y, 6, [0, 0])
+        )
+
+    x = solid([0,0,0], 640, 480, 30, 5)
+    y = solid([0,0,0], 640, 480, 31, 5)
+
+    with pytest.raises(ValueError):
+        # Frame rates don't match.
+        z = composite(
+          Element(x, -1, [0, 0]),
+          Element(y, 6, [0, 0])
         )
 
     x = sine_wave(880, 0.1, 5, 48000, 2)
@@ -198,15 +208,15 @@ def test_composite():
     with pytest.raises(ValueError):
         # Sample rates don't match.
         z = composite(
-          Element(x, 0),
-          Element(y, 5)
+          Element(x, 0, [0, 0]),
+          Element(y, 5, [0, 0])
         )
 
     x = solid([0,0,0], 640, 480, 30, 5)
     y = solid([0,0,0], 640, 480, 30, 5)
     z = composite(
-      Element(x, 0),
-      Element(y, 6)
+      Element(x, 0, [0, 0]),
+      Element(y, 6, [0, 0])
     )
     assert z.length() == 11
     z.verify()
