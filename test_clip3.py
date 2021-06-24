@@ -592,6 +592,16 @@ def test_scale_by_factor():
     assert b.width() == 10
     assert b.height() == 20
 
+def test_scale_to_fit():
+    a = black(100, 100, 30, 3)
+    b = scale_to_fit(a, 50, 100)
+    b.verify()
+    assert abs(b.width()/b.height() - 1.0)  < 1e-10
+
+    c = scale_to_fit(a, 100, 50)
+    c.verify()
+    assert abs(b.width()/b.height() - 1.0)  < 1e-10
+
 
 
 # If we're run as a script, just execute some or all of the tests.

@@ -139,23 +139,6 @@ class fade(Clip):
 def slice_out(clip, start, end):
     return chain(slice(clip, 0, start), slice(clip, end, clip.length()))
 
-def scale_to_fit(clip, max_width, max_height):
-    """Scale the frames of a clip to fit within the given constraints,
-    maintaining the aspect ratio."""
-
-    aspect1 = clip.width() / clip.height()
-    aspect2 = max_width / max_height
-
-    if aspect1 > aspect2:
-        # Fill width.
-        new_width = max_width
-        new_height = clip.height() * max_width / clip.width()
-    else:
-        # Fill height.
-        new_height = max_height
-        new_width = clip.width() * max_height / clip.height()
-
-    return scale_to_size(clip, int(new_width), int(new_height))
 
 def letterbox(clip, width, height):
     clip = scale_to_fit(clip, width, height)

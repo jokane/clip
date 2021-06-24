@@ -1505,3 +1505,20 @@ def scale_by_factor(clip, factor):
     new_height = int(factor * clip.height())
     return scale_to_size(clip, new_width, new_height)
 
+def scale_to_fit(clip, max_width, max_height):
+    """Scale the frames of a clip to fit within the given constraints,
+    maintaining the aspect ratio."""
+
+    aspect1 = clip.width() / clip.height()
+    aspect2 = max_width / max_height
+
+    if aspect1 > aspect2:
+        # Fill width.
+        new_width = max_width
+        new_height = clip.height() * max_width / clip.width()
+    else:
+        # Fill height.
+        new_height = max_height
+        new_width = clip.width() * max_height / clip.height()
+
+    return scale_to_size(clip, int(new_width), int(new_height))
