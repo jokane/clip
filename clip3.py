@@ -63,6 +63,7 @@ import threading
 import typing
 
 import cv2
+from numba import jit
 import numpy as np
 import progressbar
 from PIL import Image, ImageFont, ImageDraw
@@ -730,6 +731,47 @@ class join(Clip):
     def get_samples(self):
         return self.audio_clip.get_samples()
 
+@jit(nopython=True) # pragma: no cover
+def alpha_blend(f0, f1):
+    """ Blend two equally-sized RGBA images and return the result. """
+    # https://stackoverflow.com/questions/28900598/how-to-combine-two-colors-with-varying-alpha-values
+    # a01 = (1 - a0)·a1 + a0
+    # r01 = ((1 - a0)·a1·r1 + a0·r0) / a01
+    # g01 = ((1 - a0)·a1·g1 + a0·g0) / a01
+    # b01 = ((1 - a0)·a1·b1 + a0·b0) / a01
+    # assert f0.shape == f1.shape
+    # assert f0.dtype == np.uint8
+    # assert f1.dtype == np.uint8
+
+    f0 = f0.astype(np.float64) / 255.0
+    f1 = f1.astype(np.float64) / 255.0
+
+    b0 = f0[:,:,0]
+    g0 = f0[:,:,1]
+    r0 = f0[:,:,2]
+    a0 = f0[:,:,3]
+
+    b1 = f1[:,:,0]
+    g1 = f1[:,:,1]
+    r1 = f1[:,:,2]
+    a1 = f1[:,:,3]
+
+    a01 = (1 - a0)*a1 + a0
+    b01 = (1 - a0)*b1 + a0*b0
+    g01 = (1 - a0)*g1 + a0*g0
+    r01 = (1 - a0)*r1 + a0*r0
+
+    f01 = np.zeros(shape=f0.shape, dtype=np.float64)
+
+    f01[:,:,0] = b01
+    f01[:,:,1] = g01
+    f01[:,:,2] = r01
+    f01[:,:,3] = a01
+    f01 = (f01*255.0).astype(np.uint8)
+
+    return f01
+
+
 @dataclass
 class Element:
     """An element to be included in a composite."""
@@ -772,12 +814,8 @@ class Element:
         # Should we alpha-blend ourselves in?
         if self.video_mode == Element.VideoMode.BLEND:
             if make_frame:
-                over_frame = self.clip.get_frame(index-start_index)
-                over_bgr = over_frame[:,:,:3]
-                over_alpha = over_frame[:,:,3]/255
-                over_alpha = np.stack([over_alpha]*3, axis=2)
-                under[:,:,:3] = over_alpha*over_bgr + (1-over_alpha)*under[:,:,:3]
-                return under
+                over = self.clip.get_frame(index-start_index)
+                return alpha_blend(under, over)
             else:
                 sig = self.clip.frame_signature(index-start_index)
                 return ['blend', sig, under]

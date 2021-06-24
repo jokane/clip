@@ -26,6 +26,11 @@ def get_sample_files():  # pragma: no cover
     if not os.path.exists("music.mp3"):
         urllib.request.urlretrieve("https://www.dropbox.com/s/mvvwaw1msplnteq/City%20Lights%20-%20The%20Lemming%20Shepherds.mp3?dl=1", "music.mp3") # pylint: disable=line-too-long
 
+    if not os.path.exists("water.png"):
+        urllib.request.urlretrieve("https://cdn.pixabay.com/photo/2017/09/14/11/07/water-2748640_1280.png", "water.png") # pylint: disable=line-too-long
+    if not os.path.exists("flowers.png"):
+        urllib.request.urlretrieve("https://cdn.pixabay.com/photo/2017/02/11/17/08/flowers-2058090_1280.png", 'flowers.png') # pylint: disable=line-too-long
+
     if not os.path.exists("ethnocentric_rg.ttf") or not os.path.exists("ethnocentric_rg_it.ttf"):
         zip_data = urllib.request.urlopen("https://dl.dafont.com/dl/?f=ethnocentric").read()
         file_like_object = io.BytesIO(zip_data)
@@ -518,7 +523,20 @@ def test_draw_text():
     x.verify()
 
 
-# If we're run as a script, just execute all of the tests.
+def test_alpha_blend():
+    get_sample_files()
+
+    f0 = cv2.imread("flowers.png", cv2.IMREAD_UNCHANGED)
+    f1 = np.zeros(shape=f0.shape, dtype=np.uint8)
+    f2 = alpha_blend(f0, f1)
+    cv2.imwrite('blended.png', f2)
+
+    f0 = cv2.imread("water.png", cv2.IMREAD_UNCHANGED)
+    f0 = f0[0:439,:,:]
+    f1 = cv2.imread("flowers.png", cv2.IMREAD_UNCHANGED)
+    f2 = alpha_blend(f0, f1)
+
+# If we're run as a script, just execute some or all of the tests.
 if __name__ == '__main__':  #pragma: no cover
     try:
         pattern = sys.argv[1]
