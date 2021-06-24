@@ -1495,3 +1495,13 @@ def scale_to_size(clip, new_width, new_height):
       size=(new_width,new_height)
     )
 
+def scale_by_factor(clip, factor):
+    """Scale the frames of a clip by a given factor."""
+    require_clip(clip, "clip")
+    require_float(factor, "scaling factor")
+    require_positive(factor, "scaling factor")
+
+    new_width = int(factor * clip.width())
+    new_height = int(factor * clip.height())
+    return scale_to_size(clip, new_width, new_height)
+

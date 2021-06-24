@@ -139,17 +139,6 @@ class fade(Clip):
 def slice_out(clip, start, end):
     return chain(slice(clip, 0, start), slice(clip, end, clip.length()))
 
-
-
-def scale_by_factor(clip, factor):
-    """Scale the frames of a clip by a given factor."""
-    assert isinstance(clip, Clip)
-    assert isfloat(factor)
-    assert factor > 0
-    new_width = int(factor * clip.width())
-    new_height = int(factor * clip.height())
-    return scale_to_size(clip, new_width, new_height)
-
 def scale_to_fit(clip, max_width, max_height):
     """Scale the frames of a clip to fit within the given constraints,
     maintaining the aspect ratio."""

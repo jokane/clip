@@ -585,6 +585,13 @@ def test_scale_to_size():
     assert b.width() == 100
     assert b.height() == 200
 
+def test_scale_by_factor():
+    a = black(100, 200, 30, 3)
+    b = scale_by_factor(a, 0.1)
+    b.verify()
+    assert b.width() == 10
+    assert b.height() == 20
+
 
 
 # If we're run as a script, just execute some or all of the tests.
