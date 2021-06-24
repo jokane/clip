@@ -16,15 +16,16 @@ from clip3 import *
 # cache.clear()
 # 
 
-# x = solid([0,255,0], 640, 480, 30, 5)
-# x = join(x, sine_wave(440, 0.25, x.length(), 48000, 2))
-# 
-# y = solid([0,0,255], 640, 480, 30, 5)
-# y = join(y, sine_wave(880, 0.25, y.length(), 48000, 2))
-# 
-# z = fade_chain(2, x, y)
-#  
-# z.save("twotone.mp4")
+x = solid([0,255,0], 640, 480, 30, 5)
+x = join(x, sine_wave(440, 0.25, x.length(), 48000, 2))
+
+
+y = solid([0,0,255], 640, 480, 30, 5)
+y = join(y, sine_wave(880, 0.25, y.length(), 48000, 2))
+
+z = fade_chain(2, x, y)
+ 
+z.save("twotone.mp4")
 
 # x = from_file("books.mp4", decode_chunk_length=None)
 # x.save("new_books.mp4")
@@ -55,8 +56,8 @@ from clip3 import *
 # x = slice_clip(x, 5, 10)
 # x.save("cropped.mp4")
 
-font = "ethnocentric_rg_it.ttf"
-x = draw_text("Hello!", font, font_size=200, frame_rate=30, length=5)
-x.verify()
-x.save("hi.mp4")
+# font = "ethnocentric_rg_it.ttf"
+# x = draw_text("Hello!", font, font_size=200, frame_rate=30, length=5)
+# x.verify()
+# x.save("hi.mp4")
 

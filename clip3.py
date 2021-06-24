@@ -732,16 +732,16 @@ class join(Clip):
 class Element:
     """An element to be included in a composite."""
     class VideoMode(Enum):
-        """ How should the video for this element be composited into the final
-        clip?"""
+        """ How should the video for this element be composited into the
+        final clip?"""
         REPLACE = 1
         BLEND = 2
 
     class AudioMode(Enum):
-        """ How should the video for this element be composited into the final
-        clip?"""
+        """ How should the video for this element be composited into the
+        final clip?"""
         REPLACE = 1
-        MIX = 2
+        ADD = 2
 
     clip : Clip
     start_time : float
@@ -832,9 +832,8 @@ class composite(Clip):
             end_sample = start_sample + e.clip.num_samples()
             if e.audio_mode == Element.AudioMode.REPLACE:
                 samples[start_sample:end_sample] = clip_samples
-            elif e.audio_mode == Element.AudioMode.MIX:
-                samples[start_sample:end_sample] = (0.5 * samples[start_sample:end_sample]
-                  + 0.5 * clip_samples)
+            elif e.audio_mode == Element.AudioMode.ADD:
+                samples[start_sample:end_sample] += clip_samples
 
         return samples
 
@@ -882,7 +881,7 @@ def fade_chain(fade, *args):
           clip=clip,
           start_time=start_time,
           video_mode=Element.VideoMode.BLEND,
-          audio_mode=Element.AudioMode.MIX,
+          audio_mode=Element.AudioMode.ADD,
         ))
         start_time += clip.length() - fade
 
