@@ -196,7 +196,7 @@ def ffmpeg(*args, task=None, num_frames=None):
                     with open('errors', 'r') as f:
                         errors = f.read()
                 else:
-                    errors = '[no errors file found]'
+                    errors = '[no errors file found]' #pragma: no cover
                 message = (
                   f'Alas, ffmpeg failed with return code {proc.returncode}.\n'
                   f'Command was: {command}\n'
@@ -729,7 +729,7 @@ class join(Clip):
         return self.audio_clip.get_samples()
 
 @dataclass
-class TCE:
+class Element:
     """An element to be included in a composite."""
     class VideoMode(Enum):
         """ How should the video for this element be composited into the final
@@ -749,8 +749,8 @@ class TCE:
     audio_mode : AudioMode = AudioMode.REPLACE
 
 
-class temporal_composite(Clip):
-    """ Given a collection of temporal composite elements (TCE), form a clip
+class composite(Clip):
+    """ Given a collection of elements, form a clip
     composited from those elements as described."""
 
     def __init__(self, *args):
@@ -760,7 +760,7 @@ class temporal_composite(Clip):
 
         # Sanity check on the inputs.
         for (i, e) in enumerate(self.elements):
-            assert isinstance(e, TCE)
+            assert isinstance(e, Element)
             require_clip(e.clip, f'clip {i}')
             require_float(e.start_time, f'start time {i}')
             require_non_negative(e.start_time, f'start time {i}')
@@ -781,7 +781,7 @@ class temporal_composite(Clip):
 
         # Create a solid black background to use as a default, when none of
         # the supplied clips are being shown.
-        self.elements.insert(0, TCE(black(
+        self.elements.insert(0, Element(black(
           width=self.width(),
           height=self.height(),
           frame_rate=self.frame_rate(),
@@ -801,12 +801,12 @@ class temporal_composite(Clip):
             if index < start_index: continue
             if index >= start_index + e.clip.num_frames(): continue
 
-            if e.video_mode == TCE.VideoMode.REPLACE:
+            if e.video_mode == Element.VideoMode.REPLACE:
                 if make_frame:
                     ret = e.clip.get_frame(index-start_index)
                 else:
                     ret = e.clip.frame_signature(index-start_index)
-            elif e.video_mode == TCE.VideoMode.BLEND:
+            elif e.video_mode == Element.VideoMode.BLEND:
                 if make_frame:
                     over_frame = e.clip.get_frame(index-start_index)
                     over_bgr = over_frame[:,:,:3]
@@ -830,9 +830,9 @@ class temporal_composite(Clip):
             clip_samples = e.clip.get_samples()
             start_sample = int(e.start_time*e.clip.sample_rate())
             end_sample = start_sample + e.clip.num_samples()
-            if e.audio_mode == TCE.AudioMode.REPLACE:
+            if e.audio_mode == Element.AudioMode.REPLACE:
                 samples[start_sample:end_sample] = clip_samples
-            elif e.audio_mode == TCE.AudioMode.MIX:
+            elif e.audio_mode == Element.AudioMode.MIX:
                 samples[start_sample:end_sample] = (0.5 * samples[start_sample:end_sample]
                   + 0.5 * clip_samples)
 
@@ -868,7 +868,7 @@ def fade_chain(fade, *args):
         raise ValueError("Need at least one clip to form a chain.")
 
     # Figure out when each clip should start and make a list of elements for
-    # temporal_composite.
+    # composite.
     start_time = 0
     elements = list()
     for i, clip in enumerate(clips):
@@ -878,16 +878,16 @@ def fade_chain(fade, *args):
             clip = scale_alpha(clip,
               lambda index: min((clip.num_frames()-index)/clip.frame_rate()/fade, 1.0))
 
-        elements.append(TCE(
+        elements.append(Element(
           clip=clip,
           start_time=start_time,
-          video_mode=TCE.VideoMode.BLEND,
-          audio_mode=TCE.AudioMode.MIX,
+          video_mode=Element.VideoMode.BLEND,
+          audio_mode=Element.AudioMode.MIX,
         ))
         start_time += clip.length() - fade
 
-    # Let temporal_composite do all the work.
-    return temporal_composite(*elements)
+    # Let composite do all the work.
+    return composite(*elements)
 
 class scale_alpha(MutatorClip):
     """ Scale the alpha channel of a given clip by the given factor, which may
@@ -1323,9 +1323,10 @@ class draw_text(VideoClip):
         self.font_filename = font_filename
         self.font_size = font_size
         self.frame = None
-    
+
     def frame_signature(self, index):
-        return ['text', self.text, self.font_filename, self.font_size, self.frame_rate(), self.length()]
+        return ['text', self.text, self.font_filename, self.font_size,
+          self.frame_rate(), self.length()]
 
     def get_frame(self, index):
         if self.frame is None:
@@ -1338,5 +1339,5 @@ class draw_text(VideoClip):
               fill=(255,0,0,255)
             )
             self.frame = np.array(image)
-            
+
         return self.frame

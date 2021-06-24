@@ -171,15 +171,15 @@ def test_save():
         assert os.path.exists('foo.flac')
         assert os.path.exists('foo.wav')
 
-def test_temporal_composite():
+def test_composite():
     x = solid([0,0,0], 640, 480, 30, 5)
     y = solid([0,0,0], 640, 481, 30, 5)
 
     with pytest.raises(ValueError):
         # Heights do not match.
-        z = temporal_composite(
-          TCE(x, 0),
-          TCE(y, 6)
+        z = composite(
+          Element(x, 0),
+          Element(y, 6)
         )
 
     x = solid([0,0,0], 640, 480, 30, 5)
@@ -187,9 +187,9 @@ def test_temporal_composite():
 
     with pytest.raises(ValueError):
         # Can't start before 0.
-        z = temporal_composite(
-          TCE(x, -1),
-          TCE(y, 6)
+        z = composite(
+          Element(x, -1),
+          Element(y, 6)
         )
 
     x = sine_wave(880, 0.1, 5, 48000, 2)
@@ -197,16 +197,16 @@ def test_temporal_composite():
 
     with pytest.raises(ValueError):
         # Sample rates don't match.
-        z = temporal_composite(
-          TCE(x, 0),
-          TCE(y, 5)
+        z = composite(
+          Element(x, 0),
+          Element(y, 5)
         )
 
     x = solid([0,0,0], 640, 480, 30, 5)
     y = solid([0,0,0], 640, 480, 30, 5)
-    z = temporal_composite(
-      TCE(x, 0),
-      TCE(y, 6)
+    z = composite(
+      Element(x, 0),
+      Element(y, 6)
     )
     assert z.length() == 11
     z.verify()
@@ -500,6 +500,12 @@ def test_get_font():
 
     with pytest.raises(ValueError):
         get_font("asdasdasdsad.ttf", 20)
+
+def test_draw_text():
+    get_sample_files()
+    font = "ethnocentric_rg_it.ttf"
+    x = draw_text("Hello!", font, font_size=200, frame_rate=30, length=5)
+    x.verify()
 
 
 # If we're run as a script, just execute all of the tests.
