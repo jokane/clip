@@ -64,8 +64,11 @@ from clip3 import *
 # z = fade_chain(2, x, y)
 # z.save("twotone.mp4")
 
-x = from_file("books.mp4", decode_chunk_length=None)
-x = to_monochrome(x)
-pprint(x.frame_signature(45))
-x.preview()
+# x = from_file("books.mp4", decode_chunk_length=None)
+# x = to_monochrome(x)
+# pprint(x.frame_signature(45))
+# x.preview()
+
+x = static_image("samples/water.png", 30, 10)
+x.save("water.mp4")
 

@@ -1522,3 +1522,44 @@ def scale_to_fit(clip, max_width, max_height):
         new_width = clip.width() * max_height / clip.height()
 
     return scale_to_size(clip, int(new_width), int(new_height))
+
+class static_frame(VideoClip):
+    """ Show a single image over and over, silently. """
+    def __init__(self, the_frame, frame_name, frame_rate, length):
+        try:
+            height, width, depth = the_frame.shape
+        except AttributeError as e:
+            raise TypeError(f"Cannot not get shape of {the_frame}.") from e
+        except IndexError as e:
+            raise TypeError(f"Could not get width, height, and depth of {the_frame}."
+              f" Shape is {the_frame.shape}.")
+        if depth != 4:
+            raise TypeError(f"Frame {the_frame} does not have 4 channels."
+              f" Shape is {the_frame.shape}.")
+          
+        self.metrics = Metrics(
+          src=default_metrics,
+          width=width,
+          height=height,
+          frame_rate = frame_rate,
+          length=length
+        )
+            
+        self.the_frame = the_frame.copy()
+        self.sig = hash(str(self.the_frame.data))
+        self.frame_name = frame_name
+
+    def frame_signature(self, index):
+        return [ 'static_frame', {
+          'frame_name': self.frame_name,
+          'sig': self.sig
+        }]
+
+    def get_frame(self, index):
+        return self.the_frame
+
+def static_image(filename, frame_rate, length):
+    the_frame = cv2.imread(filename, cv2.IMREAD_UNCHANGED)
+    assert the_frame is not None
+    return static_frame(the_frame, filename, frame_rate, length)
+

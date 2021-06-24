@@ -1207,47 +1207,7 @@ def pad_to_length(clip, target_length):
     return clip
 
 
-def static_image(filename, frame_rate, length):
-    the_frame = cv2.imread(filename)
-    assert the_frame is not None
-    return static_frame(filename, the_frame, frame_rate, length)
 
-
-class static_frame(Clip):
-    def __init__(self, frame_name, the_frame, frame_rate, length):
-        assert isfloat(frame_rate)
-        assert frame_rate > 0
-
-        assert the_frame is not None
-
-        self.frame_name = frame_name
-        self.frame_rate_ = frame_rate
-        self.length_ = length
-        self.the_frame = the_frame
-
-    def __repr__(self):
-        return f'static_frame({self.frame_name}, {self.frame_rate_}, {self.length_})'
-
-    def frame_rate(self):
-        return self.frame_rate_
-
-    def width(self):
-        return self.the_frame.shape[1]
-
-    def height(self):
-        return self.the_frame.shape[0]
-
-    def length(self):
-        return self.length_
-
-    def frame_signature(self, index):
-        return f'{self.__repr__()}:{index}'
-
-    def get_frame(self, index):
-        return self.the_frame
-
-    def get_audio(self):
-        return self.default_audio()
 
 class ken_burns(Clip):
     def __init__(self, clip, width, height, start_top_left, start_bottom_right, end_top_left, end_bottom_right):
