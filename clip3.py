@@ -60,6 +60,7 @@ import subprocess
 import tempfile
 import time
 import threading
+import typing
 
 import cv2
 import numpy as np
@@ -745,6 +746,7 @@ class Element:
 
     clip : Clip
     start_time : float
+    position : typing.Tuple[int, int]
     video_mode : VideoMode = VideoMode.REPLACE
     audio_mode : AudioMode = AudioMode.REPLACE
 
@@ -778,15 +780,6 @@ class composite(Clip):
         # Check for metric mismatches.
         for (i, e) in enumerate(self.elements[1:]):
             self.metrics.verify_compatible_with(e.clip.metrics)
-
-        # Create a solid black background to use as a default, when none of
-        # the supplied clips are being shown.
-        self.elements.insert(0, Element(black(
-          width=self.width(),
-          height=self.height(),
-          frame_rate=self.frame_rate(),
-          length=self.length()
-        ), 0))
 
     def get_frame_or_signature(self, index, make_frame):
         """ Combined logic for frame_signature and get_frame.  If make_frame is
@@ -880,6 +873,7 @@ def fade_chain(fade, *args):
         elements.append(Element(
           clip=clip,
           start_time=start_time,
+          position=(0,0),
           video_mode=Element.VideoMode.BLEND,
           audio_mode=Element.AudioMode.ADD,
         ))
