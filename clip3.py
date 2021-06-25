@@ -849,9 +849,6 @@ class Element:
                     under_patch = under[y0:y1, x0:x1, :]
                     blended = alpha_blend(under_patch, over_patch)
                     under[y0:y1, x0:x1, :] = blended
-                else:
-                    print("Off screen")
-
 
                 return under
             else:
@@ -932,6 +929,10 @@ class composite(Clip):
             clip_samples = e.clip.get_samples()
             start_sample = int(e.start_time*e.clip.sample_rate())
             end_sample = start_sample + e.clip.num_samples()
+            if end_sample > self.num_samples():
+                end_sample = self.num_samples()
+                clip_samples = clip_samples[0:self.num_samples()-start_sample]
+
             if e.audio_mode == Element.AudioMode.REPLACE:
                 samples[start_sample:end_sample] = clip_samples
             elif e.audio_mode == Element.AudioMode.ADD:
@@ -1034,10 +1035,8 @@ def get_duration_from_ffprobe_stream(stream):
             mins = float(match.group(2))
             secs = float(match.group(3))
             return secs + 60*mins + 60*60*hours
-        else:
-            print("no match")
 
-    assert False
+    raise ValueError(f"Could not find a duration in ffprobe stream. {stream}")
 
 def metrics_from_ffprobe_output(ffprobe_output, fname):
     """ Given the output of a run of ffprobe -of compact -show_entries
@@ -1596,11 +1595,11 @@ class static_frame(VideoClip):
             height, width, depth = the_frame.shape
         except AttributeError as e:
             raise TypeError(f"Cannot not get shape of {the_frame}.") from e
-        except IndexError as e:
-            raise TypeError(f"Could not get width, height, and depth of {the_frame}."
+        except ValueError as e:
+            raise ValueError(f"Could not get width, height, and depth of {the_frame}."
               f" Shape is {the_frame.shape}.") from e
         if depth != 4:
-            raise TypeError(f"Frame {the_frame} does not have 4 channels."
+            raise ValueError(f"Frame {the_frame} does not have 4 channels."
               f" Shape is {the_frame.shape}.")
 
         self.metrics = Metrics(

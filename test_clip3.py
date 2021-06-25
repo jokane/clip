@@ -31,7 +31,7 @@ def get_sample_files():  # pragma: no cover
     snag("music.mp3", "https://www.dropbox.com/s/mvvwaw1msplnteq/City%20Lights%20-%20The%20Lemming%20Shepherds.mp3?dl=1") #pylint: disable=line-too-long
     snag("water.png", "https://cdn.pixabay.com/photo/2017/09/14/11/07/water-2748640_1280.png")
     snag("flowers.png", "https://cdn.pixabay.com/photo/2017/02/11/17/08/flowers-2058090_1280.png")
-    snag("bunny.webm", "https://www.learningcontainer.com/wp-content/uploads/2020/05/sample-webm-file.webm") # pyline: disable=line-too-long
+    snag("bunny.webm", "https://www.learningcontainer.com/wp-content/uploads/2020/05/sample-webm-file.webm") # pylint: disable=line-too-long
 
     exists = os.path.exists("samples/ethnocentric_rg.ttf")
     exists = exists and os.path.exists("samples/ethnocentric_rg_it.ttf")
@@ -241,18 +241,14 @@ def test_composite6():
     x = static_image("samples/flowers.png", 30, 10)
     x = scale_by_factor(x, 0.2)
 
-    y = static_image("samples/flowers.png", 30, 10)
-    y = scale_by_factor(y, 0.2)
-
     z = composite(
-      Element(x, 1, [10, 10], Element.VideoMode.BLEND),
-      Element(y, 2, [100, 100], Element.VideoMode.BLEND),
-      Element(x, 3, [-25, 100], Element.VideoMode.BLEND),
+      Element(x, 1, [-25, -25], Element.VideoMode.BLEND),
+      Element(x, 3, [665, 505], Element.VideoMode.BLEND),
       width=640,
-      height=480
+      height=480,
+      length=5
     )
-
-    z.preview()
+    z.verify()
 
 def test_sine_wave():
     x = sine_wave(880, 0.1, 5, 48000, 2)
@@ -336,6 +332,10 @@ def test_metrics_from_ffprobe_output():
     with pytest.raises(ValueError):
         metrics_from_ffprobe_output('', 'test.mp4')
 
+    with pytest.raises(ValueError):
+        bad_video_deets = re.sub("duration", "dooration", video_deets)
+        metrics_from_ffprobe_output(f'{bad_video_deets}\n{audio_deets}', 'test.mp4')
+
     m, _, _ = metrics_from_ffprobe_output(f'{audio_deets}\n{video_deets}', 'test.mp4')
     assert m == correct_metrics
 
@@ -357,16 +357,42 @@ def test_metrics_from_ffprobe_output():
       frame_rate=default_metrics.frame_rate,
     )
 
-def test_from_file():
+def test_from_file1():
     get_sample_files()
     with pytest.raises(FileNotFoundError):
         from_file("samples/books12312312.mp4")
 
-    a = from_file("samples/bunny.webm", decode_chunk_length=None)
+def test_from_file2():
+    get_sample_files()
+    cache.clear()
+    a = from_file("samples/bunny.webm", decode_chunk_length=1.0)
+    a = slice_clip(a, 0, 1.1)
     a.verify()
 
-    c = from_file("samples/music.mp3")
+    b = from_file("samples/bunny.webm", decode_chunk_length=None)
+    b.verify()
+
+    # Again to use the cached dimensions.
+    c = from_file("samples/bunny.webm", decode_chunk_length=None)
     c.verify()
+
+def test_from_file3():
+    get_sample_files()
+    cache.clear()
+
+    # For the case with no video.
+    d = from_file("samples/music.mp3")
+    d.verify()
+
+def test_from_file4():
+    get_sample_files()
+    cache.clear()
+
+    # For the case with no audio.
+    e = from_file("samples/books.mp4", decode_chunk_length=1.0)
+    e = slice_clip(e, 0, 0.5)
+    e.verify()
+
 
 def test_audio_samples_from_file():
     get_sample_files()
@@ -623,8 +649,21 @@ def test_scale_to_fit():
     assert abs(b.width()/b.height() - 1.0)  < 1e-10
 
 def test_static_frame():
+
     a = static_image("samples/water.png", 30, 10)
     a.verify()
+
+    with pytest.raises(TypeError):
+        # Wrong type
+        static_frame("not a frame", "name", 30, 10)
+
+    with pytest.raises(ValueError):
+        # Wrong shape
+        static_frame(np.zeros([100, 100]), "name", 30, 10)
+
+    with pytest.raises(ValueError):
+        # Wrong number of channels
+        static_frame(np.zeros([100, 100, 3]), "name", 30, 10)
 
 
 # If we're run as a script, just execute some or all of the tests.
