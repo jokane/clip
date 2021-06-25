@@ -92,6 +92,10 @@ def is_positive(x):
     """ Can the given value be interpreted as a positive number? """
     return x>0
 
+def is_even(x):
+    """ Is it an even number? """
+    return x%2 == 0
+
 def is_non_negative(x):
     """ Can the given value be interpreted as a non-negative number? """
     return x>=0
@@ -139,6 +143,10 @@ def require_clip(x, name):
 def require_positive(x, name):
     """ Raise an informative exception if x is not positive. """
     require(x, is_positive, "positive", name, ValueError)
+
+def require_even(x, name):
+    """ Raise an informative exception if x is not even. """
+    require(x, is_even, "even", name, ValueError)
 
 def require_non_negative(x, name):
     """ Raise an informative exception if x is not 0 or positive. """
@@ -568,7 +576,7 @@ class Clip(ABC):
                 f'-vb {bitrate}' if bitrate else '',
                 f'-preset {preset}' if preset else '',
                 '-profile:v high',
-                '-filter_complex "color=black,format=rgb24[c];[c][0]scale2ref[c][i];[c][i]overlay=format=auto:shortest=1,setsar=1,format=yuv420p"', #pylint: disable=line-too-long
+                '-filter_complex "color=black,format=rgb24[c];[c][0]scale2ref[c][i];[c][i]overlay=format=auto:shortest=1,setsar=1,format=yuv420p,pad=width=ceil(iw/2)*2:height=ceil(ih/2)*2"', #pylint: disable=line-too-long
                 f'{full_fname}',
                 task=f"Encoding {fname}",
                 num_frames=self.num_frames()
@@ -735,7 +743,7 @@ class join(Clip):
     def get_samples(self):
         return self.audio_clip.get_samples()
 
-@jit(nopython=True) # pragma: no cover
+# @jit(nopython=True) # pragma: no cover
 def alpha_blend(f0, f1):
     """ Blend two equally-sized RGBA images and return the result. """
     # https://stackoverflow.com/questions/28900598/how-to-combine-two-colors-with-varying-alpha-values
@@ -743,9 +751,9 @@ def alpha_blend(f0, f1):
     # r01 = ((1 - a0)·a1·r1 + a0·r0) / a01
     # g01 = ((1 - a0)·a1·g1 + a0·g0) / a01
     # b01 = ((1 - a0)·a1·b1 + a0·b0) / a01
-    # assert f0.shape == f1.shape
-    # assert f0.dtype == np.uint8
-    # assert f1.dtype == np.uint8
+    assert f0.shape == f1.shape, f'{f0.shape}!={f1.shape}'
+    assert f0.dtype == np.uint8
+    assert f1.dtype == np.uint8
 
     f0 = f0.astype(np.float64) / 255.0
     f1 = f1.astype(np.float64) / 255.0
@@ -818,8 +826,19 @@ class Element:
         # Should we alpha-blend ourselves in?
         if self.video_mode == Element.VideoMode.BLEND:
             if make_frame:
-                over = self.clip.get_frame(index-start_index)
-                return alpha_blend(under, over)
+                over_patch = self.clip.get_frame(index-start_index)
+                under_patch = under[
+                  self.position[1]:self.position[1]+over_patch.shape[0],
+                  self.position[0]:self.position[0]+over_patch.shape[1],
+                  :
+                ]
+                blended = alpha_blend(under_patch, over_patch)
+                under[
+                  self.position[1]:self.position[1]+over_patch.shape[0],
+                  self.position[0]:self.position[0]+over_patch.shape[1],
+                  :
+                ] = blended
+                return under
             else:
                 sig = self.clip.frame_signature(index-start_index)
                 return ['blend', sig, under]
@@ -829,7 +848,7 @@ class Element:
 
 class composite(Clip):
     """ Given a collection of elements, form a composite clip."""
-    def __init__(self, *args):
+    def __init__(self, *args, width=None, height=None, length=None):
         super().__init__()
 
         self.elements = list(args)
@@ -837,42 +856,55 @@ class composite(Clip):
         # Sanity check on the inputs.
         for (i, e) in enumerate(self.elements):
             assert isinstance(e, Element)
-            require_clip(e.clip, f'clip {i}')
-            require_float(e.start_time, f'start time {i}')
             require_non_negative(e.start_time, f'start time {i}')
+        if width is not None:
+            require_int(width, "width")
+            require_positive(width, "width")
+        if height is not None:
+            require_int(height, "height")
+            require_positive(height, "height")
+        if length is not None:
+            require_float(length, "length")
+            require_positive(length, "length")
 
-        # Compute our metrics.  Same as all of the clips, except for the
-        # length computed from ending time of the final-ending clip.
-        length = 0
-        for (i, e) in enumerate(self.elements):
-            length = max(length, e.start_time + e.clip.length())
+        # Check for mismatches in the rates.
+        e0 = self.elements[0]
+        for (i, e) in enumerate(self.elements[1:]):
+            require_equal(e0.clip.frame_rate(), e.clip.frame_rate(), "frame rates")
+            require_equal(e0.clip.sample_rate(), e.clip.sample_rate(), "sample rates")
+
+        # Compute the width, height, and lenth of the result.  If we're given
+        # any of these, use that.  Otherwise, make it big enough for every
+        # element to fit.
+        if width is None:
+            width = max(map(lambda e: e.position[0] + e.clip.width(), self.elements))
+        if height is None:
+            height = max(map(lambda e: e.position[1] + e.clip.height(), self.elements))
+        if length is None:
+            length = max(map(lambda e: e.start_time + e.clip.length(), self.elements))
+
         self.metrics = Metrics(
-          src=self.elements[0].clip.metrics,
+          src=e0.clip.metrics,
+          width=width,
+          height=height,
           length=length
         )
 
-        # Check for metric mismatches.
-        for (i, e) in enumerate(self.elements[1:]):
-            self.metrics.verify_compatible_with(e.clip.metrics)
 
     def frame_signature(self, index):
-        sig = ""
+        sig = ['solid', {
+          'width': self.metrics.width,
+          'height': self.metrics.height,
+          'color': [0, 0, 0, 0]
+        }]
         for e in self.elements:
             sig = e.apply_to_frame(sig, index, False)
-        if sig == "":
-            sig = ['solid', {
-              'width': self.metrics.width,
-              'height': self.metrics.height,
-              'color': [0, 0, 0, 0]
-            }]
         return sig
 
     def get_frame(self, index):
-        frame = None
+        frame = np.zeros([self.metrics.height, self.metrics.width, 4], np.uint8)
         for e in self.elements:
             frame = e.apply_to_frame(frame, index, True)
-        if frame is None:
-            frame = np.zeros([self.metrics.height, self.metrics.width, 4], np.uint8)
         return frame
 
     def get_samples(self):
@@ -1526,17 +1558,18 @@ def scale_to_fit(clip, max_width, max_height):
 class static_frame(VideoClip):
     """ Show a single image over and over, silently. """
     def __init__(self, the_frame, frame_name, frame_rate, length):
+        super().__init__()
         try:
             height, width, depth = the_frame.shape
         except AttributeError as e:
             raise TypeError(f"Cannot not get shape of {the_frame}.") from e
         except IndexError as e:
             raise TypeError(f"Could not get width, height, and depth of {the_frame}."
-              f" Shape is {the_frame.shape}.")
+              f" Shape is {the_frame.shape}.") from e
         if depth != 4:
             raise TypeError(f"Frame {the_frame} does not have 4 channels."
               f" Shape is {the_frame.shape}.")
-          
+
         self.metrics = Metrics(
           src=default_metrics,
           width=width,
@@ -1544,7 +1577,7 @@ class static_frame(VideoClip):
           frame_rate = frame_rate,
           length=length
         )
-            
+
         self.the_frame = the_frame.copy()
         self.sig = hash(str(self.the_frame.data))
         self.frame_name = frame_name
@@ -1559,6 +1592,7 @@ class static_frame(VideoClip):
         return self.the_frame
 
 def static_image(filename, frame_rate, length):
+    """ Show a single image loaded from a file over and over, silently. """
     the_frame = cv2.imread(filename, cv2.IMREAD_UNCHANGED)
     assert the_frame is not None
     return static_frame(the_frame, filename, frame_rate, length)

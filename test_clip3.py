@@ -580,7 +580,7 @@ def test_filter_frames():
 
 def test_scale_to_size():
     a = black(640, 480, 30, 3)
-    b = scale_to_size(a, 100, 200) 
+    b = scale_to_size(a, 100, 200)
     b.verify()
     assert b.width() == 100
     assert b.height() == 200
@@ -602,6 +602,9 @@ def test_scale_to_fit():
     c.verify()
     assert abs(b.width()/b.height() - 1.0)  < 1e-10
 
+def test_static_frame():
+    a = static_image("samples/water.png", 30, 10)
+    a.verify()
 
 
 # If we're run as a script, just execute some or all of the tests.
