@@ -64,7 +64,7 @@ import threading
 import typing
 
 import cv2
-from numba import jit
+import numba
 import numpy as np
 import progressbar
 from PIL import Image, ImageFont, ImageDraw
@@ -743,17 +743,13 @@ class join(Clip):
     def get_samples(self):
         return self.audio_clip.get_samples()
 
-# @jit(nopython=True) # pragma: no cover
+@numba.jit(nopython=True) # pragma: no cover
 def alpha_blend(f0, f1):
     """ Blend two equally-sized RGBA images and return the result. """
     # https://stackoverflow.com/questions/28900598/how-to-combine-two-colors-with-varying-alpha-values
-    # a01 = (1 - a0)·a1 + a0
-    # r01 = ((1 - a0)·a1·r1 + a0·r0) / a01
-    # g01 = ((1 - a0)·a1·g1 + a0·g0) / a01
-    # b01 = ((1 - a0)·a1·b1 + a0·b0) / a01
-    assert f0.shape == f1.shape, f'{f0.shape}!={f1.shape}'
-    assert f0.dtype == np.uint8
-    assert f1.dtype == np.uint8
+    # assert f0.shape == f1.shape, f'{f0.shape}!={f1.shape}'
+    # assert f0.dtype == np.uint8
+    # assert f1.dtype == np.uint8
 
     f0 = f0.astype(np.float64) / 255.0
     f1 = f1.astype(np.float64) / 255.0
@@ -827,21 +823,44 @@ class Element:
         if self.video_mode == Element.VideoMode.BLEND:
             if make_frame:
                 over_patch = self.clip.get_frame(index-start_index)
-                under_patch = under[
-                  self.position[1]:self.position[1]+over_patch.shape[0],
-                  self.position[0]:self.position[0]+over_patch.shape[1],
-                  :
-                ]
-                blended = alpha_blend(under_patch, over_patch)
-                under[
-                  self.position[1]:self.position[1]+over_patch.shape[0],
-                  self.position[0]:self.position[0]+over_patch.shape[1],
-                  :
-                ] = blended
+
+                x = self.position[0]
+                y = self.position[1]
+                x0 = x
+                x1 = x + over_patch.shape[1]
+                y0 = y
+                y1 = y + over_patch.shape[0]
+
+                if x1 >= 0 and x0 <= under.shape[1] and y1 >= 0 and y0 <= under.shape[0]:
+                    if x0 < 0:
+                        over_patch = over_patch[:,-x0:,:]
+                        x0 = 0
+                    if x1 >= under.shape[1]:
+                        over_patch = over_patch[:,0:under.shape[1]-x0,:]
+                        x1 = under.shape[1]
+
+                    if y0 < 0:
+                        over_patch = over_patch[-y0:,:,:]
+                        y0 = 0
+                    if y1 >= under.shape[0]:
+                        over_patch = over_patch[0:under.shape[0]-y0,:,:]
+                        y1 = under.shape[0]
+
+                    under_patch = under[y0:y1, x0:x1, :]
+                    blended = alpha_blend(under_patch, over_patch)
+                    under[y0:y1, x0:x1, :] = blended
+                else:
+                    print("Off screen")
+
+
                 return under
             else:
                 sig = self.clip.frame_signature(index-start_index)
-                return ['blend', sig, under]
+                return ['blend', {
+                  'position': self.position,
+                  'over': sig,
+                  'under': under
+                }]
 
         # Should never get here.
         assert False #pragma: no cover
@@ -873,9 +892,9 @@ class composite(Clip):
             require_equal(e0.clip.frame_rate(), e.clip.frame_rate(), "frame rates")
             require_equal(e0.clip.sample_rate(), e.clip.sample_rate(), "sample rates")
 
-        # Compute the width, height, and lenth of the result.  If we're given
-        # any of these, use that.  Otherwise, make it big enough for every
-        # element to fit.
+        # Compute the width, height, and length of the result.  If we're
+        # given any of these, use that.  Otherwise, make it big enough for
+        # every element to fit.
         if width is None:
             width = max(map(lambda e: e.position[0] + e.clip.width(), self.elements))
         if height is None:
@@ -1002,6 +1021,24 @@ class scale_alpha(MutatorClip):
             frame = frame.astype('uint8')
         return frame
 
+def get_duration_from_ffprobe_stream(stream):
+    """ Given a dictionary of ffprobe-returned attributes of a stream, try to
+    figure out the duration of that stream. """
+
+    if 'duration' in stream and is_float(stream['duration']):
+        return float(stream['duration'])
+
+    if 'tag:DURATION' in stream:
+        if match := re.match(r"(\d\d):(\d\d):([0-9\.]+)", stream['tag:DURATION']):
+            hours = float(match.group(1))
+            mins = float(match.group(2))
+            secs = float(match.group(3))
+            return secs + 60*mins + 60*60*hours
+        else:
+            print("no match")
+
+    assert False
+
 def metrics_from_ffprobe_output(ffprobe_output, fname):
     """ Given the output of a run of ffprobe -of compact -show_entries
     stream, return a Metrics object based on that data, or complain if
@@ -1032,8 +1069,8 @@ def metrics_from_ffprobe_output(ffprobe_output, fname):
               "which has an unknown stream of type {stream['codec_type']}.")
 
     if video_stream and audio_stream:
-        vlen = float(video_stream['duration'])
-        alen = float(audio_stream['duration'])
+        vlen = get_duration_from_ffprobe_stream(video_stream)
+        alen = get_duration_from_ffprobe_stream(audio_stream)
         if abs(vlen - alen) > 0.5:
             raise ValueError(f"In {fname}, video length ({vlen}) and audio length ({alen}) "
               "do not match. Perhaps load video and audio separately?")
@@ -1137,7 +1174,7 @@ def audio_samples_from_file(fname, expected_sample_rate, expected_num_channels,
 class from_file(Clip):
     """ Create a clip from a file such as an mp4, flac, or other format
     readable by ffmpeg. """
-    def __init__(self, fname, decode_chunk_length=10, forced_length=None):
+    def __init__(self, fname, decode_chunk_length=10):
         """ Video decoding happens in batches.  Use decode_chunk_length to
         specify the number of seconds of frames decoded in each batch.
         Larger values reduce the overhead of starting the decode process,
@@ -1150,11 +1187,11 @@ class from_file(Clip):
             raise FileNotFoundError(f"Could not open file {fname}.")
         self.fname = os.path.abspath(fname)
 
-        self.acquire_metrics(forced_length=forced_length)
+        self.acquire_metrics()
         self.decode_chunk_length = decode_chunk_length
         self.samples = None
 
-    def acquire_metrics(self, forced_length=None):
+    def acquire_metrics(self):
         """ Set the metrics attribute, either by grabbing the metrics from the
         cache, or by getting them the hard way via ffprobe."""
 
@@ -1179,10 +1216,6 @@ class from_file(Clip):
         # need.
         response = metrics_from_ffprobe_output(deets, self.fname)
         self.metrics, self.has_video, self.has_audio = response
-
-        # Adjust the length if our user insists.
-        if forced_length is not None:
-            self.metrics = Metrics(self.metrics, length=forced_length)
 
     def frame_signature(self, index):
         require_int(index, "frame index")

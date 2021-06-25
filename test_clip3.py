@@ -31,6 +31,7 @@ def get_sample_files():  # pragma: no cover
     snag("music.mp3", "https://www.dropbox.com/s/mvvwaw1msplnteq/City%20Lights%20-%20The%20Lemming%20Shepherds.mp3?dl=1") #pylint: disable=line-too-long
     snag("water.png", "https://cdn.pixabay.com/photo/2017/09/14/11/07/water-2748640_1280.png")
     snag("flowers.png", "https://cdn.pixabay.com/photo/2017/02/11/17/08/flowers-2058090_1280.png")
+    snag("bunny.webm", "https://www.learningcontainer.com/wp-content/uploads/2020/05/sample-webm-file.webm") # pyline: disable=line-too-long
 
     exists = os.path.exists("samples/ethnocentric_rg.ttf")
     exists = exists and os.path.exists("samples/ethnocentric_rg_it.ttf")
@@ -56,6 +57,10 @@ def test_validate():
     assert is_non_negative(0)
     assert is_non_negative(5)
     assert not is_non_negative(-2)
+    assert is_even(2)
+    assert not is_even(3)
+
+    require_even(2, "the number")
 
     assert is_iterable(list())
     assert not is_iterable(123)
@@ -178,47 +183,49 @@ def test_save():
         assert os.path.exists('foo.flac')
         assert os.path.exists('foo.wav')
 
-def test_composite():
+def test_composite1():
     x = solid([0,0,0], 640, 480, 30, 5)
     y = solid([0,0,0], 640, 481, 30, 5)
+    z = composite(
+      Element(x, 0, [0, 0]),
+      Element(y, 6, [0, 0])
+    )
+    assert z.height() == 481
 
-    with pytest.raises(ValueError):
-        # Heights do not match.
-        z = composite(
-          Element(x, 0, [0, 0]),
-          Element(y, 6, [0, 0])
-        )
-
+def test_composite2():
     x = solid([0,0,0], 640, 480, 30, 5)
     y = solid([0,0,0], 640, 480, 30, 5)
 
     with pytest.raises(ValueError):
         # Can't start before 0.
-        z = composite(
+        composite(
           Element(x, -1, [0, 0]),
           Element(y, 6, [0, 0])
         )
 
+
+def test_composite3():
     x = solid([0,0,0], 640, 480, 30, 5)
     y = solid([0,0,0], 640, 480, 31, 5)
-
     with pytest.raises(ValueError):
         # Frame rates don't match.
-        z = composite(
+        composite(
           Element(x, -1, [0, 0]),
           Element(y, 6, [0, 0])
         )
 
+def test_composite4():
     x = sine_wave(880, 0.1, 5, 48000, 2)
     y = sine_wave(880, 0.1, 5, 48001, 2)
 
     with pytest.raises(ValueError):
         # Sample rates don't match.
-        z = composite(
+        composite(
           Element(x, 0, [0, 0]),
           Element(y, 5, [0, 0])
         )
 
+def test_composite5():
     x = solid([0,0,0], 640, 480, 30, 5)
     y = solid([0,0,0], 640, 480, 30, 5)
     z = composite(
@@ -227,6 +234,25 @@ def test_composite():
     )
     assert z.length() == 11
     z.verify()
+
+def test_composite6():
+    get_sample_files()
+
+    x = static_image("samples/flowers.png", 30, 10)
+    x = scale_by_factor(x, 0.2)
+
+    y = static_image("samples/flowers.png", 30, 10)
+    y = scale_by_factor(y, 0.2)
+
+    z = composite(
+      Element(x, 1, [10, 10], Element.VideoMode.BLEND),
+      Element(y, 2, [100, 100], Element.VideoMode.BLEND),
+      Element(x, 3, [-25, 100], Element.VideoMode.BLEND),
+      width=640,
+      height=480
+    )
+
+    z.preview()
 
 def test_sine_wave():
     x = sine_wave(880, 0.1, 5, 48000, 2)
@@ -336,13 +362,7 @@ def test_from_file():
     with pytest.raises(FileNotFoundError):
         from_file("samples/books12312312.mp4")
 
-    cache.clear()
-    b = from_file("samples/books.mp4", forced_length=2)
-    b.verify()
-    assert b.length() == 2
-
-
-    a = from_file("samples/books.mp4", decode_chunk_length=None)
+    a = from_file("samples/bunny.webm", decode_chunk_length=None)
     a.verify()
 
     c = from_file("samples/music.mp3")
@@ -457,12 +477,12 @@ def test_stereo_to_mono():
 
 def test_reverse():
     a = join(
-      solid([0,0,0], 640, 480, 30, 10),
-      sine_wave(880, 0.1, 10, 48000, 2)
+      solid([0,0,0], 640, 480, 30, 1),
+      sine_wave(880, 0.1, 1, 48000, 2)
     )
     b = join(
-      solid([255,0,0], 640, 480, 30, 10),
-      sine_wave(440, 0.1, 10, 48000, 2)
+      solid([255,0,0], 640, 480, 30, 1),
+      sine_wave(440, 0.1, 1, 48000, 2)
     )
     c = chain(a,b)
     d = reverse(c)
@@ -615,5 +635,9 @@ if __name__ == '__main__':  #pragma: no cover
         pattern = ""
     for name, thing in list(globals().items()):
         if 'test_' in name and pattern in name:
+            print('-'*80)
+            print(name)
+            print('-'*80)
             thing()
+            print()
 

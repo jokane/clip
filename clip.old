@@ -1017,87 +1017,6 @@ class slice_video(Clip):
     def get_audio(self):
         return self.audio
 
-class superimpose(Clip):
-    """Superimpose one clip on another, at a given place in each frame, starting
-    at a given time."""
-
-    def __init__(self, under_clip, over_clip, x, y, start_frame, audio='ignore'):
-        assert isinstance(under_clip, Clip)
-        assert isinstance(over_clip, Clip)
-        assert isinstance(x, int)
-        assert x >= 0
-        assert isinstance(y, int)
-        assert y >= 0
-        assert isfloat(start_frame)
-        assert start_frame >= 0
-        start_frame = int(start_frame)
-
-        assert y + over_clip.height() <= under_clip.height(), f"Superimposing {over_clip} onto {under_clip} at ({x}, {x}), but the under clip is not tall enough.    It would need to be {y+over_clip.height()}, but is only {under_clip.height()}."
-        assert x + over_clip.width() <= under_clip.width(), f"Superimposing {over_clip} onto {under_clip} at ({x}, {y}), but the under clip is not wide enough. {x+over_clip.width()} > {under_clip.width()}"
-        assert start_frame + over_clip.length() <= under_clip.length(), f"Superimposing {over_clip} onto {under_clip} at frame {start_frame}, but the under clip is not long enough."
-        assert under_clip.frame_rate() == over_clip.frame_rate(), f'Superimposing {over_clip} onto {under_clip} at frame {start_frame}, but the framerates do not match ({over_clip.frame_rate()} != {under_clip.frame_rate()}.'
-
-        self.under_clip = under_clip
-        self.over_clip = over_clip
-        self.x = x
-        self.y = y
-        self.start_frame = start_frame
-
-        if audio == 'ignore':
-            self.audio = under_clip.get_audio()
-        elif audio in ['replace', 'mix']:
-            original_audio = under_clip.get_audio()
-            new_audio = over_clip.get_audio()
-            assert original_audio.sample_rate() == new_audio.sample_rate()
-            assert original_audio.num_channels() == new_audio.num_channels()
-
-            start_sample = under_clip.frame_to_sample(start_frame)
-            end_sample = under_clip.frame_to_sample(start_frame + over_clip.length())
-
-            before = slice_audio(original_audio, 0, start_sample)
-            during = slice_audio(original_audio, start_sample, end_sample)
-            after = slice_audio(original_audio, end_sample, original_audio.length())
-
-            if audio == 'replace':
-                self.audio = chain_audio(before, new_audio, after)
-            else: # mix
-                self.audio = chain_audio(before, mix(during, new_audio), after)
-        else:
-            raise Exception(f'Unknown audio mode {self.audio} in superimpose.')
-
-    def __repr__(self):
-        return f'superimpose({self.under_clip}, {self.over_clip}, {self.x}, {self.y}, {self.start_frame}, audio={self.audio})'
-
-    def frame_rate(self):
-        return self.under_clip.frame_rate()
-
-    def width(self):
-        return self.under_clip.width()
-
-    def height(self):
-        return self.under_clip.height()
-
-    def length(self):
-        return self.under_clip.length()
-
-    def frame_signature(self, index):
-        if index >= self.start_frame and index - self.start_frame < self.over_clip.length():
-            return "%s+(%s@(%d,%d,%d))" % (self.under_clip.frame_signature(index), self.over_clip.frame_signature(index - self.start_frame), self.x, self.y, self.start_frame)
-        return self.under_clip.frame_signature(index)
-
-    def get_frame(self, index):
-        frame = np.copy(self.under_clip.get_frame(index))
-        if index >= self.start_frame and index - self.start_frame < self.over_clip.length():
-            x0 = self.x
-            x1 = self.x + self.over_clip.width()
-            y0 = self.y
-            y1 = self.y + self.over_clip.height()
-            frame[y0:y1, x0:x1, :] = self.over_clip.get_frame(index - self.start_frame)
-        return frame
-
-    def get_audio(self):
-        return self.audio
-
 def superimpose_center(under_clip, over_clip, start_frame, audio='ignore'):
     """Superimpose one clip on another, in the center of each frame, starting at
     a given time."""
@@ -1200,14 +1119,6 @@ class horizontal_scroll(Clip):
 
     def get_audio(self):
         return self.clip.get_audio()
-
-def pad_to_length(clip, target_length):
-    if clip.length() < target_length:
-        clip = chain(clip, black(height, width, frame_rate, target_length - clip.length()))
-    return clip
-
-
-
 
 class ken_burns(Clip):
     def __init__(self, clip, width, height, start_top_left, start_bottom_right, end_top_left, end_bottom_right):
@@ -1360,52 +1271,6 @@ class super_superimpose(Clip):
 
         assert callable(x), f'x should be either int or callable, got {type(x)}'
         assert callable(y), f'y should be either int or callable, got {type(y)}'
-
-        assert isinstance(start_frame, int)
-
-        self.under_clip = under_clip
-        self.over_clip = over_clip
-        self.x = x
-        self.y = y
-        self.start_frame = start_frame
-
-
-    def get_frame(self, index):
-        frame = np.copy(self.under_clip.get_frame(index))
-        if index >= self.start_frame and index - self.start_frame < self.over_clip.length():
-            over_frame = self.over_clip.get_frame(index - self.start_frame)
-
-            x = self.x(index)
-            y = self.y(index)
-            x0 = x
-            x1 = x + over_frame.shape[1]
-            y0 = y
-            y1 = y + over_frame.shape[0]
-
-            #print()
-            #print(f'before: index={index} x0={x0} x1={x1} y0={y0} y1={y1} frame.shape={frame.shape} over_frame.shape={over_frame.shape}')
-            if x1 >= 0 and x0 <= frame.shape[1] and y1 >= 0 and y0 <= frame.shape[0]:
-                if x0 < 0:
-                    over_frame = over_frame[:,-x0:,:]
-                    x0 = 0
-                if x1 >= frame.shape[1]:
-                    over_frame = over_frame[:,0:frame.shape[1]-x0,:]
-                    x1 = frame.shape[1]
-
-                if y0 < 0:
-                    over_frame = over_frame[-y0:,:,:]
-                    y0 = 0
-                if y1 >= frame.shape[0]:
-                    over_frame = over_frame[0:frame.shape[0]-y0,:,:]
-                    y1 = frame.shape[0]
-
-                #print(f'after:  index={index} x0={x0} x1={x1} y0={y0} y1={y1} frame.shape={frame.shape} over_frame.shape={over_frame.shape}')
-                frame[y0:y1, x0:x1, :] = over_frame
-            # else:
-            #     print("Off screen")
-
-        return frame
-
 
 def hold_at_end(clip, target_length):
     return chain(
