@@ -61,7 +61,6 @@ import subprocess
 import tempfile
 import time
 import threading
-import typing
 
 import cv2
 import numba
@@ -598,16 +597,17 @@ class Clip(ABC):
     def verify(self):
         """ Fully realize a clip, ensuring that no exceptions occur and that
         the right sizes of video frames and audio samples are returned. """
-        with custom_progressbar(task="Verifying", steps=self.num_frames()) as pb:
-            for i in range(self.num_frames()):
-                self.frame_signature(i)
-                frame = self.get_frame(i)
-                assert isinstance(frame, np.ndarray), f'{type(frame)} ({frame})'
-                if frame.shape != (self.height(), self.width(), 4):
-                    raise ValueError("Wrong shape of frame returned."
-                      f" Got {frame.shape} "
-                      f" Expecteing {(self.height(), self.width(), 4)}")
-                pb.update(i)
+        for i in range(self.num_frames()):
+            sig = self.frame_signature(i)
+            pprint(sig)
+            assert sig is not None
+
+            frame = self.get_frame(i)
+            assert isinstance(frame, np.ndarray), f'{type(frame)} ({frame})'
+            if frame.shape != (self.height(), self.width(), 4):
+                raise ValueError("Wrong shape of frame returned."
+                  f" Got {frame.shape} "
+                  f" Expecting {(self.height(), self.width(), 4)}")
 
         samples = self.get_samples()
         assert samples.shape == (self.num_samples(), self.num_channels())
@@ -780,7 +780,6 @@ def alpha_blend(f0, f1):
     return f01
 
 
-@dataclass
 class Element:
     """An element to be included in a composite."""
     class VideoMode(Enum):
@@ -792,75 +791,91 @@ class Element:
     class AudioMode(Enum):
         """ How should the video for this element be composited into the
         final clip?"""
-        REPLACE = 1
-        ADD = 2
+        REPLACE = 3
+        ADD = 4
 
-    clip : Clip
-    start_time : float
-    position : typing.Tuple[int, int]
-    video_mode : VideoMode = VideoMode.REPLACE
-    audio_mode : AudioMode = AudioMode.REPLACE
+    def __init__(self, clip, start_time, position, video_mode=VideoMode.REPLACE,
+                 audio_mode=AudioMode.REPLACE):
+        require_clip(clip, "clip")
+        require_float(start_time, "start_time")
+        require_non_negative(start_time, "start_time")
 
-    def apply_to_frame(self, under, index, make_frame):
-        """ Compute the frame signature that results from applying this
-        element (if make_frame==False), or actually compute the frame (if
-        make_frame==False).  The under parameter should be existing signature
-        or the existing frame, respectively for those two cases."""
+        if is_iterable(position):
+            if len(position) != 2:
+                raise ValueError(f'Position should be tuple (x,y) or callable.  '
+                                 f'Got {type(position)} {position} instead.')
+            require_int(position[0], "position x")
+            require_int(position[1], "position y")
+        elif not callable(position):
+            raise TypeError(f'Position should be tuple (x,y) or callable,'
+                            f'not {type(position)} {position}')
 
-        # If this element does not apply at this time, make no change.
+        if not isinstance(video_mode, Element.VideoMode):
+            raise TypeError(f'Video mode cannot be {video_mode}.')
+
+        if not isinstance(audio_mode, Element.AudioMode):
+            raise TypeError(f'Audio mode cannot be {audio_mode}.')
+
+        self.clip = clip
+        self.start_time = start_time
+        self.position = position
+        self.video_mode = video_mode
+        self.audio_mode = audio_mode
+
+    def signature(self, index):
+        """ A signature for this element, to be used to create the overall
+        frame signature.  Returns None if this element does not contribute to
+        this frame. """
+        start_index = int(self.start_time*self.clip.frame_rate())
+        return [self.video_mode, self.position, self.clip.frame_signature(index-start_index)]
+
+    def apply_to_frame(self, under, index):
+        """ Modify the given frame as described by this element. """
+        # If this element does not apply at this index, make no change.
         start_index = int(self.start_time*self.clip.frame_rate())
         if index < start_index or index >= start_index + self.clip.num_frames():
-            return under
+            return
 
-        # If there's no frame here yet, or if we're a replace operation, ignore
-        # the existing thing and just use ours.
-        if make_frame and (under is None or self.video_mode == Element.VideoMode.REPLACE):
-            return self.clip.get_frame(index-start_index)
-        if not make_frame and (under == "" or self.video_mode == Element.VideoMode.REPLACE):
-            return self.clip.frame_signature(index-start_index)
+        # Get the frame that we're compositing in.
+        over_patch = self.clip.get_frame(index-start_index)
 
-        # Should we alpha-blend ourselves in?
-        if self.video_mode == Element.VideoMode.BLEND:
-            if make_frame:
-                over_patch = self.clip.get_frame(index-start_index)
+        # Get the coordinates where this frame will go.
+        x = self.position[0]
+        y = self.position[1]
+        x0 = x
+        x1 = x + over_patch.shape[1]
+        y0 = y
+        y1 = y + over_patch.shape[0]
 
-                x = self.position[0]
-                y = self.position[1]
-                x0 = x
-                x1 = x + over_patch.shape[1]
-                y0 = y
-                y1 = y + over_patch.shape[0]
+        # If it's totally off-screen, make no change.
+        # print(x0, x1, y0, y1, under.shape)
+        if x1 < 0 or x0 > under.shape[1] or y1 < 0 or y0 > under.shape[0]:
+            return
 
-                if x1 >= 0 and x0 <= under.shape[1] and y1 >= 0 and y0 <= under.shape[0]:
-                    if x0 < 0:
-                        over_patch = over_patch[:,-x0:,:]
-                        x0 = 0
-                    if x1 >= under.shape[1]:
-                        over_patch = over_patch[:,0:under.shape[1]-x0,:]
-                        x1 = under.shape[1]
+        # Clip the frame itself if needed to fit.
+        if x0 < 0:
+            over_patch = over_patch[:,-x0:,:]
+            x0 = 0
+        if x1 >= under.shape[1]:
+            over_patch = over_patch[:,0:under.shape[1]-x0,:]
+            x1 = under.shape[1]
 
-                    if y0 < 0:
-                        over_patch = over_patch[-y0:,:,:]
-                        y0 = 0
-                    if y1 >= under.shape[0]:
-                        over_patch = over_patch[0:under.shape[0]-y0,:,:]
-                        y1 = under.shape[0]
+        if y0 < 0:
+            over_patch = over_patch[-y0:,:,:]
+            y0 = 0
+        if y1 >= under.shape[0]:
+            over_patch = over_patch[0:under.shape[0]-y0,:,:]
+            y1 = under.shape[0]
 
-                    under_patch = under[y0:y1, x0:x1, :]
-                    blended = alpha_blend(under_patch, over_patch)
-                    under[y0:y1, x0:x1, :] = blended
-
-                return under
-            else:
-                sig = self.clip.frame_signature(index-start_index)
-                return ['blend', {
-                  'position': self.position,
-                  'over': sig,
-                  'under': under
-                }]
-
-        # Should never get here.
-        assert False #pragma: no cover
+        # Actually do the compositing, based on the video mode.
+        if self.video_mode == Element.VideoMode.REPLACE:
+            under[y0:y1, x0:x1, :] = over_patch
+        elif self.video_mode == Element.VideoMode.BLEND:
+            under_patch = under[y0:y1, x0:x1, :]
+            blended = alpha_blend(under_patch, over_patch)
+            under[y0:y1, x0:x1, :] = blended
+        else:
+            assert False # pragma: no cover
 
 class composite(Clip):
     """ Given a collection of elements, form a composite clip."""
@@ -908,19 +923,17 @@ class composite(Clip):
 
 
     def frame_signature(self, index):
-        sig = ['solid', {
-          'width': self.metrics.width,
-          'height': self.metrics.height,
-          'color': [0, 0, 0, 0]
-        }]
+        sig = ['composite']
         for e in self.elements:
-            sig = e.apply_to_frame(sig, index, False)
+            esig = e.signature(index)
+            if esig is not None:
+                sig.append(esig)
         return sig
 
     def get_frame(self, index):
         frame = np.zeros([self.metrics.height, self.metrics.width, 4], np.uint8)
         for e in self.elements:
-            frame = e.apply_to_frame(frame, index, True)
+            e.apply_to_frame(frame, index)
         return frame
 
     def get_samples(self):

@@ -184,48 +184,50 @@ def test_save():
         assert os.path.exists('foo.wav')
 
 def test_composite1():
+    # For automatically computing the height.
     x = solid([0,0,0], 640, 480, 30, 5)
     y = solid([0,0,0], 640, 481, 30, 5)
     z = composite(
       Element(x, 0, [0, 0]),
       Element(y, 6, [0, 0])
     )
+    z.verify()
     assert z.height() == 481
 
 def test_composite2():
+    # Can't start before 0.
     x = solid([0,0,0], 640, 480, 30, 5)
     y = solid([0,0,0], 640, 480, 30, 5)
 
     with pytest.raises(ValueError):
-        # Can't start before 0.
         composite(
           Element(x, -1, [0, 0]),
           Element(y, 6, [0, 0])
         )
 
-
 def test_composite3():
+    # Frame rates don't match.
     x = solid([0,0,0], 640, 480, 30, 5)
     y = solid([0,0,0], 640, 480, 31, 5)
     with pytest.raises(ValueError):
-        # Frame rates don't match.
         composite(
           Element(x, -1, [0, 0]),
           Element(y, 6, [0, 0])
         )
 
 def test_composite4():
+    # Sample rates don't match.
     x = sine_wave(880, 0.1, 5, 48000, 2)
     y = sine_wave(880, 0.1, 5, 48001, 2)
 
     with pytest.raises(ValueError):
-        # Sample rates don't match.
         composite(
           Element(x, 0, [0, 0]),
           Element(y, 5, [0, 0])
         )
 
 def test_composite5():
+    # Automatically computed length.
     x = solid([0,0,0], 640, 480, 30, 5)
     y = solid([0,0,0], 640, 480, 30, 5)
     z = composite(
@@ -236,19 +238,78 @@ def test_composite5():
     z.verify()
 
 def test_composite6():
+    # Clipping above, below, left, and right.
     get_sample_files()
 
     x = static_image("samples/flowers.png", 30, 10)
-    x = scale_by_factor(x, 0.2)
+    x = scale_by_factor(x, 0.4)
 
     z = composite(
-      Element(x, 1, [-25, -25], Element.VideoMode.BLEND),
-      Element(x, 3, [665, 505], Element.VideoMode.BLEND),
+      Element(x, 0, [-100, -100], Element.VideoMode.REPLACE),
+      Element(x, 0, [540, 380], Element.VideoMode.REPLACE),
       width=640,
       height=480,
       length=5
     )
     z.verify()
+
+def test_composite7():
+    # Totally off-screen.
+    get_sample_files()
+
+    x = static_image("samples/flowers.png", 30, 10)
+    x = scale_by_factor(x, 0.4)
+
+    z = composite(
+      Element(x, 0, [-1000, -100], Element.VideoMode.REPLACE),
+      Element(x, 0, [1540, 380], Element.VideoMode.REPLACE),
+      width=640,
+      height=480,
+      length=5
+    )
+    z.verify()
+
+
+def test_composite8():
+    # Alpha blending.
+    get_sample_files()
+
+    x = static_image("samples/flowers.png", 30, 5000)
+    x = scale_by_factor(x, 0.4)
+
+    z = composite(
+      Element(x, 0, [50, 50], video_mode=Element.VideoMode.BLEND),
+      Element(x, 0, [250, 150], video_mode=Element.VideoMode.BLEND),
+      width=640,
+      height=480,
+      length=1
+    )
+    z.verify()
+
+def test_composite9():
+    # Bad inputs.
+    x = static_image("samples/flowers.png", 30, 5000)
+    with pytest.raises(ValueError):
+        # Bad position, iterable but wrong length.
+        composite(Element(x, 0, [0,0,0], video_mode=Element.VideoMode.BLEND))
+
+    with pytest.raises(TypeError):
+        # Bad position, iterable but not ints.
+        composite(Element(x, 0, "ab", video_mode=Element.VideoMode.BLEND))
+
+    with pytest.raises(TypeError):
+        # Bad position, not even iterable.
+        composite(Element(x, 0, 0, video_mode=Element.VideoMode.BLEND))
+
+    with pytest.raises(TypeError):
+        # Bad video mode.
+        composite(Element(x, 0, [0, 0], video_mode=Element.AudioMode.REPLACE))
+
+    with pytest.raises(TypeError):
+        # Bad audio mode.
+        composite(Element(x, 0, [0, 0], audio_mode=Element.VideoMode.REPLACE))
+
+
 
 def test_sine_wave():
     x = sine_wave(880, 0.1, 5, 48000, 2)
