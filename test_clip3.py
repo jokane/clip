@@ -673,11 +673,11 @@ def test_to_monochrome():
     b = to_monochrome(a)
     b.verify()
 
-def test_filter_frames():
-
+def test_filter_frames1():
     a = black(640, 480, 30, 3)
 
     b = filter_frames(a, lambda x: x)
+    assert not b.depends_on_index
     b.verify()
 
     c = filter_frames(a, lambda x: x, name='identity')
@@ -698,12 +698,24 @@ def test_filter_frames():
     with pytest.raises(ValueError):
         f.verify()
 
+    # Signatures match?
     g = filter_frames(a, lambda x: x)
     h = filter_frames(a, lambda x: x)
     i = filter_frames(a, lambda x: x+1)
     assert g.sig == h.sig
     assert h.sig != i.sig
 
+def test_filter_frames2():
+    # Two-parameter filter version.
+    a = black(640, 480, 30, 3)
+    b = filter_frames(a, lambda x, i: x)
+    b.verify()
+
+def test_filter_frames3():
+    # A bogus filter.
+    a = black(640, 480, 30, 3)
+    with pytest.raises(TypeError):
+        filter_frames(a, lambda x, y, z: None)
 
 def test_scale_to_size():
     a = black(640, 480, 30, 3)

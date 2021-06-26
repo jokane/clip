@@ -5,7 +5,6 @@ import io
 
 import pdf2image
 
-
 class fade_audio(Audio):
     """Fade between two sounds, which must be equal in length, sample rate, and number of channels."""
 
@@ -105,7 +104,7 @@ class fade(Clip):
 
 
 def slice_out(clip, start, end):
-    return chain(slice(clip, 0, start), slice(clip, end, clip.length()))
+    return chain(slice_clip(clip, 0, start), slice_clip(clip, end, clip.length()))
 
 
 def letterbox(clip, width, height):

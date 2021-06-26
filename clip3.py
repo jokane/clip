@@ -51,6 +51,7 @@ import collections
 from dataclasses import dataclass
 import dis
 from enum import Enum
+import inspect
 import hashlib
 import math
 import os
@@ -627,7 +628,7 @@ class Clip(ABC):
         samples = self.get_samples()
         assert samples.shape == (self.num_samples(), self.num_channels())
 
-    def save_play_quit(self, filename="spq.mp4"):
+    def save_play_quit(self, filename="spq.mp4"): # pragma: no cover
         """ Save the video, play it, and then end the process.  Useful
         sometimes when debugging to see a particular clip without running the
         entire program. """
@@ -1533,11 +1534,12 @@ class draw_text(VideoClip):
         return self.frame
 
 class filter_frames(MutatorClip):
-    """A clip formed by passing the frames of another clip through some
-    function.  The function should have one argument, the input frame, and
-    return the output frame.  The output frames may have a different size from
-    the input ones, but must all be the same size across the whole clip.  Audio
-    remains unchanged.
+    """ A clip formed by passing the frames of another clip through some
+    function.  The function can take either one or two arguments.  If it's one
+    argument, that will be the frame itself.  If it's two arguments, it wil lbe
+    the frame and its index.  In either case, it should return the output
+    frame.  Output frames may have a different size from the input ones, but
+    must all be the same size across the whole clip.  Audio remains unchanged.
 
     Optionally, provide an optional name to make the frame signatures more readable.
 
@@ -1554,14 +1556,37 @@ class filter_frames(MutatorClip):
         require_callable(func, "filter function")
         self.func = func
 
+        # Use the details of the function's bytecode to generate a "signature",
+        # which we'll use in the frame signatures.  This should help to prevent
+        # the need to clear cache if the implementation of a filter function is
+        # changed.
+        bytecode = dis.Bytecode(func, first_line=0)
+        description = bytecode.dis()
+        self.sig = description.__hash__()
+
         # Acquire a name for the filter.
         if name is None:
             name = self.func.__name__
         self.name = name
 
+        # Figure out if the function expects the index or not.  If not, wrap it
+        # in a lambda to ignore the index.  But remember that we've done this,
+        # so we can leave the index out of our frame signatures.
+        parameters = list(inspect.signature(self.func).parameters)
+        if len(parameters) == 1:
+            self.depends_on_index = False
+            def new_func(frame, index, func=self.func): #pylint: disable=unused-argument
+                return func(frame)
+            self.func = new_func
+        elif len(parameters) == 2:
+            self.depends_on_index = True
+        else:
+            raise TypeError(f"Filter function should accept either (frame) or "
+                            f"(frame, index), not {parameters}.)")
+
         # Figure out the size.
         if size is None:
-            sample_frame = func(clip.get_frame(0))
+            sample_frame = self.func(clip.get_frame(0), 0)
             height, width, _ = sample_frame.shape
         else:
             try:
@@ -1583,26 +1608,19 @@ class filter_frames(MutatorClip):
           height = height
         )
 
-        # Use the details of the function's bytecode to generate a "signature",
-        # which we'll use in the frame signatures.  This should help to prevent
-        # the need to clear cache if the implementation of a filter function is
-        # changed.
-        bytecode = dis.Bytecode(func, first_line=0)
-        description = bytecode.dis()
-        self.sig = description.__hash__()
-
 
     def frame_signature(self, index):
         return ["filter", {
           'func' : self.name,
           'sig'  : self.sig,
+          'index' : index if self.depends_on_index else None,
           'width' : self.width(),
           'height' : self.height(),
           'frame' : self.clip.frame_signature(index)
         }]
 
     def get_frame(self, index):
-        return self.func(self.clip.get_frame(index))
+        return self.func(self.clip.get_frame(index), index)
 
 def to_monochrome(clip):
     """ Convert a clip's video to monochrome. """
