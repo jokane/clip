@@ -67,6 +67,7 @@ import numba
 import numpy as np
 import progressbar
 from PIL import Image, ImageFont, ImageDraw
+import scipy.signal
 import soundfile
 
 def is_float(x):
@@ -200,6 +201,11 @@ def ffmpeg(*args, task=None, num_frames=None):
                         time.sleep(1)
 
             t.join()
+
+            if os.path.exists('errors'):
+                shutil.copy('errors', '/tmp/ffmpeg_errors')
+                with open('/tmp/ffmpeg_command', 'w') as f:
+                    print(command, file=f)
 
             if proc.returncode != 0:
                 if os.path.exists('errors'):
@@ -575,7 +581,15 @@ class Clip(ABC):
                 f'-vb {bitrate}' if bitrate else '',
                 f'-preset {preset}' if preset else '',
                 '-profile:v high',
-                '-filter_complex "color=black,format=rgb24[c];[c][0]scale2ref[c][i];[c][i]overlay=format=auto:shortest=1,setsar=1,format=yuv420p,pad=width=ceil(iw/2)*2:height=ceil(ih/2)*2"', #pylint: disable=line-too-long
+                # Filters here to:
+                # - Put a black background behind each frame, ensure that any
+                #   remaining trasparency is handled correctly.
+                # - Ensure that the width and height are even, padding with a
+                #   black pixel if needed.
+                # - Set the pixel format to yuv420p, which seems to be needed
+                #   to get outputs that play on Apple gadgets.
+                # - Set the output frame rate.
+                f'-filter_complex "color=black,format=rgb24[c];[c][0]scale2ref[c][i];[c][i]overlay=format=auto:shortest=1,setsar=1,format=yuv420p,pad=width=ceil(iw/2)*2:height=ceil(ih/2)*2,fps={self.frame_rate()}"', #pylint: disable=line-too-long
                 f'{full_fname}',
                 task=f"Encoding {fname}",
                 num_frames=self.num_frames()
@@ -1677,4 +1691,55 @@ def static_image(filename, frame_rate, length):
     the_frame = cv2.imread(filename, cv2.IMREAD_UNCHANGED)
     assert the_frame is not None
     return static_frame(the_frame, filename, frame_rate, length)
+
+
+class resample(MutatorClip):
+    """ Change some combination of the frame rate, sample rate, and length. """
+    def __init__(self, clip, frame_rate=None, sample_rate=None, length=None):
+
+        super().__init__(clip)
+
+        if frame_rate is not None:
+            require_float(frame_rate, "frame rate")
+            require_positive(frame_rate, "frame rate")
+        else:
+            frame_rate = self.clip.frame_rate()
+
+        if sample_rate is not None:
+            require_float(sample_rate, "sample rate")
+            require_positive(sample_rate, "sample rate")
+        else:
+            sample_rate = self.clip.sample_rate()
+
+        if length is not None:
+            require_float(length, "length")
+            require_positive(length, "length")
+        else:
+            length = self.clip.length()
+
+        print("fr=", frame_rate)
+        self.metrics = Metrics(
+          src=self.clip.metrics,
+          frame_rate = frame_rate,
+          sample_rate = sample_rate,
+          length = length
+        )
+        print(self.metrics)
+
+    def new_index(self, index):
+        """ Return the index in the original clip to be used at the given index
+        of the present clip. """
+        x = int(index * self.clip.length()/self.length())
+        return x
+
+    def frame_signature(self, index):
+        return self.clip.frame_signature(self.new_index(index))
+
+    def get_frame(self, index):
+        return self.clip.get_frame(self.new_index(index))
+
+    def get_samples(self):
+        data = self.clip.get_samples()
+        x = scipy.signal.resample(data, self.num_samples())
+        return x
 

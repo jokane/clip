@@ -746,6 +746,30 @@ def test_static_frame():
         # Wrong number of channels
         static_frame(np.zeros([100, 100, 3]), "name", 30, 10)
 
+def test_resample1():
+    # Basic case.
+    length = 5
+    a = from_file("samples/bunny.webm", decode_chunk_length=length)
+    a = slice_clip(a, 0, length)
+
+    fr = 29
+    sr = 48000
+    l = 2*length
+    b = resample(a, frame_rate=fr, sample_rate=sr, length=l)
+    assert b.frame_rate() == fr
+    assert b.sample_rate() == sr
+    assert b.length() == l
+    b.verify()
+
+def test_resample2():
+    # Cover all of the default-parameter branches.
+    length = 5
+    a = from_file("samples/bunny.webm", decode_chunk_length=length)
+    a = slice_clip(a, 0, length)
+
+    b = resample(a)
+    b.verify()
+
 
 # If we're run as a script, just execute some or all of the tests.
 if __name__ == '__main__':  #pragma: no cover

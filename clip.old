@@ -4,7 +4,6 @@ import hashlib
 import io
 
 import pdf2image
-import scipy.signal
 
 
 class resample(Audio):
@@ -12,31 +11,6 @@ class resample(Audio):
     Change both the sample rate of an audio clip and its length, using some sort
     of fancy resampling algorithm.
     """
-
-    def __init__(self, audio, new_sample_rate, new_length):
-        assert isinstance(audio, Audio)
-        assert isfloat(new_sample_rate)
-        assert isinstance(new_length, int)
-        self.audio = audio
-        self.new_sample_rate = new_sample_rate
-        self.new_length = new_length
-
-    def __repr__(self):
-        return f'resample({self.audio}, {self.new_sample_rate}, {self.new_length})'
-
-    def sample_rate(self):
-        return self.new_sample_rate
-
-    def num_channels(self):
-        return self.audio.num_channels()
-
-    def length(self):
-        return self.new_length
-
-    def compute_samples(self):
-        data = self.audio.get_samples()
-        x = scipy.signal.resample(data, self.new_length)
-        return x
 
 class fade_audio(Audio):
     """Fade between two sounds, which must be equal in length, sample rate, and number of channels."""
@@ -274,39 +248,6 @@ def fade_in(clip, fade_frames, color=(0,0,0)):
     assert iscolor(color)
     blk = solid(clip.height(), clip.width(), clip.frame_rate(), fade_frames, color=color)
     return fade_chain(fade_frames, blk, clip)
-
-
-class resample_frames(Clip):
-    """
-    Modify the frame rate and the length of the video.    No change to the audio.
-    """
-    def __init__(self, clip, new_frame_rate, new_length):
-        assert isinstance(clip, Clip)
-        assert isfloat(new_frame_rate)
-        assert isinstance(new_length, int)
-        self.clip = clip
-        self.new_frame_rate = new_frame_rate
-        self.new_length = new_length
-
-    def new_index(self, index):
-        x = int(self.clip.length()*index/self.new_length)
-        return x
-    def __repr__(self):
-        return f'resample_frames({self.clip}, {self.new_frame_rate}, {self.new_length})'
-    def frame_rate(self):
-        return self.new_frame_rate
-    def width(self):
-        return self.clip.width()
-    def height(self):
-        return self.clip.height()
-    def length(self):
-        return self.new_length
-    def frame_signature(self, index):
-        return self.clip.frame_signature(self.new_index(index))
-    def get_frame(self, index):
-        return self.clip.get_frame(self.new_index(index))
-    def get_audio(self):
-        return self.clip.get_audio()
 
 def timewarp(clip, factor):
     assert isinstance(clip, Clip)
