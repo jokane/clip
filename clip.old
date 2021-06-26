@@ -1256,27 +1256,10 @@ class spin(Clip):
         rot_mat = cv2.getRotationMatrix2D(image_center, degrees, 1.0)
         rotated_frame = cv2.warpAffine(frame, rot_mat, frame.shape[1::-1], flags=cv2.INTER_LINEAR, borderValue=self.color)
         return rotated_frame
-        
-
-class super_superimpose(Clip):
-    def __init__(self, under_clip, over_clip, x, y, start_frame, audio='ignore'):
-        if isinstance(x, int):
-            def func(index, x=x):
-                return x
-            x = func
-        if isinstance(y, int):
-            def func(index, y=y):
-                return y
-            y = func
-
-        assert callable(x), f'x should be either int or callable, got {type(x)}'
-        assert callable(y), f'y should be either int or callable, got {type(y)}'
 
 def hold_at_end(clip, target_length):
-    return chain(
-        clip, repeat_frame(clip, clip.length()-1,
-        target_length-clip.length())
-    )
+    return chain(clip, repeat_frame(clip, clip.length()-1,
+                 target_length-clip.length()))
 
 
 def spq(self, filename="spq.mp4"):

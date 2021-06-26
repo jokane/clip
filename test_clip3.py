@@ -192,6 +192,7 @@ def test_composite1():
       Element(y, 6, [0, 0])
     )
     z.verify()
+    print(z.metrics)
     assert z.height() == 481
 
 def test_composite2():
@@ -288,6 +289,7 @@ def test_composite8():
 
 def test_composite9():
     # Bad inputs.
+    get_sample_files()
     x = static_image("samples/flowers.png", 30, 5000)
     with pytest.raises(ValueError):
         # Bad position, iterable but wrong length.
@@ -309,6 +311,24 @@ def test_composite9():
         # Bad audio mode.
         composite(Element(x, 0, [0, 0], audio_mode=Element.VideoMode.REPLACE))
 
+def test_composite10():
+    # Callable position.
+    get_sample_files()
+
+    x = static_image("samples/flowers.png", 30, 5)
+    x = scale_by_factor(x, 0.4)
+
+    def pos1(index):
+        return [index-100,2*index-100]
+    def pos2(index):
+        return [480-index,2*index-100]
+
+    z = composite(
+      Element(x, 0, pos1, video_mode=Element.VideoMode.BLEND),
+      Element(x, 0, pos2, video_mode=Element.VideoMode.BLEND),
+      length=5
+    )
+    z.verify()
 
 
 def test_sine_wave():

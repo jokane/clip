@@ -806,6 +806,7 @@ class Element:
                                  f'Got {type(position)} {position} instead.')
             require_int(position[0], "position x")
             require_int(position[1], "position y")
+
         elif not callable(position):
             raise TypeError(f'Position should be tuple (x,y) or callable,'
                             f'not {type(position)} {position}')
@@ -822,26 +823,54 @@ class Element:
         self.video_mode = video_mode
         self.audio_mode = audio_mode
 
+    def start_index(self):
+        """ Return the index at which this element begins. """
+        return int(self.start_time*self.clip.frame_rate())
+
+    def required_dimensions(self):
+        """ Return the (width, height) needed to show this element as fully as
+        possible.  (May not be all of the clip, because the top left is always
+        (0,0), so things at negative coordinates will still be hidden. """
+        if callable(self.position):
+            nw, nh = 0, 0
+            for index in range(self.clip.length()):
+                pos = self.position(index)
+                nw = max(nw, pos[0] + self.clip.width())
+                nh = max(nh, pos[1] + self.clip.height())
+            return (nw, nh)
+        else:
+            return (self.position[0] + self.clip.width(),
+                    self.position[1] + self.clip.height())
+
     def signature(self, index):
         """ A signature for this element, to be used to create the overall
         frame signature.  Returns None if this element does not contribute to
         this frame. """
-        start_index = int(self.start_time*self.clip.frame_rate())
-        return [self.video_mode, self.position, self.clip.frame_signature(index-start_index)]
+        clip_index = index - self.start_index()
+        if callable(self.position):
+            pos = self.position(index)
+        else:
+            pos = self.position
+        return [self.video_mode, pos, self.clip.frame_signature(clip_index)]
 
     def apply_to_frame(self, under, index):
         """ Modify the given frame as described by this element. """
         # If this element does not apply at this index, make no change.
-        start_index = int(self.start_time*self.clip.frame_rate())
+        start_index = self.start_index()
+        clip_index = index - start_index
         if index < start_index or index >= start_index + self.clip.num_frames():
             return
 
         # Get the frame that we're compositing in.
-        over_patch = self.clip.get_frame(index-start_index)
+        over_patch = self.clip.get_frame(clip_index)
 
         # Get the coordinates where this frame will go.
-        x = self.position[0]
-        y = self.position[1]
+        if callable(self.position):
+            pos = self.position(index)
+        else:
+            pos = self.position
+        x = pos[0]
+        y = pos[1]
         x0 = x
         x1 = x + over_patch.shape[1]
         y0 = y
@@ -907,10 +936,17 @@ class composite(Clip):
         # Compute the width, height, and length of the result.  If we're
         # given any of these, use that.  Otherwise, make it big enough for
         # every element to fit.
-        if width is None:
-            width = max(map(lambda e: e.position[0] + e.clip.width(), self.elements))
-        if height is None:
-            height = max(map(lambda e: e.position[1] + e.clip.height(), self.elements))
+        if width is None or height is None:
+            nw, nh = 0, 0
+            for e in self.elements:
+                dim = e.required_dimensions()
+                nw = max(nw, dim[0])
+                nh = max(nh, dim[1])
+            if width is None:
+                width = nw
+            if height is None:
+                height = nh
+
         if length is None:
             length = max(map(lambda e: e.start_time + e.clip.length(), self.elements))
 
