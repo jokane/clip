@@ -58,6 +58,7 @@ from pprint import pprint # pylint: disable=unused-import
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 import time
 import threading
@@ -625,6 +626,17 @@ class Clip(ABC):
 
         samples = self.get_samples()
         assert samples.shape == (self.num_samples(), self.num_channels())
+
+    def save_play_quit(self, filename="spq.mp4"):
+        """ Save the video, play it, and then end the process.  Useful
+        sometimes when debugging to see a particular clip without running the
+        entire program. """
+        self.save(filename)
+        os.system("mplayer " + filename)
+        sys.exit(0)
+
+    spq = save_play_quit
+
 
 class VideoClip(Clip):
     """ Inherit from this for Clip classes that really only have video, to
