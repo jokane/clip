@@ -633,13 +633,13 @@ class Clip(ABC):
 
         cv2.destroyWindow("")
 
-    def verify(self):
+    def verify(self, verbose=False):
         """ Fully realize a clip, ensuring that no exceptions occur and that
         the right sizes of video frames and audio samples are returned. """
         for i in range(self.num_frames()):
             sig = self.frame_signature(i)
             print(i, end=" ")
-            pprint(sig)
+            if verbose: pprint(sig)
             assert sig is not None
 
             frame = self.get_frame(i)
@@ -1863,4 +1863,26 @@ def slice_out(clip, start, end):
     return chain(slice_clip(clip, 0, start),
                  slice_clip(clip, end, clip.length()))
 
+
+def letterbox(clip, width, height):
+    """ Fix the clip within given dimensions, adding black bands on the
+    top/bottom or left/right if needed. """
+    require_clip(clip, "clip")
+    require_int(width, "width")
+    require_positive(width, "width")
+    require_int(height, "height")
+    require_positive(height, "height")
+
+    scaled = scale_to_fit(clip, width, height)
+
+    position=[int((width-scaled.width())/2),
+              int((height-scaled.height())/2)]
+
+    return composite(Element(clip=scaled,
+                             start_time=0,
+                             position=position,
+                             video_mode=Element.VideoMode.REPLACE,
+                             audio_mode=Element.AudioMode.REPLACE),
+                      width=width,
+                      height=height)
 

@@ -830,6 +830,12 @@ def test_slice_out2():
     b.verify()
     assert b.length() == 2
 
+def test_letterbox():
+    a = white(640, 480, 30, 3)
+    a = from_file("samples/bunny.webm")
+    b = letterbox(a, 1000, 1000)
+    b.verify()
+
 # If we're run as a script, just execute some or all of the tests.
 if __name__ == '__main__':  #pragma: no cover
     try:
