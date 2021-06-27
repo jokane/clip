@@ -38,7 +38,7 @@ Possibly relevant implementation details:
 # Changes in this version:
 # Externally visible:
 # - Merging Clip and Audio into one monolithic Clip class.
-# - Now length and num_samples can be floats.
+# - Now length refers to the length of the clip in seconds.
 # Internal implementation details:
 # - New Metrics class.  Each Clip should have an attribute called metrics.
 #       Result: fewer abstract methods, less boilerplate.
@@ -51,6 +51,7 @@ import collections
 from dataclasses import dataclass
 import dis
 from enum import Enum
+import glob
 import inspect
 import hashlib
 import math
@@ -178,6 +179,18 @@ def require_less(x, y, name1, name2):
 def require_callable(x, name):
     """ Raise an informative exception if x is not callable. """
     require(x, callable, "callable", name, TypeError)
+
+def read_image(fname):
+    """Read an image from disk, make sure it has the correct RGBA uint8 format,
+    and return it."""
+    frame = cv2.imread(fname, cv2.IMREAD_UNCHANGED)
+    assert frame is not None
+    if frame.shape[2] == 3:
+        frame = cv2.cvtColor(frame, cv2.COLOR_RGB2RGBA)
+    assert frame.shape[2] == 4, frame.shape
+    assert frame.dtype == np.uint8
+    return frame
+
 
 class FFMPEGException(Exception):
     """Raised when ffmpeg fails for some reason."""
@@ -1919,4 +1932,35 @@ def hold_at_end(clip, target_length):
     return chain(clip,
                  repeat_frame(clip, clip.length(), target_length-clip.length()))
 
+
+class image_glob(VideoClip):
+    """Video from a collection of identically-sized image files that match
+    a unix-style pattern, at a given frame rate."""
+    def __init__(self, pattern, frame_rate):
+        super().__init__()
+
+        require_string(pattern, "pattern")
+        require_float(frame_rate, "frame rate")
+        require_positive(frame_rate, "frame rate")
+
+        self.pattern = pattern
+
+        self.filenames = sorted(glob.glob(pattern))
+        if len(self.filenames) == 0:
+            raise FileNotFoundError(f'No files matched pattern: {pattern}')
+
+        sample_frame = cv2.imread(self.filenames[0])
+        assert sample_frame is not None
+
+        self.metrics = Metrics(src = default_metrics,
+                               width=sample_frame.shape[1],
+                               height=sample_frame.shape[0],
+                               frame_rate = frame_rate,
+                               length = len(self.filenames)/frame_rate)
+
+    def frame_signature(self, index):
+        return self.filenames[index]
+
+    def get_frame(self, index):
+        return read_image(self.filenames[index])
 

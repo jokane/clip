@@ -842,6 +842,13 @@ def test_hold_at_end():
     b.save("hold.mp4")
     assert b.length() == 5
 
+def test_image_glob1():
+    a = image_glob("samples/bunny_frames/*.png", frame_rate=24)
+    a.verify()
+
+def test_image_glob2():
+    with pytest.raises(FileNotFoundError):
+        image_glob("samples/bunny_frames/*.poo", frame_rate=24)
 
 # Grab all of the sample files first.  (...instead of checking within each
 # test.)

@@ -1,48 +1,8 @@
 from zipfile import ZipFile
-import glob
 import hashlib
 import io
 
 import pdf2image
-
-class image_glob(Clip):
-    """Form a video from a collection of identically-sized image files that match
-    a unix-style pattern, at a given frame rate."""
-
-    def __init__(self, pattern, frame_rate):
-        self.pattern = pattern
-        assert isfloat(frame_rate)
-        assert frame_rate > 0
-
-        self.frame_rate_ = frame_rate
-        self.filenames = sorted(glob.glob(pattern))
-        assert len(self.filenames) > 0, "No files matched pattern: " + pattern
-        self.sample_frame = cv2.imread(self.filenames[0])
-        assert self.sample_frame is not None
-
-    def __repr__(self):
-        return f'image_glob({self.pattern}, {self.frame_rate})'
-
-    def frame_rate(self):
-        return self.frame_rate_
-
-    def width(self):
-        return self.sample_frame.shape[1]
-
-    def height(self):
-        return self.sample_frame.shape[0]
-
-    def length(self):
-        return len(self.filenames)
-
-    def frame_signature(self, index):
-        return self.filenames[index]
-
-    def get_frame(self, index):
-        return cv2.imread(self.filenames[index])
-
-    def get_audio(self):
-        return self.default_audio()
 
 class force_framerate(Clip):
     """Change the frame rate at which a clip thinks it should be played.    Audio is padded or truncated to match, and thus is likely to become out-of-sync."""
