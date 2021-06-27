@@ -644,6 +644,7 @@ class Clip(ABC):
 
             frame = self.get_frame(i)
             assert isinstance(frame, np.ndarray), f'{type(frame)} ({frame})'
+            assert frame.dtype == np.uint8
             if frame.shape != (self.height(), self.width(), 4):
                 raise ValueError("Wrong shape of frame returned."
                   f" Got {frame.shape} "
@@ -838,12 +839,13 @@ class Element:
         final clip?"""
         REPLACE = 1
         BLEND = 2
+        ADD = 3
 
     class AudioMode(Enum):
         """ How should the video for this element be composited into the
         final clip?"""
-        REPLACE = 3
-        ADD = 4
+        REPLACE = 4
+        ADD = 5
 
     def __init__(self, clip, start_time, position, video_mode=VideoMode.REPLACE,
                  audio_mode=AudioMode.REPLACE):
@@ -954,6 +956,9 @@ class Element:
             under_patch = under[y0:y1, x0:x1, :]
             blended = alpha_blend(under_patch, over_patch)
             under[y0:y1, x0:x1, :] = blended
+        elif self.video_mode == Element.VideoMode.ADD:
+            print(under.dtype, over_patch.dtype)
+            under[y0:y1, x0:x1, :] += over_patch
         else:
             assert False # pragma: no cover
 
@@ -1040,16 +1045,10 @@ class composite(Clip):
 
         return samples
 
-def chain(*args):
-    """ Concatenate a series of clips.  The clips may be given individually,
-    in lists or other iterables, or a mixture of both.  """
-    return fade_chain(0, *args)
-
-def fade_chain(fade, *args):
-    """ Concatenate a series of clips, with a given amount of overlap between
-    each successive pair.  The clips may be given individually, in lists or
-    other iterables, or a mixture of both.  """
-
+def chain(*args, fade = 0):
+    """ Concatenate a series of clips.  The clips may be given individually, in
+    lists or other iterables, or a mixture of both.  Optionally overlap them a
+    little and fade between them."""
     # Construct our list of clips.  Flatten each list; keep each individual
     # clip.
     clips = list()
@@ -1074,19 +1073,18 @@ def fade_chain(fade, *args):
     start_time = 0
     elements = list()
     for i, clip in enumerate(clips):
-        if i>0 and fade>0:
-            clip = scale_alpha(clip, lambda index: min(index/clip.frame_rate()/fade, 1.0))
-        if i<len(clips)-1 and fade>0:
-            clip = scale_alpha(clip,
-              lambda index: min((clip.num_frames()-index)/clip.frame_rate()/fade, 1.0))
+        if fade>0:
+            if i>0:
+                clip = fade_in(clip, fade)
+            if i<len(clips)-1:
+                clip = fade_out(clip, fade)
 
-        elements.append(Element(
-          clip=clip,
-          start_time=start_time,
-          position=(0,0),
-          video_mode=Element.VideoMode.BLEND,
-          audio_mode=Element.AudioMode.ADD,
-        ))
+        elements.append(Element(clip=clip,
+                                start_time=start_time,
+                                position=(0,0),
+                                video_mode=Element.VideoMode.ADD,
+                                audio_mode=Element.AudioMode.ADD))
+
         start_time += clip.length() - fade
 
     # Let composite do all the work.
@@ -1822,7 +1820,7 @@ class fade_base(MutatorClip, ABC):
     def get_frame(self, index):
         frame = self.clip.get_frame(index)
         alpha = self.alpha(index)
-        return alpha * frame
+        return (alpha * frame).astype(np.uint8)
 
     @abstractmethod
     def get_samples(self):

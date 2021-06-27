@@ -347,7 +347,7 @@ def test_join():
         join(x, y)
 
 
-def test_chain_and_fade_chain():
+def test_chain():
     a = black(640, 480, 30, 3)
     b = white(640, 480, 30, 3)
     c = solid([255,0,0], 640, 480, 30, 3)
@@ -356,7 +356,7 @@ def test_chain_and_fade_chain():
     assert d.length() == a.length() + b.length() + c.length()
     d.verify()
 
-    e = fade_chain(2, a, [b, c])
+    e = chain(a, [b, c], fade=2)
     assert e.length() == a.length() + b.length() + c.length() - 4
     e.verify()
 
@@ -364,7 +364,7 @@ def test_chain_and_fade_chain():
         chain()
 
     with pytest.raises(ValueError):
-        fade_chain(3)
+        chain(fade=3)
 
 
 def test_black_and_white():
