@@ -36,6 +36,14 @@ def get_sample_files():  # pragma: no cover
     snag("flowers.png", "https://cdn.pixabay.com/photo/2017/02/11/17/08/flowers-2058090_1280.png")
     snag("bunny.webm", "https://www.learningcontainer.com/wp-content/uploads/2020/05/sample-webm-file.webm") # pylint: disable=line-too-long
 
+    if not os.path.exists("samples/bunny_frames"):
+        os.mkdir("samples/bunny_frames")
+        ffmpeg('-i samples/bunny.webm', 'samples/bunny_frames/%04d.png')
+
+    if not os.path.exists("samples/bunny.zip"):
+        with temporarily_changed_directory("samples"):
+            os.system("zip bunny.zip bunny_frames/*.png")
+
     exists = os.path.exists("samples/ethnocentric_rg.ttf")
     exists = exists and os.path.exists("samples/ethnocentric_rg_it.ttf")
     if not exists:
