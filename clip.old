@@ -5,8 +5,6 @@ import io
 
 import pdf2image
 
-
-
 class image_glob(Clip):
     """Form a video from a collection of identically-sized image files that match
     a unix-style pattern, at a given frame rate."""
@@ -45,47 +43,6 @@ class image_glob(Clip):
 
     def get_audio(self):
         return self.default_audio()
-
-class repeat_frame(Clip):
-    """A clip that shows the same frame, from another clip, over and over."""
-    def __init__(self, clip, frame_index, length):
-        assert isinstance(clip, Clip)
-
-        assert isinstance(frame_index, int)
-        assert frame_index >= 0
-        assert frame_index < clip.length(), "Trying to repeat frame %d of %s, but the last valid frame index is %s." % (frame_index, clip.signature(), clip.length()-1)
-
-        assert isinstance(length, int)
-        assert length > 0
-
-        self.clip = clip
-        self.frame_index = frame_index
-        self.length_ = length
-
-    def __repr__(self):
-        return f'repeat_frame({self.clip}, {self.frame_index}, {self.length_})'
-
-    def frame_rate(self):
-        return self.clip.frame_rate()
-
-    def length(self):
-        return self.length_
-
-    def width(self):
-        return self.clip.width()
-
-    def height(self):
-        return self.clip.height()
-
-    def frame_signature(self, index):
-        return self.clip.frame_signature(self.frame_index)
-
-    def get_frame(self, index):
-        return self.clip.get_frame(self.frame_index)
-
-    def get_audio(self):
-        return self.default_audio()
-
 
 class force_framerate(Clip):
     """Change the frame rate at which a clip thinks it should be played.    Audio is padded or truncated to match, and thus is likely to become out-of-sync."""

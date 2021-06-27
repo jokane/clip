@@ -245,8 +245,6 @@ def test_composite5():
 
 def test_composite6():
     # Clipping above, below, left, and right.
-    get_sample_files()
-
     x = static_image("samples/flowers.png", 30, 10)
     x = scale_by_factor(x, 0.4)
 
@@ -261,8 +259,6 @@ def test_composite6():
 
 def test_composite7():
     # Totally off-screen.
-    get_sample_files()
-
     x = static_image("samples/flowers.png", 30, 10)
     x = scale_by_factor(x, 0.4)
 
@@ -278,8 +274,6 @@ def test_composite7():
 
 def test_composite8():
     # Alpha blending.
-    get_sample_files()
-
     x = static_image("samples/flowers.png", 30, 5000)
     x = scale_by_factor(x, 0.4)
 
@@ -294,7 +288,6 @@ def test_composite8():
 
 def test_composite9():
     # Bad inputs.
-    get_sample_files()
     x = static_image("samples/flowers.png", 30, 5000)
     with pytest.raises(ValueError):
         # Bad position, iterable but wrong length.
@@ -318,8 +311,6 @@ def test_composite9():
 
 def test_composite10():
     # Callable position.
-    get_sample_files()
-
     x = static_image("samples/flowers.png", 30, 5)
     x = scale_by_factor(x, 0.4)
 
@@ -444,12 +435,10 @@ def test_metrics_from_ffprobe_output():
     )
 
 def test_from_file1():
-    get_sample_files()
     with pytest.raises(FileNotFoundError):
         from_file("samples/books12312312.mp4")
 
 def test_from_file2():
-    get_sample_files()
     cache.clear()
     a = from_file("samples/bunny.webm", decode_chunk_length=1.0)
     a = slice_clip(a, 0, 1.1)
@@ -463,7 +452,6 @@ def test_from_file2():
     c.verify()
 
 def test_from_file3():
-    get_sample_files()
     cache.clear()
 
     # For the case with no video.
@@ -471,7 +459,6 @@ def test_from_file3():
     d.verify()
 
 def test_from_file4():
-    get_sample_files()
     cache.clear()
 
     # For the case with no audio.
@@ -481,8 +468,6 @@ def test_from_file4():
 
 
 def test_audio_samples_from_file():
-    get_sample_files()
-
     with pytest.raises(FFMPEGException):
         # No audio track.
         audio_samples_from_file(
@@ -641,8 +626,6 @@ def test_crop():
         crop(a, [10, 10], [100, 10000])
 
 def test_get_font():
-    get_sample_files()
-
     get_font("samples/ethnocentric_rg.ttf", 10)
     get_font("samples/ethnocentric_rg.ttf", 10)
     get_font("samples/ethnocentric_rg_it.ttf", 20)
@@ -654,15 +637,12 @@ def test_get_font():
         get_font("samples/asdasdasdsad.ttf", 20)
 
 def test_draw_text():
-    get_sample_files()
     font = "samples/ethnocentric_rg_it.ttf"
     x = draw_text("Hello!", font, font_size=200, frame_rate=30, length=5)
     x.verify()
 
 
 def test_alpha_blend():
-    get_sample_files()
-
     f0 = cv2.imread("samples/flowers.png", cv2.IMREAD_UNCHANGED)
     f1 = np.zeros(shape=f0.shape, dtype=np.uint8)
     f2 = alpha_blend(f0, f1)
@@ -835,6 +815,19 @@ def test_letterbox():
     a = from_file("samples/bunny.webm")
     b = letterbox(a, 1000, 1000)
     b.verify()
+
+def test_repeat_frame():
+    a = from_file("samples/bunny.webm", decode_chunk_length=1.0)
+    a = slice_clip(a, 0, 1)
+
+    b = repeat_frame(a, 0.2, 5)
+    b.verify()
+
+
+
+# Grab all of the sample files first.  (...instead of checking within each
+# test.)
+get_sample_files()
 
 # If we're run as a script, just execute some or all of the tests.
 if __name__ == '__main__':  #pragma: no cover

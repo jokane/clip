@@ -1886,3 +1886,25 @@ def letterbox(clip, width, height):
                       width=width,
                       height=height)
 
+
+class repeat_frame(VideoClip):
+    """Shows the same frame, from another clip, over and over."""
+    def __init__(self, clip, when, length):
+        super().__init__()
+        require_clip(clip, "clip")
+        require_float(when, "time")
+        require_non_negative(when, "time")
+        require_less_equal(when, clip.length(), "time", "clip length")
+        require_float(length, "length")
+        require_positive(length, "length")
+
+        self.metrics = Metrics(src=clip.metrics,
+                               length=length)
+        self.clip = clip
+        self.frame_index = int(when * self.frame_rate())
+
+    def frame_signature(self, index):
+        return self.clip.frame_signature(self.frame_index)
+
+    def get_frame(self, index):
+        return self.clip.get_frame(self.frame_index)
