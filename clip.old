@@ -5,98 +5,6 @@ import io
 
 import pdf2image
 
-class fade_audio(Audio):
-    """Fade between two sounds, which must be equal in length, sample rate, and number of channels."""
-
-    def __init__(self, audio1, audio2):
-        assert isinstance(audio1, Audio)
-        assert isinstance(audio2, Audio)
-        assert audio1.sample_rate() == audio2.sample_rate(), "Mismatched sample rates %d and %d" % (audio1.sample_rate(), audio2.sample_rate())
-        assert audio1.num_channels() == audio2.num_channels()
-        assert audio1.length() == audio2.length(), f'Cannot fade audio because the lengths do not match. {audio1.length()} != {audio2.length()}'
-
-        self.audio1 = audio1
-        self.audio2 = audio2
-
-    def __repr__(self):
-        return 'fade_audio(%s, %s)' % (self.audio1.__repr__(), self.audio2.__repr__())
-
-    def sample_rate(self):
-        return self.audio1.sample_rate()
-
-    def num_channels(self):
-        return self.audio1.num_channels()
-
-    def length(self):
-        return self.audio1.length()
-
-    def compute_samples(self):
-        if self.length() > 1e8:
-            print("Starting fade_audio.compute_samples on a long segment.    Hold onto your hat.")
-        a1 = self.audio1.get_samples()
-        a2 = self.audio1.get_samples()
-        data = (
-            np.linspace([1.0]*self.num_channels(), [0.0]*self.num_channels(), self.length()) * a1
-            +
-            np.linspace([0.0]*self.num_channels(), [1.0]*self.num_channels(), self.length()) * a2
-        )
-        return data
-
-class fade(Clip):
-    """Fade between two clips, which must be equal in length, frame size, frame rate, sample rate, and number of channels."""
-    def __init__(self, clip1, clip2):
-        assert isinstance(clip1, Clip)
-        assert isinstance(clip2, Clip)
-        assert clip1.frame_rate() == clip2.frame_rate(), "Mismatched frame rates %d and %d" % (clip1.frame_rate(), clip2.frame_rate())
-        assert clip1.width() == clip2.width(), f'Mismatched widths {clip1.width()} and {clip2.width()}.'
-        assert clip1.height() == clip2.height()
-        assert clip1.length() == clip2.length()
-        assert clip1.get_audio().sample_rate() == clip2.get_audio().sample_rate(), f'Cannot fade between audio with sample rate {clip1.get_audio().sample_rate()} and audio with sample rate {clip2.get_audio().sample_rate()}.'
-
-        assert clip1.get_audio().num_channels() == clip2.get_audio().num_channels(), f'Cannot fade between audio with {clip1.get_audio().num_channels()} channel(s) and audio with {clip2.get_audio().num_channels()} channel(s).'
-
-        assert clip1.get_audio().length() == clip2.get_audio().length(), f'Cannot fade between clips because their audio lengths do not match. {clip1.get_audio().length()} != {clip2.get_audio().length()}'
-
-        self.clip1 = clip1
-        self.clip2 = clip2
-
-    def __repr__(self):
-        return f'fade({self.clip1}, {self.clip2})'
-
-    def frame_rate(self):
-        return self.clip1.frame_rate()
-
-    def width(self):
-        return self.clip1.width()
-
-    def height(self):
-        return self.clip1.height()
-
-    def length(self):
-        return self.clip1.length()
-
-    def alpha(self, index):
-        return (self.clip1.length()-1 - index)/(self.clip1.length())
-
-    def frame_signature(self, index):
-        a = self.alpha(index)
-        return "(%f%s + %f%s)" % (a, self.clip1.frame_signature(index), 1-a, self.clip2.frame_signature(index))
-
-    def get_frame(self, index):
-        a = self.alpha(index)
-        return cv2.addWeighted(
-            self.clip1.get_frame(index), a,
-            self.clip2.get_frame(index), 1.0-a,
-            0
-        )
-
-    def get_audio(self):
-        return fade_audio(self.clip1.get_audio(), self.clip2.get_audio())
-
-
-def slice_out(clip, start, end):
-    return chain(slice_clip(clip, 0, start), slice_clip(clip, end, clip.length()))
-
 
 def letterbox(clip, width, height):
     clip = scale_to_fit(clip, width, height)
@@ -720,17 +628,6 @@ def superimpose_center(under_clip, over_clip, start_frame, audio='ignore'):
     y = int(under_clip.height()/2) - int(over_clip.height()/2)
     return superimpose(under_clip, over_clip, x, y, start_frame, audio)
 
-
-def fade_out(clip, fade_frames, color=(0,0,0)):
-    """Fade out to a solid color, defaulting to black."""
-    assert isinstance(clip, Clip)
-    assert isinstance(fade_frames, int)
-    assert fade_frames >= 0
-    assert fade_frames <= clip.length(), "Cannot fade out from %s for %f frames, because the clip is only %f frames long." % (clip, fade_frames, clip.length())
-
-    blk = solid(clip.height(), clip.width(), clip.frame_rate(), fade_frames, color=color)
-    return fade_chain(fade_frames, clip, blk)
-
 def loop(clip, length):
     "Repeat a clip as needed to fill the given length."
     assert isinstance(clip, Clip)
@@ -855,13 +752,6 @@ class ken_burns(Clip):
         return sized_fragment
 
 
-
-def fade_out_audio(audio, samples):
-    first_part = slice_audio(audio, 0, audio.length()-samples)
-    second_part = slice_audio(audio, audio.length()-samples, audio.length())
-    out = silence(second_part.length(), second_part.sample_rate(), second_part.num_channels())
-    second_part = fade_audio(second_part, out)
-    return chain_audio(first_part, second_part)
 
 def pdf_scroll(pdf, length, **kwargs):
     width=500

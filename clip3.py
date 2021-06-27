@@ -930,7 +930,6 @@ class Element:
         y1 = y + over_patch.shape[0]
 
         # If it's totally off-screen, make no change.
-        # print(x0, x1, y0, y1, under.shape)
         if x1 < 0 or x0 > under.shape[1] or y1 < 0 or y0 > under.shape[0]:
             return
 
@@ -957,7 +956,6 @@ class Element:
             blended = alpha_blend(under_patch, over_patch)
             under[y0:y1, x0:x1, :] = blended
         elif self.video_mode == Element.VideoMode.ADD:
-            print(under.dtype, over_patch.dtype)
             under[y0:y1, x0:x1, :] += over_patch
         else:
             assert False # pragma: no cover
@@ -1851,5 +1849,18 @@ class fade_out(fade_base):
         a[a.shape[0]-length:a.shape[0]] *= np.linspace([1.0]*num_channels,
                                                        [0.0]*num_channels, length)
         return a
+
+def slice_out(clip, start, end):
+    """ Remove the part between the given endponts. """
+    require_clip(clip, "clip")
+    require_float(start, "start time")
+    require_non_negative(start, "start time")
+    require_float(end, "end time")
+    require_positive(end, "end time")
+    require_less(start, end, "start time", "end time")
+    require_less_equal(end, clip.length(), "end time", "clip length")
+
+    return chain(slice_clip(clip, 0, start),
+                 slice_clip(clip, end, clip.length()))
 
 

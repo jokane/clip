@@ -16,6 +16,9 @@ import pytest
 from clip3 import *
 
 def get_sample_files():  # pragma: no cover
+    """ Download some media files to use for the test, if they don't exist
+    already."""
+
     if not os.path.exists("samples"):
         os.mkdir("samples")
 
@@ -808,6 +811,24 @@ def test_fades():
         with pytest.raises(ValueError):
             cls(a, 10)
 
+def test_slice_out1():
+    # Bad times.
+    a = black(640, 480, 30, 3)
+    with pytest.raises(TypeError):
+        slice_out(0,0,0)
+    with pytest.raises(TypeError):
+        slice_out(a, a, a)
+    with pytest.raises(ValueError):
+        slice_out(a, 2, 1)
+    with pytest.raises(ValueError):
+        slice_out(a, -1, 1)
+
+def test_slice_out2():
+    # Bad times.
+    a = black(640, 480, 30, 3)
+    b = slice_out(a, 1.5, 2.5)
+    b.verify()
+    assert b.length() == 2
 
 # If we're run as a script, just execute some or all of the tests.
 if __name__ == '__main__':  #pragma: no cover
