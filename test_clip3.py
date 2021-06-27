@@ -791,6 +791,23 @@ def test_fade_in():
     b = fade_in(a, 1.5)
     b.verify()
 
+def test_fades():
+    cache.clear()
+    a = white(640, 480, 30, 3)
+
+    for cls in [fade_in, fade_out]:
+        b = cls(a, 1.5)
+        b.verify()
+
+        with pytest.raises(ValueError):
+            cls(a, -1)
+
+        with pytest.raises(TypeError):
+            cls(-1, a)
+
+        with pytest.raises(ValueError):
+            cls(a, 10)
+
 
 # If we're run as a script, just execute some or all of the tests.
 if __name__ == '__main__':  #pragma: no cover

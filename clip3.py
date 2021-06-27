@@ -312,19 +312,29 @@ default_metrics = Metrics(
 )
 
 @contextlib.contextmanager
+def temporarily_changed_directory(directory):
+    """Create a context in which  the current directory has been changed to the
+    given one, which should exist already.  When the context end, change the
+    current directory back."""
+    previous_current_directory = os.getcwd()
+    os.chdir(directory)
+    try:
+        yield
+    finally:
+        os.chdir(previous_current_directory)
+
+
+@contextlib.contextmanager
 def temporary_current_directory():
     """Create a context in which the current directory is a new temporary
     directory.  When the context ends, the current directory is restored and
     the temporary directory is vaporized."""
-    previous_current_directory = os.getcwd()
-
     with tempfile.TemporaryDirectory() as td:
-        os.chdir(td)
-
-        try:
-            yield
-        finally:
-            os.chdir(previous_current_directory)
+        with temporarily_changed_directory(td):
+            try:
+                yield
+            finally:
+                pass
 
 def custom_progressbar(task, steps):
     """Return a progress bar (for use as a context manager) customized for
@@ -534,34 +544,23 @@ class Clip(ABC):
         # Done!
         return cached_filename
 
-    def save(self, fname, bitrate='1024k', preset='slow'):
-        """Save to a file."""
-
-        # First, a simple case: If we're saving to an audio-only format, it's
-        # easy.
-        if re.search('.(flac|wav)$', fname):
-            data = self.get_samples()
-            assert data is not None
-            soundfile.write(fname, data, self.sample_rate())
-            return
-
-        # So we need to save video.  First, construct the complete path name.
-        # We'll need this during the ffmpeg step, because that runs in a
-        # temporary current directory.
-        full_fname = os.path.join(os.getcwd(), fname)
-
+    def stage(self, directory, fname=""):
+        """ Get everything for this clip onto to disk in the specified
+        directory:  Symlinks to each frame and a flac file of the audio. """
         # Force the frame cache to be read before we change to the temp
         # directory.
         if cache.cache is None:
             cache.scan_directory()
 
-        with temporary_current_directory():
+        with temporarily_changed_directory(directory):
             audio_fname = 'audio.flac'
             data = self.get_samples()
             assert data is not None
             soundfile.write(audio_fname, data, self.sample_rate())
 
-            with custom_progressbar(f"Staging {fname}", self.num_frames()) as pb:
+            task = f"Staging {fname}" if fname else "Staging"
+
+            with custom_progressbar(task, self.num_frames()) as pb:
                 for index in range(0, self.num_frames()):
 
                     # Make sure this frame is in the cache, and figure out
@@ -575,31 +574,51 @@ class Clip(ABC):
                     # Update the progress bar.
                     pb.update(index)
 
-            # We have a directory containing the audio and a bunch of
-            # (symlinks to) individual frames.   Invoke ffmpeg to assemble
-            # all of these into the completed video.
-            ffmpeg(
-                f'-framerate {self.frame_rate()}',
-                f'-i %06d.{frame_cache_format}',
-                f'-i {audio_fname}',
-                '-vcodec libx264',
-                '-f mp4 ',
-                f'-vb {bitrate}' if bitrate else '',
-                f'-preset {preset}' if preset else '',
-                '-profile:v high',
-                # Filters here to:
-                # - Put a black background behind each frame, ensure that any
-                #   remaining trasparency is handled correctly.
-                # - Ensure that the width and height are even, padding with a
-                #   black pixel if needed.
-                # - Set the pixel format to yuv420p, which seems to be needed
-                #   to get outputs that play on Apple gadgets.
-                # - Set the output frame rate.
-                f'-filter_complex "color=black,format=rgb24[c];[c][0]scale2ref[c][i];[c][i]overlay=format=auto:shortest=1,setsar=1,format=yuv420p,pad=width=ceil(iw/2)*2:height=ceil(ih/2)*2,fps={self.frame_rate()}"', #pylint: disable=line-too-long
-                f'{full_fname}',
-                task=f"Encoding {fname}",
-                num_frames=self.num_frames()
-            )
+    def save(self, fname, bitrate='1024k', preset='slow'):
+        """ Save to a file. """
+        # First, a simple case: If we're saving to an audio-only format, it's
+        # easy.
+        if re.search('.(flac|wav)$', fname):
+            data = self.get_samples()
+            assert data is not None
+            soundfile.write(fname, data, self.sample_rate())
+            return
+
+        # So we need to save video.  First, construct the complete path name.
+        # We'll need this during the ffmpeg step, because that runs in a
+        # temporary current directory.
+        full_fname = os.path.join(os.getcwd(), fname)
+
+        with tempfile.TemporaryDirectory() as td:
+            # Fill this directory with the audio and a bunch of (symlinks to)
+            # individual frames.
+            self.stage(td, fname)
+
+            # Invoke ffmpeg to assemble all of these into the completed video.
+            with temporarily_changed_directory(td):
+                ffmpeg(
+                    f'-framerate {self.frame_rate()}',
+                    f'-i %06d.{frame_cache_format}',
+                    '-i audio.flac',
+                    '-vcodec libx264',
+                    '-f mp4 ',
+                    f'-vb {bitrate}' if bitrate else '',
+                    f'-preset {preset}' if preset else '',
+                    '-profile:v high',
+                    # Filters here to:
+                    # - Put a black background behind each frame, ensure that any
+                    #   remaining trasparency is handled correctly.
+                    # - Ensure that the width and height are even, padding with a
+                    #   black pixel if needed.
+                    # - Set the pixel format to yuv420p, which seems to be needed
+                    #   to get outputs that play on Apple gadgets.
+                    # - Set the output frame rate.
+                    #f'-filter_complex "color=black,format=rgb24[c];[c][0]scale2ref[c][i];[c][i]overlay=format=auto:shortest=1,setsar=1,format=yuv420p,pad=width=ceil(iw/2)*2:height=ceil(ih/2)*2,fps={self.frame_rate()}"', #pylint: disable=line-too-long
+                    f'-filter_complex "format=yuv420p,pad=width=ceil(iw/2)*2:height=ceil(ih/2)*2,fps={self.frame_rate()}"', #pylint: disable=line-too-long
+                    f'{full_fname}',
+                    task=f"Encoding {fname}",
+                    num_frames=self.num_frames()
+                )
 
             print(f'Wrote {self.readable_length()} to {fname}.')
 
@@ -619,6 +638,7 @@ class Clip(ABC):
         the right sizes of video frames and audio samples are returned. """
         for i in range(self.num_frames()):
             sig = self.frame_signature(i)
+            print(i, end=" ")
             pprint(sig)
             assert sig is not None
 
@@ -1777,19 +1797,61 @@ class resample(MutatorClip):
         x = scipy.signal.resample(data, self.num_samples())
         return x
 
-def fade_in(clip, fade_length):
-    """Fade in from a solid color, defaulting to black."""
-    require_clip(clip, "clip")
-    require_float(fade_length, "fade length")
-    require_non_negative(fade_length, "fade length")
-    require_less_equal(fade_length, clip.length(), "fade length", "clip length")
+class fade_base(MutatorClip, ABC):
+    """Fade in from or out to silent black."""
 
-    end_frame = int(fade_length * clip.frame_rate())
-    def ramp_up(frame, index):
-        if index >= end_frame:
-            return frame
+    def __init__(self, clip, fade_length):
+        super().__init__(clip)
+        require_float(fade_length, "fade length")
+        require_non_negative(fade_length, "fade length")
+        require_less_equal(fade_length, clip.length(), "fade length", "clip length")
+        self.fade_length = fade_length
+
+    @abstractmethod
+    def alpha(self, index):
+        """ At the given index, what scaling factor should we apply?"""
+
+    def frame_signature(self, index):
+        sig = self.clip.frame_signature(index)
+        alpha = self.alpha(index)
+        if alpha == 1.0:
+            return sig
         else:
-            alpha = index/end_frame
-            return alpha * frame
+            return [f'faded by {alpha}', sig]
 
-    return filter_frames(clip, ramp_up, f'fade in {end_frame} frames', size='same')
+    def get_frame(self, index):
+        frame = self.clip.get_frame(index)
+        alpha = self.alpha(index)
+        return alpha * frame
+
+    @abstractmethod
+    def get_samples(self):
+        """ Return samples; implemented in fade_in and fade_out below."""
+
+class fade_in(fade_base):
+    """ Fade in from silent black. """
+    def alpha(self, index):
+        return min(1, index/int(self.fade_length * self.clip.frame_rate()))
+    def get_samples(self):
+        a = self.clip.get_samples().copy()
+        length = int(self.fade_length * self.sample_rate())
+        num_channels = self.num_channels()
+        a[0:length] *= np.linspace([0.0]*num_channels, [1.0]*num_channels, length)
+        return a
+
+
+class fade_out(fade_base):
+    """ Fade out to silent black. """
+    def alpha(self, index):
+        return min(1, (self.clip.num_frames() - index)
+                       / int(self.fade_length * self.clip.frame_rate()))
+
+    def get_samples(self):
+        a = self.clip.get_samples().copy()
+        length = int(self.fade_length * self.sample_rate())
+        num_channels = self.num_channels()
+        a[a.shape[0]-length:a.shape[0]] *= np.linspace([1.0]*num_channels,
+                                                       [0.0]*num_channels, length)
+        return a
+
+

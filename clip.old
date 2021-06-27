@@ -42,15 +42,6 @@ class fade_audio(Audio):
         )
         return data
 
-        # It's amazing how slow the naive version is...
-        # a1 = self.audio1.get_samples()
-        # a2 = self.audio2.get_samples()
-        # r = np.zeros((self.length(), self.num_channels()))
-        # for index in range(0, self.length()):
-        #     a = self.alpha(index)
-        #     r[index] = (1-a)*a1[index] + a*a2[index]
-        # return r
-
 class fade(Clip):
     """Fade between two clips, which must be equal in length, frame size, frame rate, sample rate, and number of channels."""
     def __init__(self, clip1, clip2):

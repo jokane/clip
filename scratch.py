@@ -69,17 +69,23 @@ from clip3 import *
 # pprint(x.frame_signature(45))
 # x.preview()
 
-x = static_image("samples/flowers.png", 30, 10)
-x = scale_by_factor(x, 0.2)
+# x = static_image("samples/flowers.png", 30, 10)
+# x = scale_by_factor(x, 0.2)
+# 
+# y = static_image("samples/flowers.png", 30, 10)
+# y = scale_by_factor(y, 0.2)
+# 
+# z = composite(
+#   Element(x, 1, [10, 10], Element.VideoMode.BLEND),
+#   Element(y, 2, [100, 100], Element.VideoMode.BLEND),
+#   Element(x, 3, [0, 100], Element.VideoMode.BLEND),
+# )
+# 
+# z.save("blended.mp4")
 
-y = static_image("samples/flowers.png", 30, 10)
-y = scale_by_factor(y, 0.2)
-
-z = composite(
-  Element(x, 1, [10, 10], Element.VideoMode.BLEND),
-  Element(y, 2, [100, 100], Element.VideoMode.BLEND),
-  Element(x, 3, [0, 100], Element.VideoMode.BLEND),
-)
-
-z.save("blended.mp4")
-
+x = from_file("samples/books.mp4", decode_chunk_length=7)
+x = slice_clip(x, 0, 7)
+x = fade_out(x, 2)
+x.verify()
+# x.stage('frames')
+x.save("fade_out.mp4")
