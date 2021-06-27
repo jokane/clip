@@ -71,6 +71,8 @@ def test_validate():
 
     require_equal(1, 1, "name")
 
+    require_color([0,0,0], "color")
+
     with pytest.raises(ValueError):
         require_equal(1, "1", "name")
 
@@ -780,6 +782,13 @@ def test_resample2():
     a = slice_clip(a, 0, length)
 
     b = resample(a)
+    b.verify()
+
+def test_fade_in():
+    cache.clear()
+    a = white(640, 480, 30, 3)
+
+    b = fade_in(a, 1.5)
     b.verify()
 
 

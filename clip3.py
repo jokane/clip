@@ -142,6 +142,10 @@ def require_clip(x, name):
     """ Raise an informative exception if x is not a Clip. """
     require(x, lambda x: isinstance(x, Clip), "Clip", name, TypeError)
 
+def require_color(x, name):
+    """ Raise an informative exception if x is not a Clip. """
+    require(x, is_color, "color", name, TypeError)
+
 def require_positive(x, name):
     """ Raise an informative exception if x is not positive. """
     require(x, is_positive, "positive", name, ValueError)
@@ -1773,3 +1777,19 @@ class resample(MutatorClip):
         x = scipy.signal.resample(data, self.num_samples())
         return x
 
+def fade_in(clip, fade_length):
+    """Fade in from a solid color, defaulting to black."""
+    require_clip(clip, "clip")
+    require_float(fade_length, "fade length")
+    require_non_negative(fade_length, "fade length")
+    require_less_equal(fade_length, clip.length(), "fade length", "clip length")
+
+    end_frame = int(fade_length * clip.frame_rate())
+    def ramp_up(frame, index):
+        if index >= end_frame:
+            return frame
+        else:
+            alpha = index/end_frame
+            return alpha * frame
+
+    return filter_frames(clip, ramp_up, f'fade in {end_frame} frames', size='same')

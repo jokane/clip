@@ -232,15 +232,6 @@ class force_framerate(Clip):
     def get_audio(self):
         return self.audio
 
-def fade_in(clip, fade_frames, color=(0,0,0)):
-    """Fade in from a solid color, defaulting to black."""
-    assert isinstance(clip, Clip)
-    assert isinstance(fade_frames, int)
-    assert fade_frames >= 0
-    assert fade_frames <= clip.length(), "Cannot fade into %s for %f frames, because the clip is only %f frames long." % (clip, fade_frames, clip.length())
-    assert iscolor(color)
-    blk = solid(clip.height(), clip.width(), clip.frame_rate(), fade_frames, color=color)
-    return fade_chain(fade_frames, blk, clip)
 
 def timewarp(clip, factor):
     assert isinstance(clip, Clip)
