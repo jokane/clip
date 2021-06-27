@@ -790,8 +790,3 @@ class spin(Clip):
         rotated_frame = cv2.warpAffine(frame, rot_mat, frame.shape[1::-1], flags=cv2.INTER_LINEAR, borderValue=self.color)
         return rotated_frame
 
-def hold_at_end(clip, target_length):
-    return chain(clip, repeat_frame(clip, clip.length()-1,
-                 target_length-clip.length()))
-
-

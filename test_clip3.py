@@ -822,7 +822,17 @@ def test_repeat_frame():
 
     b = repeat_frame(a, 0.2, 5)
     b.verify()
+    assert b.length() == 5
+    assert b.frame_signature(0) == a.frame_signature(int(0.2*a.frame_rate()))
 
+def test_hold_at_end():
+    a = from_file("samples/bunny.webm", decode_chunk_length=1.0)
+    a = slice_clip(a, 0, 1)
+
+    b = hold_at_end(a, 5)
+    b.verify()
+    b.save("hold.mp4")
+    assert b.length() == 5
 
 
 # Grab all of the sample files first.  (...instead of checking within each

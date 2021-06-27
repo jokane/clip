@@ -638,8 +638,9 @@ class Clip(ABC):
         the right sizes of video frames and audio samples are returned. """
         for i in range(self.num_frames()):
             sig = self.frame_signature(i)
-            print(i, end=" ")
-            if verbose: pprint(sig)
+            if verbose:  #pragma: no cover
+                pprint(sig)
+                print(i, end=" ")
             assert sig is not None
 
             frame = self.get_frame(i)
@@ -1908,3 +1909,14 @@ class repeat_frame(VideoClip):
 
     def get_frame(self, index):
         return self.clip.get_frame(self.frame_index)
+
+def hold_at_end(clip, target_length):
+    """Extend a clip by repeating its last frame, to fill a target length."""
+    require_clip(clip, "clip")
+    require_float(target_length, "target length")
+    require_positive(target_length, "target length")
+
+    return chain(clip,
+                 repeat_frame(clip, clip.length(), target_length-clip.length()))
+
+
