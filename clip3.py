@@ -53,10 +53,11 @@ import dis
 from enum import Enum
 import glob
 import inspect
+import io
 import hashlib
 import math
 import os
-from pprint import pprint # pylint: disable=unused-import
+from pprint import pprint
 import re
 import shutil
 import subprocess
@@ -64,6 +65,7 @@ import sys
 import tempfile
 import time
 import threading
+import zipfile
 
 import cv2
 import numba
@@ -1963,4 +1965,48 @@ class image_glob(VideoClip):
 
     def get_frame(self, index):
         return read_image(self.filenames[index])
+
+class zip_file(VideoClip):
+    """ A video clip from images stored in a zip file."""
+
+    def __init__(self, fname, frame_rate):
+        super().__init__()
+
+        require_string(fname, "file name")
+        require_float(frame_rate, "frame rate")
+        require_positive(frame_rate, "frame rate")
+
+        if not os.path.isfile(fname):
+            raise FileNotFoundError(f'Trying to open {fname}, which does not exist.')
+
+        self.fname = fname
+        self.zf = zipfile.ZipFile(fname, 'r') #pylint: disable=consider-using-with
+
+        image_formats = ['tga', 'jpg', 'jpeg', 'png'] # (Note: Many others could be added here.)
+        pattern = ".(" + "|".join(image_formats) + ")$"
+
+        info_list = self.zf.infolist()
+        info_list = filter(lambda x: re.search(pattern, x.filename), info_list)
+        info_list = sorted(info_list, key=lambda x: x.filename)
+        self.info_list = info_list
+
+        self.frame_rate_ = frame_rate
+
+        sample_frame = self.get_frame(0)
+
+        self.metrics = Metrics(src = default_metrics,
+                               width=sample_frame.shape[1],
+                               height=sample_frame.shape[0],
+                               frame_rate = frame_rate,
+                               length = len(self.info_list)/frame_rate)
+
+    def frame_signature(self, index):
+        return ['zip file member', self.fname, self.info_list[index].filename]
+
+    def get_frame(self, index):
+        data = self.zf.read(self.info_list[index])
+        pil_image = Image.open(io.BytesIO(data)).convert('RGBA')
+        frame = np.array(pil_image)
+        frame = cv2.cvtColor(frame, cv2.COLOR_RGBA2BGRA)
+        return frame
 

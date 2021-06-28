@@ -182,8 +182,7 @@ def test_ffmpeg():
         ffmpeg('-i /dev/zero', '/dev/null', task="Testing", num_frames=100)
 
 def test_save():
-    shutil.rmtree(cache.directory)
-    cache.cache = None
+    cache.clear()
 
     x = solid([0,0,0], 640, 480, 30, 10)
     with temporary_current_directory():
@@ -839,7 +838,6 @@ def test_hold_at_end():
 
     b = hold_at_end(a, 5)
     b.verify()
-    b.save("hold.mp4")
     assert b.length() == 5
 
 def test_image_glob1():
@@ -849,6 +847,16 @@ def test_image_glob1():
 def test_image_glob2():
     with pytest.raises(FileNotFoundError):
         image_glob("samples/bunny_frames/*.poo", frame_rate=24)
+
+def test_zip_file1():
+    a = zip_file("samples/bunny.zip", frame_rate=15)
+    a.verify()
+
+def test_zip_file2():
+    with pytest.raises(FileNotFoundError):
+        zip_file("samples/bunny.zap", frame_rate=15)
+
+
 
 # Grab all of the sample files first.  (...instead of checking within each
 # test.)
