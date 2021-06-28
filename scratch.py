@@ -123,12 +123,19 @@ from clip3 import *
 # x.preview()
 # x.save("hi.mp4")
 
-font = "samples/ethnocentric_rg_it.ttf"
-x = draw_text("Hello,", font, font_size=200, frame_rate=30, length=5)
-y = draw_text("World,", font, font_size=200, frame_rate=30, length=5)
-x = composite(
-  Element(x, 0, [0,0], Element.VideoMode.REPLACE),
-  Element(y, 0, [25,25], Element.VideoMode.BLEND)
-)
+# font = "samples/ethnocentric_rg_it.ttf"
+# x = draw_text("Hello,", font, font_size=200, frame_rate=30, length=5)
+# y = draw_text("World,", font, font_size=200, frame_rate=30, length=5)
+# x = composite(
+#   Element(x, 0, [0,0], Element.VideoMode.REPLACE),
+#   Element(y, 0, [25,25], Element.VideoMode.BLEND)
+# )
+# x.preview()
+
+font = "samples/ethnocentric_rg.ttf"
+x = draw_text("red", font, font_size=200, color=(255,0,0), frame_rate=30, length=5)
+y = draw_text("green", font, font_size=200, color=(0,255,0), frame_rate=30, length=5)
+z = draw_text("blue", font, font_size=200, color=(0,0,255), frame_rate=30, length=5)
+x = vstack(x, y, z)
 x.preview()
 

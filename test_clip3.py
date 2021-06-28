@@ -650,7 +650,7 @@ def test_get_font():
 
 def test_draw_text():
     font = "samples/ethnocentric_rg_it.ttf"
-    x = draw_text("Hello!", font, font_size=200, frame_rate=30, length=5)
+    x = draw_text("Hello!", font, font_size=200, color=[255,0,255], frame_rate=30, length=5)
     x.verify()
 
 

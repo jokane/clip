@@ -1573,12 +1573,13 @@ class crop(MutatorClip):
 
 class draw_text(VideoClip):
     """ A clip consisting of just a bit of text. """
-    def __init__(self, text, font_filename, font_size, frame_rate, length):
+    def __init__(self, text, font_filename, font_size, color, frame_rate, length):
         super().__init__()
 
         require_string(font_filename, "font filename")
         require_float(font_size, "font size")
         require_positive(font_size, "font size")
+        require_color(color, "color")
 
         # Determine the size of the image we need.  Make sure the width and
         # height are odd, because Pillow won't create an image with an
@@ -1586,7 +1587,6 @@ class draw_text(VideoClip):
         draw = ImageDraw.Draw(Image.new("RGBA", (1,1)))
         font = get_font(font_filename, font_size)
         size = draw.textsize(text, font=font)
-        #size = (size[0]+size[0]%2, size[1]+size[1]%2)
 
         self.metrics = Metrics(
           src=default_metrics,
@@ -1599,6 +1599,7 @@ class draw_text(VideoClip):
         self.text = text
         self.font_filename = font_filename
         self.font_size = font_size
+        self.color = color
         self.frame = None
 
     def frame_signature(self, index):
@@ -1610,12 +1611,11 @@ class draw_text(VideoClip):
             # Use Pillow to draw the text.
             image = Image.new("RGBA", (self.width(), self.height()), (0,0,0,0))
             draw = ImageDraw.Draw(image)
-            draw.text(
-              (0,0,),
-              self.text,
-              font=get_font(self.font_filename, self.font_size),
-              fill=(255,0,0,255)
-            )
+            color = self.color
+            draw.text((0,0,),
+                      self.text,
+                      font=get_font(self.font_filename, self.font_size),
+                      fill=(color[2],color[1],color[0],255))
             frame = np.array(image)
 
             # Pillow seems not to handle transparency quite how one might
