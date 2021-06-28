@@ -938,6 +938,16 @@ def test_superimpose_center():
     c = superimpose_center(a, b, 0)
     c.verify()
 
+def test_loop():
+    a = static_image("samples/flowers.png", 30, 1.2)
+    b = spin(a, 1)
+    c = loop(b, 10)
+    c.verify(verbose=True)
+    assert c.length() == 10
+    c.save("loop.mp4")
+
+
+
 # Grab all of the sample files first.  (...instead of checking within each
 # test.)
 get_sample_files()

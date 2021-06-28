@@ -2258,3 +2258,13 @@ def superimpose_center(under_clip, over_clip, start_time, audio_mode=AudioMode.A
     return composite(Element(under_clip, 0, [0,0], VideoMode.REPLACE),
                      Element(over_clip, start_time, [x,y], VideoMode.REPLACE, audio_mode))
 
+def loop(clip, length):
+    """Repeat a clip as needed to fill the given length."""
+    require_clip(clip, "clip")
+    require_float(length, "length")
+    require_positive(length, "length")
+
+    full_plays = int(length/clip.length())
+    partial_play = length - full_plays*clip.length()
+    return chain(full_plays*[clip], slice_clip(clip, 0, partial_play))
+

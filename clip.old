@@ -1,12 +1,3 @@
-def loop(clip, length):
-    "Repeat a clip as needed to fill the given length."
-    assert isinstance(clip, Clip)
-    assert isinstance(length, int)
-    assert length > 0
-    full_plays = int(length/clip.length())
-    partial_play = length - full_plays*clip.length()
-    return chain(full_plays*[clip], slice_video(clip, 0, partial_play))
-
 class horizontal_scroll(Clip):
     def __init__(self, clip, frame_index, width):
         assert isinstance(clip, Clip) 
