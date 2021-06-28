@@ -2,6 +2,7 @@
 # pylint: disable=missing-module-docstring
 # pylint: disable=missing-function-docstring
 # pylint: disable=wildcard-import
+# pylint: disable=too-many-lines
 
 import glob
 import io
@@ -942,11 +943,53 @@ def test_loop():
     a = static_image("samples/flowers.png", 30, 1.2)
     b = spin(a, 1)
     c = loop(b, 10)
-    c.verify(verbose=True)
+    c.verify()
     assert c.length() == 10
-    c.save("loop.mp4")
+
+def test_ken_burns1():
+    # Legit.
+    a = static_image("samples/flowers.png", 30, 10)
+    b = ken_burns(clip=a,
+                  width=520,
+                  height=520,
+                  start_top_left=[0,0],
+                  start_bottom_right=[100,100],
+                  end_top_left=[100,100],
+                  end_bottom_right=[250,250])
+    b.verify()
+
+def test_ken_burns2():
+    # Distorting.
+    a = static_image("samples/flowers.png", 30, 10)
 
 
+    with pytest.raises(ValueError):
+        ken_burns(clip=a,
+                  width=520,
+                  height=520,
+                  start_top_left=[0,0],
+                  start_bottom_right=[100,100],
+                  end_top_left=[100,100],
+                  end_bottom_right=[250,200])
+
+    with pytest.raises(ValueError):
+        ken_burns(clip=a,
+                  width=520,
+                  height=520,
+                  start_top_left=[0,0],
+                  start_bottom_right=[100,150],
+                  end_top_left=[100,100],
+                  end_bottom_right=[200,200])
+
+
+    with pytest.raises(ValueError):
+        ken_burns(clip=a,
+                  width=520,
+                  height=520,
+                  start_top_left=[0,0],
+                  start_bottom_right=[100,100],
+                  end_top_left=[2000,2000],
+                  end_bottom_right=[3000,3000]).verify()
 
 # Grab all of the sample files first.  (...instead of checking within each
 # test.)

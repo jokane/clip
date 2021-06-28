@@ -1,3 +1,33 @@
+def pdf_scroll(pdf, length, **kwargs):
+    width=500
+    height=300
+        
+    cached_filename, success = cache.lookup(f'pdf composite {pdf}', 'png')
+    if not success:
+        print(f"Building composite image of {pdf}...")
+        page_images = pdf2image.convert_from_path(pdf, **kwargs)
+        page_images = list(map(lambda x: np.array(x), page_images))
+
+        big_image = np.vstack(page_images)
+        cv2.imwrite(cached_filename, big_image)
+        cache.insert(cached_filename)
+    else:
+        print(f"Using cached composite image of {pdf}")
+        big_image = cv2.imread(cached_filename)
+        
+
+    vid = static_frame(pdf, big_image, frame_rate, length)
+    vid = ken_burns(vid,
+        width=width,
+        height=height,
+        start_top_left=(0,0),
+        start_bottom_right=(vid.width(), (height/width)*vid.width()),
+        end_top_left=(0,vid.height()-(height/width)*vid.width()),
+        end_bottom_right=(vid.width(), vid.height())
+    )
+    
+    return vid
+
 class horizontal_scroll(Clip):
     def __init__(self, clip, frame_index, width):
         assert isinstance(clip, Clip) 
@@ -35,75 +65,3 @@ class horizontal_scroll(Clip):
     def get_audio(self):
         return self.clip.get_audio()
 
-class ken_burns(Clip):
-    def __init__(self, clip, width, height, start_top_left, start_bottom_right, end_top_left, end_bottom_right):
-        self.clip = clip
-        self.width_ = width
-        self.height_ = height
-        self.start_top_left = np.array(start_top_left)
-        self.start_bottom_right = np.array(start_bottom_right)
-        self.end_top_left = np.array(end_top_left)
-        self.end_bottom_right = np.array(end_bottom_right)
-
-    def __repr__(self):
-        return f'ken_burns({self.clip}, {self.width_}, {self.height_}, {self.start_top_left}, {self.start_bottom_right}, {self.end_top_left}, {self.end_bottom_right})'
-
-    def frame_rate(self):
-        return self.clip.frame_rate()
-
-    def frame_signature(self, index):
-        return f'{self.__repr__()}:f{index}'
-
-    def get_audio(self):
-        return self.clip.get_audio()
-    
-    def height(self):
-        return self.height_
-
-    def width(self):
-        return self.width_
-
-    def length(self):
-        return self.clip.length()
-
-    def get_frame(self, index):
-        alpha = index/self.clip.length()
-        frame = self.clip.get_frame(index)
-        p1 = (((1-alpha)*self.start_top_left + alpha*self.end_top_left)).astype(int)
-        p2 = (((1-alpha)*self.start_bottom_right + alpha*self.end_bottom_right)).astype(int)
-        fragment = frame[p1[1]:p2[1],p1[0]:p2[0],:]
-        sized_fragment = cv2.resize(fragment, (self.width_, self.height_))
-        #print(f"ken_burns: index={index} alpha={alpha} p1={p1} p2={p2} fragment.shape={fragment.shape} sized_fragment.shape={sized_fragment.shape}")
-        return sized_fragment
-
-
-
-def pdf_scroll(pdf, length, **kwargs):
-    width=500
-    height=300
-        
-    cached_filename, success = cache.lookup(f'pdf composite {pdf}', 'png')
-    if not success:
-        print(f"Building composite image of {pdf}...")
-        page_images = pdf2image.convert_from_path(pdf, **kwargs)
-        page_images = list(map(lambda x: np.array(x), page_images))
-
-        big_image = np.vstack(page_images)
-        cv2.imwrite(cached_filename, big_image)
-        cache.insert(cached_filename)
-    else:
-        print(f"Using cached composite image of {pdf}")
-        big_image = cv2.imread(cached_filename)
-        
-
-    vid = static_frame(pdf, big_image, frame_rate, length)
-    vid = ken_burns(vid,
-        width=width,
-        height=height,
-        start_top_left=(0,0),
-        start_bottom_right=(vid.width(), (height/width)*vid.width()),
-        end_top_left=(0,vid.height()-(height/width)*vid.width()),
-        end_bottom_right=(vid.width(), vid.height())
-    )
-    
-    return vid
