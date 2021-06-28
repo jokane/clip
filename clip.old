@@ -11,13 +11,6 @@ def timewarp(clip, factor):
     x = replace_audio(x, a)
     return x
 
-def change_framerate(clip, new_frame_rate):
-    assert isinstance(clip, Clip)
-    assert isfloat(new_frame_rate)
-    assert new_frame_rate > 0
-    new_length = int(new_frame_rate*clip.length()/clip.frame_rate())
-    return resample_frames(clip, new_frame_rate, new_length)
-
 class pdf_page(Clip):
     """A silent video constructed from a single page of a PDF."""
     def __init__(self, pdf, page_num, length, frame_rate, **kwargs):
@@ -79,31 +72,6 @@ def sha256sum(filename):
 match = re.search(r'displaymatrix: rotation of -90.00 degrees', deets)
 if match:
     self.width_, self.height_ = self.height_, self.width_
-
-class audio_from_data(Audio):
-    """ Form an audio clip from a numpy array. """
-    def __init__(self, name, data, sample_rate):
-        assert isinstance(name, str)
-        assert isinstance(data, np.ndarray)
-        assert isfloat(sample_rate)
-        self.name = name
-        self.data = data
-        self.sample_rate_ = sample_rate
-
-    def __repr__(self):
-        return "audio_from_data('%s', [%d samples], %s)" % (self.name, self.data.shape[0], self.sample_rate_)
-
-    def length(self):
-        return self.data.shape[0]
-
-    def sample_rate(self):
-        return self.sample_rate_
-
-    def num_channels(self):
-        return self.data.shape[1]
-
-    def compute_samples(self):
-        return self.data
 
 class volume(Audio):
     """
@@ -316,27 +284,6 @@ Clip.bitrate = '1024k'
 # Clip.bitrate = '120k'  <-- Heavily compressed to meet 20mb upload limit.
 
 
-def fix_dimensions(x):
-  if x.width() != width or x.height() != height:
-    x = letterbox(x, width, height)
-
-  a = x.get_audio()
-  changed = False
-  if a.sample_rate() != sample_rate:
-    a = change_sample_rate(a, sample_rate)
-    changed = True
-
-  if a.num_channels() != 2:
-    a = mono_to_stereo(a)
-    changed = True
-  
-  if changed:
-    x = replace_audio(x, a)
-
-  if x.frame_rate() != frame_rate:
-    x = change_framerate(x, frame_rate)
-
-  return x
 
 class horizontal_scroll(Clip):
     def __init__(self, clip, frame_index, width):

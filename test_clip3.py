@@ -5,7 +5,6 @@
 
 import glob
 import io
-import shutil
 import sys
 import urllib.request
 import zipfile
@@ -857,6 +856,34 @@ def test_zip_file2():
         zip_file("samples/bunny.zap", frame_rate=15)
 
 
+def test_to_default_metrics():
+    a = from_file("samples/bunny.webm", decode_chunk_length=None)
+    a = slice_clip(a, 0, 1.0)
+
+    with pytest.raises(ValueError):
+        a.metrics.verify_compatible_with(default_metrics)
+
+    b = to_default_metrics(a)
+    b.verify()
+    b.metrics.verify_compatible_with(default_metrics)
+
+    # Stereo to mono.
+    default_metrics.num_channels = 1
+    c = to_default_metrics(a)
+    c.verify()
+    c.metrics.verify_compatible_with(default_metrics)
+
+    # Mono to stereo.
+    default_metrics.num_channels = 2
+    d = to_default_metrics(c)
+    d.verify()
+    d.metrics.verify_compatible_with(default_metrics)
+
+    # Don't know how to deal with 3 channels.
+    default_metrics.num_channels = 3
+    with pytest.raises(NotImplementedError):
+        to_default_metrics(a)
+    default_metrics.num_channels = 2
 
 # Grab all of the sample files first.  (...instead of checking within each
 # test.)

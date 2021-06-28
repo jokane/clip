@@ -1783,14 +1783,12 @@ class resample(MutatorClip):
         else:
             length = self.clip.length()
 
-        print("fr=", frame_rate)
         self.metrics = Metrics(
           src=self.clip.metrics,
           frame_rate = frame_rate,
           sample_rate = sample_rate,
           length = length
         )
-        print(self.metrics)
 
     def new_index(self, index):
         """ Return the index in the original clip to be used at the given index
@@ -2009,4 +2007,37 @@ class zip_file(VideoClip):
         frame = np.array(pil_image)
         frame = cv2.cvtColor(frame, cv2.COLOR_RGBA2BGRA)
         return frame
+
+def to_default_metrics(clip):
+    """Adjust a clip so that its metrics match the default metrics: Scale video
+    and resample to match frame rate and sample rate.  Useful if assorted clips
+    from various sources will be chained together."""
+
+    require_clip(clip, "clip")
+
+    # Video dimensions.
+    if clip.width() != default_metrics.width or clip.height() != default_metrics.height:
+        clip = letterbox(clip, default_metrics.width, default_metrics.height)
+
+    # Frame rate and sample rate.
+    if (clip.frame_rate() != default_metrics.frame_rate
+          or clip.sample_rate() != default_metrics.sample_rate):
+        clip = resample(clip,
+                        frame_rate=default_metrics.frame_rate,
+                        sample_rate=default_metrics.sample_rate)
+
+    # Number of audio channels.
+    nc_before = clip.num_channels()
+    nc_after = default_metrics.num_channels
+    if nc_before == nc_after:
+        pass
+    elif nc_before == 2 and nc_after == 1:
+        clip = stereo_to_mono(clip)
+    elif nc_before == 1 and nc_after == 2:
+        clip = mono_to_stereo(clip)
+    else:
+        raise NotImplementedError(f"Don't know how to convert from {nc_before}"
+                                  f"channels to {nc_after}.")
+
+    return clip
 
