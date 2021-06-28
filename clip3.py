@@ -127,7 +127,8 @@ def is_iterable(x):
 def require(x, func, condition, name, exception_class):
     """ Make sure func(x) returns a true value, and complain if not."""
     if not func(x):
-        raise exception_class(f'Expected {name} to be a {condition}, but got {x} instead.')
+        raise exception_class(f'Expected {name} to be a {condition}, '
+                              f'but got a {type(x)} with value {x} instead.')
 
 def require_int(x, name):
     """ Raise an informative exception if x is not an integer. """
@@ -537,7 +538,9 @@ class Clip(ABC):
             if frame.shape[2] == 3:
                 frame = cv2.cvtColor(frame, cv2.COLOR_RGB2RGBA)
                 assert frame is not None
-            assert frame.shape == (self.height(), self.width(), 4)
+            if frame.shape != (self.height(), self.width(), 4):
+                raise ValueError(f'Shape should have been: {(self.height(), self.width(), 4)}. '
+                                 f'Got {frame.shape} instead.')   # pragma: no cover
             return frame
         else:
             # No. Generate and save to disk for next time.
@@ -1150,34 +1153,19 @@ def get_duration_from_ffprobe_stream(stream):
 
     raise ValueError(f"Could not find a duration in ffprobe stream. {stream}")
 
-def metrics_from_ffprobe_output(ffprobe_output, fname):
-    """ Given the output of a run of ffprobe -of compact -show_entries
-    stream, return a Metrics object based on that data, or complain if
-    something strange is in there. """
-
-    video_stream = None
-    audio_stream = None
-
-    for line in ffprobe_output.strip().split('\n'):
-        stream = dict()
-        for pair in line[7:].split('|'):
-            key, val = pair.split('=')
-            assert key not in stream
-            stream[key] = val
-
-        if stream['codec_type'] == 'video':
-            if video_stream is not None:
-                raise ValueError(f"Don't know what to do with {fname},"
-                  "which has multiple video streams.")
-            video_stream = stream
-        elif stream['codec_type'] == 'audio':
-            if audio_stream is not None:
-                raise ValueError(f"Don't know what to do with {fname},"
-                  "which has multiple audio streams.")
-            audio_stream = stream
-        else:
-            raise ValueError(f"Don't know what to do with {fname},"
-              "which has an unknown stream of type {stream['codec_type']}.")
+def metrics_from_stream_dicts(video_stream, audio_stream, fname):
+    """ Given a dicts representing the audio and video elements of a clip,
+    return the appropriate metrics object. """
+    # Some videos, especially from mobile phones, contain metadata asking for a
+    # rotation.  We'll generally not try to deal with that here ---better,
+    # perhaps, to let the user flip or rotate as needed later--- but
+    # landscape/portait differences are important because they affect the width
+    # and height, and are respected by ffmpeg when the frames are extracted.
+    # Thus, we need to apply that change here to prevent mismatched frame sizes
+    # down the line.
+    if (video_stream and 'tag:rotate' in video_stream
+          and video_stream['tag:rotate'] in ['-90','90']):
+        video_stream['width'],video_stream['height'] = video_stream['height'],video_stream['width']
 
     if video_stream and audio_stream:
         vlen = get_duration_from_ffprobe_stream(video_stream)
@@ -1186,14 +1174,12 @@ def metrics_from_ffprobe_output(ffprobe_output, fname):
             raise ValueError(f"In {fname}, video length ({vlen}) and audio length ({alen}) "
               "do not match. Perhaps load video and audio separately?")
 
-        return Metrics(
-          width = eval(video_stream['width']),
-          height = eval(video_stream['height']),
-          frame_rate = eval(video_stream['avg_frame_rate']),
-          sample_rate = eval(audio_stream['sample_rate']),
-          num_channels = eval(audio_stream['channels']),
-          length = min(vlen, alen)
-        ), True, True
+        return Metrics(width = eval(video_stream['width']),
+                       height = eval(video_stream['height']),
+                       frame_rate = eval(video_stream['avg_frame_rate']),
+                       sample_rate = eval(audio_stream['sample_rate']),
+                       num_channels = eval(audio_stream['channels']),
+                       length = min(vlen, alen)), True, True
     elif video_stream:
         return Metrics(
           src = default_metrics,
@@ -1212,6 +1198,39 @@ def metrics_from_ffprobe_output(ffprobe_output, fname):
     else:
         # Should be impossible to get here, but just in case...
         raise ValueError(f"File {fname} contains neither audio nor video.") # pragma: no cover
+
+def metrics_from_ffprobe_output(ffprobe_output, fname):
+    """ Given the output of a run of ffprobe -of compact -show_entries
+    stream, return a Metrics object based on that data, or complain if
+    something strange is in there. """
+
+    video_stream = None
+    audio_stream = None
+
+    for line in ffprobe_output.strip().split('\n'):
+        stream = dict()
+        fields = line.split('|')
+        if fields[0] != 'stream': continue
+        for pair in fields[1:]:
+            key, val = pair.split('=')
+            assert key not in stream
+            stream[key] = val
+
+        if stream['codec_type'] == 'video':
+            if video_stream is not None:
+                raise ValueError(f"Don't know what to do with {fname},"
+                  "which has multiple video streams.")
+            video_stream = stream
+        elif stream['codec_type'] == 'audio':
+            if audio_stream is not None:
+                raise ValueError(f"Don't know what to do with {fname},"
+                  "which has multiple audio streams.")
+            audio_stream = stream
+        else:
+            raise ValueError(f"Don't know what to do with {fname},"
+              "which has an unknown stream of type {stream['codec_type']}.")
+
+    return metrics_from_stream_dicts(video_stream, audio_stream, fname)
 
 def audio_samples_from_file(fname, expected_sample_rate, expected_num_channels,
   expected_num_samples):
@@ -1316,9 +1335,11 @@ class from_file(Clip):
         else:
             # No.  Get the metrics, then store in the cache for next time.
             print(f"Probing dimensions for {self.fname}")
-            with subprocess.Popen(f'ffprobe -hide_banner -count_frames -v error {self.fname} '
-                  '-of compact -show_entries stream', shell=True, stdout=subprocess.PIPE) as proc:
+            with subprocess.Popen(f'ffprobe -hide_banner -v error {self.fname} '
+                                  '-of compact -show_entries stream', shell=True,
+                                  stdout=subprocess.PIPE) as proc:
                 deets = proc.stdout.read().decode('utf-8')
+
             with open(cached_filename, 'w') as f:
                 print(deets, file=f)
             cache.insert(cached_filename)
