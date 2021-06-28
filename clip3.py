@@ -195,6 +195,16 @@ def read_image(fname):
     assert frame.dtype == np.uint8
     return frame
 
+def flatten_args(args):
+    """ Given a list of arguments, flatten one layer or lists and other iterables. """
+    ret = list()
+    for x in args:
+        if is_iterable(x):
+            ret += x
+        else:
+            ret.append(x)
+    return ret
+
 def sha256sum_file(filename):
     """ Return a short hexadecmial hash of the contents of a file. """
     # https://stackoverflow.com/questions/22058048/hashing-a-file-in-python
@@ -1090,12 +1100,7 @@ def chain(*args, fade = 0):
     little and fade between them."""
     # Construct our list of clips.  Flatten each list; keep each individual
     # clip.
-    clips = list()
-    for x in args:
-        if is_iterable(x):
-            clips += x
-        else:
-            clips.append(x)
+    clips = flatten_args(args)
 
     # Sanity checks.
     require_float(fade, "fade time")
@@ -1579,7 +1584,6 @@ class draw_text(VideoClip):
         draw = ImageDraw.Draw(Image.new("RGBA", (1,1)))
         font = get_font(font_filename, font_size)
         size = draw.textsize(text, font=font)
-        size = (size[0]+size[0]%2, size[1]+size[1]%2)
 
         self.metrics = Metrics(
           src=default_metrics,
@@ -2163,7 +2167,7 @@ class spin(MutatorClip):
 
         a = (frame.shape[0] - original_frame.shape[0])
         b = (frame.shape[1] - original_frame.shape[1])
-        
+
         frame[
             int(a/2):int(a/2)+original_frame.shape[0],
             int(b/2):int(b/2)+original_frame.shape[1],
