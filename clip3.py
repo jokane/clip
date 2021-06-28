@@ -1016,7 +1016,7 @@ class composite(Clip):
     def __init__(self, *args, width=None, height=None, length=None):
         super().__init__()
 
-        self.elements = list(args)
+        self.elements = flatten_args(args)
 
         # Sanity check on the inputs.
         for (i, e) in enumerate(self.elements):
@@ -2186,4 +2186,42 @@ class spin(MutatorClip):
                                        borderValue=(0,0,0,0))
 
         return rotated_frame
+
+class Align(Enum):
+    """ When stacking clips, how should each be placed? """
+    CENTER = 1
+    LEFT = 2
+    TOP = 3
+    START = 4
+    RIGHT = 5
+    BOTTOM = 6
+    END = 7
+
+def vstack(*args, align=Align.CENTER, width=0, video_mode=Element.VideoMode.REPLACE):
+    """ Arrange a series of clips in vertical stack. """
+    clips = flatten_args(args)
+    for clip in clips:
+        require_clip(clip, "clip")
+
+    width = max(width, max(map(lambda clip: clip.width(), clips)))
+
+    y = 0
+    elements = list()
+    for clip in clips:
+        if align==Align.LEFT:
+            x = 0
+        elif align==Align.CENTER:
+            x = int((width - clip.width())/2)
+        elif align==Align.RIGHT:
+            x = width - clip.width()
+        else:
+            raise ValueError(f"Don't know how to align {align} in a vstack.")
+
+        elements.append(Element(clip=clip,
+                                start_time=0,
+                                position=[x, y],
+                                video_mode=video_mode))
+        y += clip.height()
+
+    return composite(elements, width=width)
 

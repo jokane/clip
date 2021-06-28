@@ -824,7 +824,6 @@ def test_slice_out2():
 
 def test_letterbox():
     a = white(640, 480, 30, 3)
-    a = from_file("samples/bunny.webm")
     b = letterbox(a, 1000, 1000)
     b.verify()
 
@@ -892,11 +891,10 @@ def test_to_default_metrics():
     default_metrics.num_channels = 2
 
 def test_timewarp():
-    a = from_file('samples/bunny.webm')
+    a = white(640, 480, 30, 3)
     b = timewarp(a, 2)
     b.verify()
     assert 2*b.length() == a.length()
-    b.save('warp.mp4')
 
 def test_pdf_page1():
     a = pdf_page("samples/snowman.pdf", page_num=1, frame_rate=10, length=3)
@@ -917,11 +915,29 @@ def test_spin():
     b = spin(a, 2)
     b.verify()
 
+def test_vstack():
+    a = static_image("samples/flowers.png", 30, 3)
+    b = static_image("samples/water.png", 30, 5)
+
+    c = vstack(a, b, align=Align.LEFT)
+    c.verify()
+
+    d = vstack(a, b, align=Align.RIGHT)
+    d.verify()
+
+    e = vstack(a, b, align=Align.CENTER)
+    e.verify()
+
+    with pytest.raises(ValueError):
+        vstack(a, b, align=Align.TOP)
+
+
 # Grab all of the sample files first.  (...instead of checking within each
 # test.)
 get_sample_files()
 
-# If we're run as a script, just execute some or all of the tests.
+# If we're run as a script, just execute all of the tests.  Or, if a command
+# line argument is given, execute only the tests containing that pattern.
 if __name__ == '__main__':  #pragma: no cover
     try:
         pattern = sys.argv[1]

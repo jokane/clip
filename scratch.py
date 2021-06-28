@@ -94,15 +94,31 @@ from clip3 import *
 # print(x.metrics)
 # x.verify(verbose=True)
 
-x = static_image("samples/flowers.png", 30, 5)
-x = scale_by_factor(x, 0.4)
+# x = static_image("samples/flowers.png", 30, 5)
+# x = scale_by_factor(x, 0.4)
+# 
+# y = spin(x, 2)
+# 
+# z = composite(
+#   Element(x, 0, [50, 50], video_mode=Element.VideoMode.BLEND),
+#   Element(y, 0, [250, 150], video_mode=Element.VideoMode.BLEND),
+#   width=640,
+#   height=480
+# )
+# z.preview()
 
-y = spin(x, 2)
-
-z = composite(
-  Element(x, 0, [50, 50], video_mode=Element.VideoMode.BLEND),
-  Element(y, 0, [250, 150], video_mode=Element.VideoMode.BLEND),
-  width=640,
-  height=480
+font = "samples/ethnocentric_rg_it.ttf"
+x = vstack(
+  draw_text("Hello,", font, font_size=200, frame_rate=30, length=5),
+  vstack(
+    draw_text("hello", font, font_size=20, frame_rate=30, length=5),
+    align=Align.CENTER,
+    width=2000
+  ),
+  draw_text("World!", font, font_size=200, frame_rate=30, length=5),
+  align=Align.RIGHT,
+  width=2000
 )
-z.preview()
+
+x.preview()
+x.save("hi.mp4")
