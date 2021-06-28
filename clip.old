@@ -1,67 +1,13 @@
-import hashlib
-import pdf2image
-
-class pdf_page(Clip):
-    """A silent video constructed from a single page of a PDF."""
-    def __init__(self, pdf, page_num, length, frame_rate, **kwargs):
-        assert isinstance(length, int)
-        assert length > 0, f'Cannot create a PDF clip with length {length}.'
-        self.pdf = pdf
-        self.page_num = page_num
-        self.frame_rate_ = frame_rate
-        self.length_ = length
-        self.hash = sha256sum(self.pdf)
-        self.kwargs = kwargs
-        images = pdf2image.convert_from_path(self.pdf, first_page=page_num, last_page=page_num, **kwargs)
-        self.the_frame = np.array(images[0])
-
-        # The code above seems sometimes (or always?) to give an image that has the
-        # red and blue channels swapped.    Fix it.
-        if images[0].mode == 'RGB':
-            self.the_frame = self.the_frame[:,:,::-1]
-        else:
-            print("Tread carefully, because I'm not sure if a PIL image from {pdf}, which has mode {images[0].mode} needs to have channels swapped.")
-
-        # The code above seems sometimes to return an image that is not the
-        # correct size, off by one in the width.    Fix it.
-        if 'size' in kwargs:
-            w = kwargs['size'][0]
-            h = kwargs['size'][1]
-            if h != self.the_frame.shape[0] or w != self.the_frame.shape[1]:
-                self.the_frame = self.the_frame[0:h,0:w]
 
     def __repr__(self):
         return f'pdf_page({self.pdf}, {self.page_num}, {self.length_}, {self.frame_rate_}, {self.kwargs})'
-    def frame_rate(self):
-        return self.frame_rate_
-    def width(self):
-        return self.the_frame.shape[1]
-    def height(self):
-        return self.the_frame.shape[0]
-    def length(self):
-        return self.length_
-    def get_audio(self):
-        return self.default_audio()
+
     def frame_signature(self, index):
         return f'pdf_page: {self.pdf}, {self.hash[:5]}, {self.page_num}, {self.kwargs})'
     def get_frame(self, index):
         return self.the_frame
 
 
-def sha256sum(filename):
-    # https://stackoverflow.com/questions/22058048/hashing-a-file-in-python
-    h = hashlib.sha256()
-    b = bytearray(128*1024)
-    mv = memoryview(b)
-    with open(filename, 'rb', buffering=0) as f:
-        for n in iter(lambda: f.readinto(mv), 0):
-            h.update(mv[:n])
-    return h.hexdigest()
-
-# This bit from the ffprobe output was relevant for some video:
-match = re.search(r'displaymatrix: rotation of -90.00 degrees', deets)
-if match:
-    self.width_, self.height_ = self.height_, self.width_
 
 class volume(Audio):
     """
@@ -252,21 +198,6 @@ def loop(clip, length):
     full_plays = int(length/clip.length())
     partial_play = length - full_plays*clip.length()
     return chain(full_plays*[clip], slice_video(clip, 0, partial_play))
-
-
-# Rendering speed for preset for ffmpeg.  Handles the tradeoff between
-# rendering speed and output quality.
-# Choose from:
-#   ultrafast superfast veryfast faster fast medium slow slower veryslow
-# Apparently, the instructions are to "use the slowest preset you have patience
-# for."
-Clip.preset = 'slower'
-
-# Target bitrate.  Handles the tradeoff between file size and output quality.
-Clip.bitrate = '1024k'
-# Clip.bitrate = '120k'  <-- Heavily compressed to meet 20mb upload limit.
-
-
 
 class horizontal_scroll(Clip):
     def __init__(self, clip, frame_index, width):

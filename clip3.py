@@ -70,6 +70,7 @@ import zipfile
 import cv2
 import numba
 import numpy as np
+import pdf2image
 import progressbar
 from PIL import Image, ImageFont, ImageDraw
 import scipy.signal
@@ -194,6 +195,16 @@ def read_image(fname):
     assert frame.dtype == np.uint8
     return frame
 
+def sha256sum_file(filename):
+    """ Return a short hexadecmial hash of the contents of a file. """
+    # https://stackoverflow.com/questions/22058048/hashing-a-file-in-python
+    h = hashlib.sha256()
+    b = bytearray(128*1024)
+    mv = memoryview(b)
+    with open(filename, 'rb', buffering=0) as f:
+        for n in iter(lambda: f.readinto(mv), 0):
+            h.update(mv[:n])
+    return h.hexdigest()
 
 class FFMPEGException(Exception):
     """Raised when ffmpeg fails for some reason."""
@@ -593,7 +604,18 @@ class Clip(ABC):
                     pb.update(index)
 
     def save(self, fname, bitrate='1024k', preset='slow'):
-        """ Save to a file. """
+        """ Save to a file.
+
+        Bitrate controsl the target bitrate.  Handles the tradeoff between
+        file size and output quality.
+
+        Preset controls how quickly ffmpeg encodes.  Handles the tradeoff
+        between encoding speed and output quality.  Choose from:
+            ultrafast superfast veryfast faster fast medium slow slower veryslow
+        It seems that the instructions are to "use the slowest preset you have
+        patience for.
+
+        """
         # First, a simple case: If we're saving to an audio-only format, it's
         # easy.
         if re.search('.(flac|wav)$', fname):
@@ -2069,4 +2091,41 @@ def timewarp(clip, factor):
     require_positive(factor, "factor")
 
     return resample(clip, length=clip.length()/factor)
+
+def pdf_page(pdf_file, page_num, frame_rate, length, **kwargs):
+    """A silent video constructed from a single page of a PDF."""
+    require_string(pdf_file, "file name")
+    require_int(page_num, "page number")
+    require_positive(page_num, "page number")
+    require_float(frame_rate, "frame rate")
+    require_positive(frame_rate, "frame rate")
+    require_float(length, "length")
+    require_positive(length, "length")
+
+    # Hash the file.  We'll use this in the name of the static_frame below, so
+    # that things are re-generated correctly when the PDF changes.
+    pdf_hash = sha256sum_file(pdf_file)
+
+    # Get an image of the PDF.
+    images = pdf2image.convert_from_path(pdf_file,
+                                         first_page=page_num,
+                                         last_page=page_num,
+                                         **kwargs)
+    image = images[0].convert('RGBA')
+    frame = np.array(image)
+    frame = cv2.cvtColor(frame, cv2.COLOR_RGBA2BGRA)
+
+    # Sometimes we get, for reasons not adequately understood, an image that is
+    # not the correct size, off by one in the width.  Fix it.
+    if 'size' in kwargs:
+        w = kwargs['size'][0]
+        h = kwargs['size'][1]
+        if h != frame.shape[0] or w != frame.shape[1]:
+            frame = frame[0:h,0:w]  # pragma: no cover
+
+    # Form a clip that shows this image repeatedly.
+    return static_frame(frame,
+                        frame_name=f'{pdf_file} ({pdf_hash}), page {page_num} {kwargs}',
+                        frame_rate=frame_rate,
+                        length=length)
 

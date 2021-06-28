@@ -34,6 +34,7 @@ def get_sample_files():  # pragma: no cover
     snag("water.png", "https://cdn.pixabay.com/photo/2017/09/14/11/07/water-2748640_1280.png")
     snag("flowers.png", "https://cdn.pixabay.com/photo/2017/02/11/17/08/flowers-2058090_1280.png")
     snag("bunny.webm", "https://www.learningcontainer.com/wp-content/uploads/2020/05/sample-webm-file.webm") # pylint: disable=line-too-long
+    snag("snowman.pdf", "https://ctan.math.utah.edu/ctan/tex-archive/graphics/pgf/contrib/scsnowman/scsnowman-sample.pdf") # pylint: disable=line-too-long
 
     if not os.path.exists("samples/bunny_frames"):
         os.mkdir("samples/bunny_frames")
@@ -896,6 +897,21 @@ def test_timewarp():
     b.verify()
     assert 2*b.length() == a.length()
     b.save('warp.mp4')
+
+def test_pdf_page1():
+    a = pdf_page("samples/snowman.pdf", page_num=1, frame_rate=10, length=3)
+    a.verify()
+
+def test_pdf_page2():
+    a = pdf_page("samples/snowman.pdf",
+                 page_num=1,
+                 frame_rate=10,
+                 length=3,
+                 size=(101,120))
+    a.verify()
+    assert a.width() == 101
+    assert a.height() == 120
+
 
 # Grab all of the sample files first.  (...instead of checking within each
 # test.)
