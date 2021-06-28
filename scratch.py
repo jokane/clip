@@ -90,7 +90,19 @@ from clip3 import *
 # # x.stage('frames')
 # x.save("fade_out.mp4")
 
-x = from_file("/tmp/VID_20200818_161859.mp4")
-print(x.metrics)
-x.verify(verbose=True)
+# x = from_file("/tmp/VID_20200818_161859.mp4")
+# print(x.metrics)
+# x.verify(verbose=True)
 
+x = static_image("samples/flowers.png", 30, 5)
+x = scale_by_factor(x, 0.4)
+
+y = spin(x, 2)
+
+z = composite(
+  Element(x, 0, [50, 50], video_mode=Element.VideoMode.BLEND),
+  Element(y, 0, [250, 150], video_mode=Element.VideoMode.BLEND),
+  width=640,
+  height=480
+)
+z.preview()

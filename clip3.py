@@ -994,7 +994,7 @@ class Element:
             under[y0:y1, x0:x1, :] = over_patch
         elif self.video_mode == Element.VideoMode.BLEND:
             under_patch = under[y0:y1, x0:x1, :]
-            blended = alpha_blend(under_patch, over_patch)
+            blended = alpha_blend(over_patch, under_patch)
             under[y0:y1, x0:x1, :] = blended
         elif self.video_mode == Element.VideoMode.ADD:
             under[y0:y1, x0:x1, :] += over_patch
@@ -2128,4 +2128,58 @@ def pdf_page(pdf_file, page_num, frame_rate, length, **kwargs):
                         frame_name=f'{pdf_file} ({pdf_hash}), page {page_num} {kwargs}',
                         frame_rate=frame_rate,
                         length=length)
+
+class spin(MutatorClip):
+    """ Rotate the contents of a clip about the center, a given number of
+    times. Rotational velocity is computed to complete the requested rotations
+    within the length of the original clip."""
+    def __init__(self, clip, total_rotations):
+        super().__init__(clip)
+
+        require_float(total_rotations, "total rotations")
+        require_non_negative(total_rotations, "total rotations")
+
+        # Leave enough space to show the full undrlying clip at every
+        # orientation.
+        self.radius = math.ceil(math.sqrt(clip.width()**2 + clip.height()**2))
+
+        self.metrics = Metrics(src=clip.metrics,
+                               width=self.radius,
+                               height=self.radius)
+
+        # Figure out how much to rotate in each frame.
+        rotations_per_second = total_rotations / clip.length()
+        rotations_per_frame = rotations_per_second / clip.frame_rate()
+        self.degrees_per_frame = 360 * rotations_per_frame
+
+    def frame_signature(self, index):
+        sig = self.clip.frame_signature(index)
+        degrees = self.degrees_per_frame * index
+        return [f'rotated by {degrees}', sig]
+
+    def get_frame(self, index):
+        frame = np.zeros([self.radius, self.radius, 4], np.uint8)
+        original_frame = self.clip.get_frame(index)
+
+        a = (frame.shape[0] - original_frame.shape[0])
+        b = (frame.shape[1] - original_frame.shape[1])
+        
+        frame[
+            int(a/2):int(a/2)+original_frame.shape[0],
+            int(b/2):int(b/2)+original_frame.shape[1],
+            :
+        ] = original_frame
+
+        degrees = self.degrees_per_frame * index
+
+        # https://stackoverflow.com/questions/9041681/opencv-python-rotate-image-by-x-degrees-around-specific-point
+        image_center = tuple(np.array(frame.shape[1::-1]) / 2)
+        rot_mat = cv2.getRotationMatrix2D(image_center, degrees, 1.0)
+        rotated_frame = cv2.warpAffine(frame,
+                                       rot_mat,
+                                       frame.shape[1::-1],
+                                       flags=cv2.INTER_LINEAR,
+                                       borderValue=(0,0,0,0))
+
+        return rotated_frame
 
