@@ -1580,10 +1580,13 @@ class draw_text(VideoClip):
         require_float(font_size, "font size")
         require_positive(font_size, "font size")
 
-        # Determine the size of the image we need.
+        # Determine the size of the image we need.  Make sure the width and
+        # height are odd, because Pillow won't create an image with an
+        # odd-dimensioned size.
         draw = ImageDraw.Draw(Image.new("RGBA", (1,1)))
         font = get_font(font_filename, font_size)
         size = draw.textsize(text, font=font)
+        #size = (size[0]+size[0]%2, size[1]+size[1]%2)
 
         self.metrics = Metrics(
           src=default_metrics,
@@ -1604,7 +1607,8 @@ class draw_text(VideoClip):
 
     def get_frame(self, index):
         if self.frame is None:
-            image = Image.new("RGBA", (self.width(), self.height()))
+            # Use Pillow to draw the text.
+            image = Image.new("RGBA", (self.width(), self.height()), (0,0,0,0))
             draw = ImageDraw.Draw(image)
             draw.text(
               (0,0,),
@@ -1612,7 +1616,18 @@ class draw_text(VideoClip):
               font=get_font(self.font_filename, self.font_size),
               fill=(255,0,0,255)
             )
-            self.frame = np.array(image)
+            frame = np.array(image)
+
+            # Pillow seems not to handle transparency quite how one might
+            # expect -- as far as I can tell, it seems to fill the entire text
+            # rectangle with the target color, and then use the alpha channel
+            # to "draw" the text.  These seemed to be resulting in rectanglar
+            # blobs, instead of readable text in some cases.  (Hypothesis:
+            # Sometimes the alpha channel is discarded at some point?)  Below,
+            # we fix this by blending into a black background.
+            bg = np.zeros(frame.shape, dtype=np.uint8)
+            frame = alpha_blend(frame, bg)
+            self.frame = frame
 
         return self.frame
 

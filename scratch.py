@@ -107,18 +107,28 @@ from clip3 import *
 # )
 # z.preview()
 
-font = "samples/ethnocentric_rg_it.ttf"
-x = vstack(
-  draw_text("Hello,", font, font_size=200, frame_rate=30, length=5),
-  vstack(
-    draw_text("hello", font, font_size=20, frame_rate=30, length=5),
-    align=Align.CENTER,
-    width=2000
-  ),
-  draw_text("World!", font, font_size=200, frame_rate=30, length=5),
-  align=Align.RIGHT,
-  width=2000
-)
+# font = "samples/ethnocentric_rg_it.ttf"
+# x = vstack(
+#   draw_text("Hello,", font, font_size=200, frame_rate=30, length=5),
+#   vstack(
+#     draw_text("hello", font, font_size=20, frame_rate=30, length=5),
+#     align=Align.CENTER,
+#     width=2000
+#   ),
+#   draw_text("World!", font, font_size=200, frame_rate=30, length=5),
+#   align=Align.RIGHT,
+#   width=2000
+# )
+# 
+# x.preview()
+# x.save("hi.mp4")
 
+font = "samples/ethnocentric_rg_it.ttf"
+x = draw_text("Hello,", font, font_size=200, frame_rate=30, length=5)
+y = draw_text("World,", font, font_size=200, frame_rate=30, length=5)
+x = composite(
+  Element(x, 0, [0,0], Element.VideoMode.REPLACE),
+  Element(y, 0, [25,25], Element.VideoMode.BLEND)
+)
 x.preview()
-x.save("hi.mp4")
+
