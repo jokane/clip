@@ -256,8 +256,8 @@ def test_composite6():
     x = scale_by_factor(x, 0.4)
 
     z = composite(
-      Element(x, 0, [-100, -100], Element.VideoMode.REPLACE),
-      Element(x, 0, [540, 380], Element.VideoMode.REPLACE),
+      Element(x, 0, [-100, -100], VideoMode.REPLACE),
+      Element(x, 0, [540, 380], VideoMode.REPLACE),
       width=640,
       height=480,
       length=5
@@ -270,8 +270,8 @@ def test_composite7():
     x = scale_by_factor(x, 0.4)
 
     z = composite(
-      Element(x, 0, [-1000, -100], Element.VideoMode.REPLACE),
-      Element(x, 0, [1540, 380], Element.VideoMode.REPLACE),
+      Element(x, 0, [-1000, -100], VideoMode.REPLACE),
+      Element(x, 0, [1540, 380], VideoMode.REPLACE),
       width=640,
       height=480,
       length=5
@@ -285,8 +285,8 @@ def test_composite8():
     x = scale_by_factor(x, 0.4)
 
     z = composite(
-      Element(x, 0, [50, 50], video_mode=Element.VideoMode.BLEND),
-      Element(x, 0, [250, 150], video_mode=Element.VideoMode.BLEND),
+      Element(x, 0, [50, 50], video_mode=VideoMode.BLEND),
+      Element(x, 0, [250, 150], video_mode=VideoMode.BLEND),
       width=640,
       height=480,
       length=1
@@ -298,23 +298,23 @@ def test_composite9():
     x = static_image("samples/flowers.png", 30, 5000)
     with pytest.raises(ValueError):
         # Bad position, iterable but wrong length.
-        composite(Element(x, 0, [0,0,0], video_mode=Element.VideoMode.BLEND))
+        composite(Element(x, 0, [0,0,0], video_mode=VideoMode.BLEND))
 
     with pytest.raises(TypeError):
         # Bad position, iterable but not ints.
-        composite(Element(x, 0, "ab", video_mode=Element.VideoMode.BLEND))
+        composite(Element(x, 0, "ab", video_mode=VideoMode.BLEND))
 
     with pytest.raises(TypeError):
         # Bad position, not even iterable.
-        composite(Element(x, 0, 0, video_mode=Element.VideoMode.BLEND))
+        composite(Element(x, 0, 0, video_mode=VideoMode.BLEND))
 
     with pytest.raises(TypeError):
         # Bad video mode.
-        composite(Element(x, 0, [0, 0], video_mode=Element.AudioMode.REPLACE))
+        composite(Element(x, 0, [0, 0], video_mode=AudioMode.REPLACE))
 
     with pytest.raises(TypeError):
         # Bad audio mode.
-        composite(Element(x, 0, [0, 0], audio_mode=Element.VideoMode.REPLACE))
+        composite(Element(x, 0, [0, 0], audio_mode=VideoMode.REPLACE))
 
 def test_composite10():
     # Callable position.
@@ -327,8 +327,8 @@ def test_composite10():
         return [480-index,2*index-100]
 
     z = composite(
-      Element(x, 0, pos1, video_mode=Element.VideoMode.BLEND),
-      Element(x, 0, pos2, video_mode=Element.VideoMode.BLEND),
+      Element(x, 0, pos1, video_mode=VideoMode.BLEND),
+      Element(x, 0, pos2, video_mode=VideoMode.BLEND),
       length=5
     )
     z.verify()
@@ -931,6 +931,12 @@ def test_vstack():
     with pytest.raises(ValueError):
         vstack(a, b, align=Align.TOP)
 
+def test_superimpose_center():
+    a = static_image("samples/flowers.png", 30, 3)
+    b = static_image("samples/water.png", 30, 5)
+
+    c = superimpose_center(a, b, 0)
+    c.verify()
 
 # Grab all of the sample files first.  (...instead of checking within each
 # test.)

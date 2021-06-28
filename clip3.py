@@ -882,21 +882,21 @@ def alpha_blend(f0, f1):
 
     return f01
 
+class VideoMode(Enum):
+    """ When defining an element of a composite, how should the video for this
+    element be composited into the final clip?"""
+    REPLACE = 1
+    BLEND = 2
+    ADD = 3
+
+class AudioMode(Enum):
+    """ When defining and element of a composite, how should the video for this
+    element be composited into the final clip?"""
+    REPLACE = 4
+    ADD = 5
 
 class Element:
     """An element to be included in a composite."""
-    class VideoMode(Enum):
-        """ How should the video for this element be composited into the
-        final clip?"""
-        REPLACE = 1
-        BLEND = 2
-        ADD = 3
-
-    class AudioMode(Enum):
-        """ How should the video for this element be composited into the
-        final clip?"""
-        REPLACE = 4
-        ADD = 5
 
     def __init__(self, clip, start_time, position, video_mode=VideoMode.REPLACE,
                  audio_mode=AudioMode.REPLACE):
@@ -915,10 +915,10 @@ class Element:
             raise TypeError(f'Position should be tuple (x,y) or callable,'
                             f'not {type(position)} {position}')
 
-        if not isinstance(video_mode, Element.VideoMode):
+        if not isinstance(video_mode, VideoMode):
             raise TypeError(f'Video mode cannot be {video_mode}.')
 
-        if not isinstance(audio_mode, Element.AudioMode):
+        if not isinstance(audio_mode, AudioMode):
             raise TypeError(f'Audio mode cannot be {audio_mode}.')
 
         self.clip = clip
@@ -950,7 +950,11 @@ class Element:
         """ A signature for this element, to be used to create the overall
         frame signature.  Returns None if this element does not contribute to
         this frame. """
+        start_index = self.start_index()
+        if index < start_index or index >= start_index + self.clip.num_frames():
+            return None
         clip_index = index - self.start_index()
+        assert clip_index >= 0
         if callable(self.position):
             pos = self.position(index)
         else:
@@ -1000,13 +1004,13 @@ class Element:
             y1 = under.shape[0]
 
         # Actually do the compositing, based on the video mode.
-        if self.video_mode == Element.VideoMode.REPLACE:
+        if self.video_mode == VideoMode.REPLACE:
             under[y0:y1, x0:x1, :] = over_patch
-        elif self.video_mode == Element.VideoMode.BLEND:
+        elif self.video_mode == VideoMode.BLEND:
             under_patch = under[y0:y1, x0:x1, :]
             blended = alpha_blend(over_patch, under_patch)
             under[y0:y1, x0:x1, :] = blended
-        elif self.video_mode == Element.VideoMode.ADD:
+        elif self.video_mode == VideoMode.ADD:
             under[y0:y1, x0:x1, :] += over_patch
         else:
             assert False # pragma: no cover
@@ -1087,9 +1091,9 @@ class composite(Clip):
                 end_sample = self.num_samples()
                 clip_samples = clip_samples[0:self.num_samples()-start_sample]
 
-            if e.audio_mode == Element.AudioMode.REPLACE:
+            if e.audio_mode == AudioMode.REPLACE:
                 samples[start_sample:end_sample] = clip_samples
-            elif e.audio_mode == Element.AudioMode.ADD:
+            elif e.audio_mode == AudioMode.ADD:
                 samples[start_sample:end_sample] += clip_samples
 
         return samples
@@ -1126,8 +1130,8 @@ def chain(*args, fade = 0):
         elements.append(Element(clip=clip,
                                 start_time=start_time,
                                 position=(0,0),
-                                video_mode=Element.VideoMode.ADD,
-                                audio_mode=Element.AudioMode.ADD))
+                                video_mode=VideoMode.ADD,
+                                audio_mode=AudioMode.ADD))
 
         start_time += clip.length() - fade
 
@@ -1957,8 +1961,8 @@ def letterbox(clip, width, height):
     return composite(Element(clip=scaled,
                              start_time=0,
                              position=position,
-                             video_mode=Element.VideoMode.REPLACE,
-                             audio_mode=Element.AudioMode.REPLACE),
+                             video_mode=VideoMode.REPLACE,
+                             audio_mode=AudioMode.REPLACE),
                       width=width,
                       height=height)
 
@@ -2212,7 +2216,7 @@ class Align(Enum):
     BOTTOM = 6
     END = 7
 
-def vstack(*args, align=Align.CENTER, width=0, video_mode=Element.VideoMode.REPLACE):
+def vstack(*args, align=Align.CENTER, width=0, video_mode=VideoMode.REPLACE):
     """ Arrange a series of clips in vertical stack. """
     clips = flatten_args(args)
     for clip in clips:
@@ -2239,4 +2243,18 @@ def vstack(*args, align=Align.CENTER, width=0, video_mode=Element.VideoMode.REPL
         y += clip.height()
 
     return composite(elements, width=width)
+
+def superimpose_center(under_clip, over_clip, start_time, audio_mode=AudioMode.ADD):
+    """Superimpose one clip on another, in the center of each frame, starting at
+    a given time."""
+    require_clip(under_clip, "under clip")
+    require_clip(over_clip, "over clip")
+    require_float(start_time, "start time")
+    require_non_negative(start_time, "start time")
+
+    x = int(under_clip.width()/2) - int(over_clip.width()/2)
+    y = int(under_clip.height()/2) - int(over_clip.height()/2)
+
+    return composite(Element(under_clip, 0, [0,0], VideoMode.REPLACE),
+                     Element(over_clip, start_time, [x,y], VideoMode.REPLACE, audio_mode))
 

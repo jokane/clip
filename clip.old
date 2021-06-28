@@ -1,13 +1,3 @@
-def superimpose_center(under_clip, over_clip, start_frame, audio='ignore'):
-    """Superimpose one clip on another, in the center of each frame, starting at
-    a given time."""
-    assert isinstance(under_clip, Clip)
-    assert isinstance(over_clip, Clip)
-    assert isinstance(start_frame, int)
-    x = int(under_clip.width()/2) - int(over_clip.width()/2)
-    y = int(under_clip.height()/2) - int(over_clip.height()/2)
-    return superimpose(under_clip, over_clip, x, y, start_frame, audio)
-
 def loop(clip, length):
     "Repeat a clip as needed to fill the given length."
     assert isinstance(clip, Clip)

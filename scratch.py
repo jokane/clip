@@ -132,10 +132,17 @@ from clip3 import *
 # )
 # x.preview()
 
-font = "samples/ethnocentric_rg.ttf"
-x = draw_text("red", font, font_size=200, color=(255,0,0), frame_rate=30, length=5)
-y = draw_text("green", font, font_size=200, color=(0,255,0), frame_rate=30, length=5)
-z = draw_text("blue", font, font_size=200, color=(0,0,255), frame_rate=30, length=5)
-x = vstack(x, y, z)
-x.preview()
+# font = "samples/ethnocentric_rg.ttf"
+# x = draw_text("red", font, font_size=200, color=(255,0,0), frame_rate=30, length=5)
+# y = draw_text("green", font, font_size=200, color=(0,255,0), frame_rate=30, length=5)
+# z = draw_text("blue", font, font_size=200, color=(0,0,255), frame_rate=30, length=5)
+# x = vstack(x, y, z)
+# x.preview()
+
+x = from_file("samples/books.mp4")
+y = resample(from_file("samples/bunny.webm"), frame_rate=x.frame_rate(), sample_rate=x.sample_rate())
+
+z = superimpose_center(x, y, 3)
+z.preview()
+z.save("sic.mp4")
 
