@@ -2062,3 +2062,11 @@ def to_default_metrics(clip):
 
     return clip
 
+def timewarp(clip, factor):
+    """ Speed up a clip by the given factor. """
+    require_clip(clip, "clip")
+    require_float(factor, "factor")
+    require_positive(factor, "factor")
+
+    return resample(clip, length=clip.length()/factor)
+

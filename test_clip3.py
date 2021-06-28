@@ -890,6 +890,13 @@ def test_to_default_metrics():
         to_default_metrics(a)
     default_metrics.num_channels = 2
 
+def test_timewarp():
+    a = from_file('samples/bunny.webm')
+    b = timewarp(a, 2)
+    b.verify()
+    assert 2*b.length() == a.length()
+    b.save('warp.mp4')
+
 # Grab all of the sample files first.  (...instead of checking within each
 # test.)
 get_sample_files()

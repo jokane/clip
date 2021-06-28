@@ -1,16 +1,6 @@
 import hashlib
 import pdf2image
 
-def timewarp(clip, factor):
-    assert isinstance(clip, Clip)
-    assert isfloat(factor)
-    assert factor > 0
-    a = clip.get_audio()
-    x = resample_frames(clip, clip.frame_rate(), int(clip.length()*factor))
-    a = timewarp_audio(a, factor)
-    x = replace_audio(x, a)
-    return x
-
 class pdf_page(Clip):
     """A silent video constructed from a single page of a PDF."""
     def __init__(self, pdf, page_num, length, frame_rate, **kwargs):
@@ -98,13 +88,6 @@ class volume(Audio):
 
     def compute_samples(self):
         return self.factor * self.audio.get_samples()
-
-def change_sample_rate(audio, new_sample_rate):
-    return resample(audio, new_sample_rate, round(audio.length() * new_sample_rate/audio.sample_rate()))
-
-def timewarp_audio(audio, factor):
-    return resample(audio, audio.sample_rate(), int(audio.length()*factor))
-
 
 
 if sys.version_info.major == 3 and sys.version_info.minor < 8:
