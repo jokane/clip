@@ -1831,7 +1831,7 @@ class static_frame(VideoClip):
 
 def static_image(filename, frame_rate, length):
     """ Show a single image loaded from a file over and over, silently. """
-    the_frame = cv2.imread(filename, cv2.IMREAD_UNCHANGED)
+    the_frame = read_image(filename)
     assert the_frame is not None
     return static_frame(the_frame, filename, frame_rate, length)
 

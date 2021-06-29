@@ -37,6 +37,7 @@ def get_test_files():  # pragma: no cover
     snag("flowers.png", "https://cdn.pixabay.com/photo/2017/02/11/17/08/flowers-2058090_1280.png")
     snag("bunny.webm", "https://www.learningcontainer.com/wp-content/uploads/2020/05/sample-webm-file.webm") # pylint: disable=line-too-long
     snag("snowman.pdf", "https://ctan.math.utah.edu/ctan/tex-archive/graphics/pgf/contrib/scsnowman/scsnowman-sample.pdf") # pylint: disable=line-too-long
+    snag("brian.jpg", "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b7/Brian_Wilson_%287314673472%29_%28tall%29.jpg/800px-Brian_Wilson_%287314673472%29_%28tall%29.jpg") # pylint: disable=line-too-long
 
     if not os.path.exists("test_files/bunny_frames"):
         os.mkdir("test_files/bunny_frames")
@@ -742,8 +743,15 @@ def test_scale_to_fit():
 
 def test_static_frame():
 
+    # Legit usage.
+    # An RGBA image.
     a = static_image("test_files/water.png", 30, 10)
     a.verify()
+
+    # An RGB image.
+    b = static_image("test_files/brian.jpg", 30, 10)
+    b.verify()
+
 
     with pytest.raises(TypeError):
         # Wrong type
