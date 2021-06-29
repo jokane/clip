@@ -350,15 +350,6 @@ class Metrics:
         return int(self.length * self.sample_rate)
 
 
-default_metrics = Metrics(
-    width = 640,
-    height = 480,
-    frame_rate = 30,
-    sample_rate = 48000,
-    num_channels = 2,
-    length = 1,
-)
-
 @contextlib.contextmanager
 def temporarily_changed_directory(directory):
     """Create a context in which  the current directory has been changed to the
@@ -477,6 +468,13 @@ class Clip(ABC):
     @abstractmethod
     def get_samples(self):
         """Create and return the audio data for the clip."""
+
+    default_metrics = Metrics(width = 640,
+                              height = 480,
+                              frame_rate = 30,
+                              sample_rate = 48000,
+                              num_channels = 2,
+                              length = 1)
 
     def length(self):
         """Length of the clip, in seconds."""
@@ -779,13 +777,11 @@ class solid(Clip):
     def __init__(self, color, width, height, frame_rate, length):
         super().__init__()
         assert is_color(color)
-        self.metrics = Metrics(
-            default_metrics,
-            width=width,
-            height=height,
-            frame_rate=frame_rate,
-            length=length
-        )
+        self.metrics = Metrics(Clip.default_metrics,
+                               width=width,
+                               height=height,
+                               frame_rate=frame_rate,
+                               length=length)
 
         self.color = [color[2], color[1], color[0], 255]
         self.frame = None
@@ -815,12 +811,10 @@ class sine_wave(AudioClip):
 
         self.frequency = frequency
         self.volume = volume
-        self.metrics = Metrics(
-          default_metrics,
-          length = length,
-          sample_rate = sample_rate,
-          num_channels = num_channels
-        )
+        self.metrics = Metrics(Clip.default_metrics,
+                               length = length,
+                               sample_rate = sample_rate,
+                               num_channels = num_channels)
 
     def get_samples(self):
         samples = np.arange(self.num_samples()) / self.sample_rate()
@@ -1109,7 +1103,7 @@ class composite(Clip):
 
         return samples
 
-def chain(*args, fade = 0):
+def chain(*args, fade_time = 0):
     """ Concatenate a series of clips.  The clips may be given individually, in
     lists or other iterables, or a mixture of both.  Optionally overlap them a
     little and fade between them."""
@@ -1118,8 +1112,8 @@ def chain(*args, fade = 0):
     clips = flatten_args(args)
 
     # Sanity checks.
-    require_float(fade, "fade time")
-    require_non_negative(fade, "fade time")
+    require_float(fade_time, "fade time")
+    require_non_negative(fade_time, "fade time")
 
     for clip in clips:
         require_clip(clip, "clip")
@@ -1132,11 +1126,11 @@ def chain(*args, fade = 0):
     start_time = 0
     elements = list()
     for i, clip in enumerate(clips):
-        if fade>0:
+        if fade_time>0:
             if i>0:
-                clip = fade_in(clip, fade)
+                clip = fade_in(clip, fade_time)
             if i<len(clips)-1:
-                clip = fade_out(clip, fade)
+                clip = fade_out(clip, fade_time)
 
         elements.append(Element(clip=clip,
                                 start_time=start_time,
@@ -1144,7 +1138,7 @@ def chain(*args, fade = 0):
                                 video_mode=VideoMode.ADD,
                                 audio_mode=AudioMode.ADD))
 
-        start_time += clip.length() - fade
+        start_time += clip.length() - fade_time
 
     # Let composite do all the work.
     return composite(*elements)
@@ -1223,20 +1217,16 @@ def metrics_from_stream_dicts(video_stream, audio_stream, fname):
                        num_channels = eval(audio_stream['channels']),
                        length = min(vlen, alen)), True, True
     elif video_stream:
-        return Metrics(
-          src = default_metrics,
-          width = eval(video_stream['width']),
-          height = eval(video_stream['height']),
-          frame_rate = eval(video_stream['avg_frame_rate']),
-          length = eval(video_stream['duration'])
-        ), True, False
+        return Metrics(src = Clip.default_metrics,
+                       width = eval(video_stream['width']),
+                       height = eval(video_stream['height']),
+                       frame_rate = eval(video_stream['avg_frame_rate']),
+                       length = eval(video_stream['duration'])), True, False
     elif audio_stream:
-        return Metrics(
-          src = default_metrics,
-          sample_rate = eval(audio_stream['sample_rate']),
-          num_channels = eval(audio_stream['channels']),
-          length = eval(audio_stream['duration'])
-        ), False, True
+        return Metrics(src = Clip.default_metrics,
+                       sample_rate = eval(audio_stream['sample_rate']),
+                       num_channels = eval(audio_stream['channels']),
+                       length = eval(audio_stream['duration'])), False, True
     else:
         # Should be impossible to get here, but just in case...
         raise ValueError(f"File {fname} contains neither audio nor video.") # pragma: no cover
@@ -1603,13 +1593,11 @@ class draw_text(VideoClip):
         font = get_font(font_filename, font_size)
         size = draw.textsize(text, font=font)
 
-        self.metrics = Metrics(
-          src=default_metrics,
-          width=size[0],
-          height=size[1],
-          frame_rate = frame_rate,
-          length=length
-        )
+        self.metrics = Metrics(src=Clip.default_metrics,
+                               width=size[0],
+                               height=size[1],
+                               frame_rate = frame_rate,
+                               length=length)
 
         self.text = text
         self.font_filename = font_filename
@@ -1808,13 +1796,11 @@ class static_frame(VideoClip):
             raise ValueError(f"Frame {the_frame} does not have 4 channels."
               f" Shape is {the_frame.shape}.")
 
-        self.metrics = Metrics(
-          src=default_metrics,
-          width=width,
-          height=height,
-          frame_rate = frame_rate,
-          length=length
-        )
+        self.metrics = Metrics(src=Clip.default_metrics,
+                               width=width,
+                               height=height,
+                               frame_rate = frame_rate,
+                               length=length)
 
         self.the_frame = the_frame.copy()
         self.sig = hash(str(self.the_frame.data))
@@ -1861,9 +1847,9 @@ class resample(MutatorClip):
             length = self.clip.length()
 
         self.metrics = Metrics(src=self.clip.metrics,
-                               frame_rate = frame_rate,
-                               sample_rate = sample_rate,
-                               length = length)
+                               frame_rate=frame_rate,
+                               sample_rate=sample_rate,
+                               length=length)
 
     def new_index(self, index):
         """ Return the index in the original clip to be used at the given index
@@ -2027,7 +2013,7 @@ class image_glob(VideoClip):
         sample_frame = cv2.imread(self.filenames[0])
         assert sample_frame is not None
 
-        self.metrics = Metrics(src = default_metrics,
+        self.metrics = Metrics(src=Clip.default_metrics,
                                width=sample_frame.shape[1],
                                height=sample_frame.shape[0],
                                frame_rate = frame_rate,
@@ -2067,7 +2053,7 @@ class zip_file(VideoClip):
 
         sample_frame = self.get_frame(0)
 
-        self.metrics = Metrics(src = default_metrics,
+        self.metrics = Metrics(src = Clip.default_metrics,
                                width=sample_frame.shape[1],
                                height=sample_frame.shape[0],
                                frame_rate = frame_rate,
@@ -2090,20 +2076,26 @@ def to_default_metrics(clip):
 
     require_clip(clip, "clip")
 
+    print()
+    print("Forcing metrics from:", clip.metrics)
+    print("To:", Clip.default_metrics)
+
+    dm = Clip.default_metrics
+
     # Video dimensions.
-    if clip.width() != default_metrics.width or clip.height() != default_metrics.height:
-        clip = letterbox(clip, default_metrics.width, default_metrics.height)
+    if clip.width() != dm.width or clip.height() != dm.height:
+        clip = letterbox(clip, dm.width, dm.height)
 
     # Frame rate and sample rate.
-    if (clip.frame_rate() != default_metrics.frame_rate
-          or clip.sample_rate() != default_metrics.sample_rate):
+    if (clip.frame_rate() != dm.frame_rate
+          or clip.sample_rate() != dm.sample_rate):
         clip = resample(clip,
-                        frame_rate=default_metrics.frame_rate,
-                        sample_rate=default_metrics.sample_rate)
+                        frame_rate=dm.frame_rate,
+                        sample_rate=dm.sample_rate)
 
     # Number of audio channels.
     nc_before = clip.num_channels()
-    nc_after = default_metrics.num_channels
+    nc_after = dm.num_channels
     if nc_before == nc_after:
         pass
     elif nc_before == 2 and nc_after == 1:
@@ -2114,6 +2106,8 @@ def to_default_metrics(clip):
         raise NotImplementedError(f"Don't know how to convert from {nc_before}"
                                   f"channels to {nc_after}.")
 
+    print("After:", clip.metrics)
+    print()
     return clip
 
 def timewarp(clip, factor):
@@ -2367,5 +2361,5 @@ def fade(clip1, clip2):
     require_clip(clip2, "second clip")
     require_equal(clip1.length(), clip2.length(), "clip lengths")
 
-    return chain(clip1, clip2, fade=clip1.length())
+    return chain(clip1, clip2, fade_time=clip1.length())
 

@@ -94,26 +94,26 @@ def test_validate():
         require_less_equal(2, 1, "two", "one")
 
 def test_metrics():
-    m1 = Metrics(default_metrics)
-    m2 = Metrics(default_metrics, length=0.5)
+    m1 = Metrics(Clip.default_metrics)
+    m2 = Metrics(Clip.default_metrics, length=0.5)
 
     with pytest.raises(ValueError):
         m1.verify_compatible_with(m2, check_length=True)
 
     with pytest.raises(TypeError):
-        Metrics(default_metrics, width=0.5)
+        Metrics(Clip.default_metrics, width=0.5)
 
     with pytest.raises(ValueError):
-        Metrics(default_metrics, width=-1)
+        Metrics(Clip.default_metrics, width=-1)
 
     with pytest.raises(ValueError):
-        Metrics(default_metrics, length=-1)
+        Metrics(Clip.default_metrics, length=-1)
 
     with pytest.raises(ValueError):
-        Metrics(default_metrics, length=0)
+        Metrics(Clip.default_metrics, length=0)
 
     with pytest.raises(TypeError):
-        Metrics(default_metrics, length="really long")
+        Metrics(Clip.default_metrics, length="really long")
 
 def test_solid():
     x = solid([0,0,0], 640, 480, 30, 300)
@@ -127,10 +127,10 @@ def test_clip_metrics():
     x = solid([0,0,0], 640, 480, 30, secs)
     assert x.length() == secs
     assert x.frame_rate() == 30
-    assert x.sample_rate() == default_metrics.sample_rate
-    assert x.num_samples() == secs*default_metrics.num_samples()
+    assert x.sample_rate() == Clip.default_metrics.sample_rate
+    assert x.num_samples() == secs*Clip.default_metrics.num_samples()
     assert x.num_frames() == secs*30
-    assert x.num_channels() == default_metrics.num_channels
+    assert x.num_channels() == Clip.default_metrics.num_channels
     assert f":{secs:02d}" in x.readable_length()
 
     x = solid([0,0,0], 640, 480, 30, 60*60+1)
@@ -360,7 +360,7 @@ def test_chain():
     assert d.length() == a.length() + b.length() + c.length()
     d.verify()
 
-    e = chain(a, [b, c], fade=2)
+    e = chain(a, [b, c], fade_time=2)
     assert e.length() == a.length() + b.length() + c.length() - 4
     e.verify()
 
@@ -368,7 +368,7 @@ def test_chain():
         chain()
 
     with pytest.raises(ValueError):
-        chain(fade=3)
+        chain(fade_time=3)
 
 
 def test_black_and_white():
@@ -432,16 +432,16 @@ def test_metrics_from_ffprobe_output1():
     m, _, _ = metrics_from_ffprobe_output(f'{video_deets}', 'test.mp4')
     assert m == Metrics(
       src=correct_metrics,
-      sample_rate=default_metrics.sample_rate,
-      num_channels=default_metrics.num_channels
+      sample_rate=Clip.default_metrics.sample_rate,
+      num_channels=Clip.default_metrics.num_channels
     )
 
     m, _, _ = metrics_from_ffprobe_output(f'{audio_deets}', 'test.mp4')
     assert m == Metrics(
       src=correct_metrics,
-      width=default_metrics.width,
-      height=default_metrics.height,
-      frame_rate=default_metrics.frame_rate,
+      width=Clip.default_metrics.width,
+      height=Clip.default_metrics.height,
+      frame_rate=Clip.default_metrics.frame_rate,
     )
 
 def test_metrics_from_ffprobe_output2():
@@ -876,29 +876,29 @@ def test_to_default_metrics():
     a = slice_clip(a, 0, 1.0)
 
     with pytest.raises(ValueError):
-        a.metrics.verify_compatible_with(default_metrics)
+        a.metrics.verify_compatible_with(Clip.default_metrics)
 
     b = to_default_metrics(a)
     b.verify()
-    b.metrics.verify_compatible_with(default_metrics)
+    b.metrics.verify_compatible_with(Clip.default_metrics)
 
     # Stereo to mono.
-    default_metrics.num_channels = 1
+    Clip.default_metrics.num_channels = 1
     c = to_default_metrics(a)
     c.verify()
-    c.metrics.verify_compatible_with(default_metrics)
+    c.metrics.verify_compatible_with(Clip.default_metrics)
 
     # Mono to stereo.
-    default_metrics.num_channels = 2
+    Clip.default_metrics.num_channels = 2
     d = to_default_metrics(c)
     d.verify()
-    d.metrics.verify_compatible_with(default_metrics)
+    d.metrics.verify_compatible_with(Clip.default_metrics)
 
     # Don't know how to deal with 3 channels.
-    default_metrics.num_channels = 3
+    Clip.default_metrics.num_channels = 3
     with pytest.raises(NotImplementedError):
         to_default_metrics(a)
-    default_metrics.num_channels = 2
+    Clip.default_metrics.num_channels = 2
 
 def test_timewarp():
     a = white(640, 480, 30, 3)
@@ -973,7 +973,7 @@ def test_ken_burns2():
 
     # Small distortion: OK.  1.779291553133515 vs 1.7777777777777777
     a2 = scale_to_size(a, width=2945, height=1656)
-    b = ken_burns(a2, 
+    b = ken_burns(a2,
         width=1024,
         height=576,
         start_top_left=(63,33),
