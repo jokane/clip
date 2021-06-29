@@ -1747,22 +1747,22 @@ def to_monochrome(clip):
       size='same'
     )
 
-def scale_to_size(clip, new_width, new_height):
+def scale_to_size(clip, width, height):
     """Scale the frames of a clip to a given size, possibly distorting them."""
     require_clip(clip, "clip")
-    require_int(new_width, "new width")
-    require_positive(new_width, "new width")
-    require_int(new_height, "new height")
-    require_positive(new_height, "new height")
+    require_int(width, "new width")
+    require_positive(width, "new width")
+    require_int(height, "new height")
+    require_positive(height, "new height")
 
     def scale_filter(frame):
-        return cv2.resize(frame, (new_width, new_height))
+        return cv2.resize(frame, (width, height))
 
     return filter_frames(
       clip=clip,
       func=scale_filter,
-      name=f'scale to {new_width}x{new_height}',
-      size=(new_width,new_height)
+      name=f'scale to {width}x{height}',
+      size=(width,height)
     )
 
 def scale_by_factor(clip, factor):
@@ -2320,12 +2320,12 @@ class ken_burns(MutatorClip):
 
         output_ratio = width/height
 
-        if not math.isclose(start_ratio, output_ratio):
+        if not math.isclose(start_ratio, output_ratio, abs_tol=0.01):
             raise ValueError("This ken_burns effect will distort the image at the start. "
                              f'Starting aspect ratio is {start_ratio}. '
                              f'Output aspect ratio is {output_ratio}. ')
 
-        if not math.isclose(end_ratio, output_ratio):
+        if not math.isclose(end_ratio, output_ratio, abs_tol=0.01):
             raise ValueError("This ken_burns effect will distort the image at the end. "
                              f'Ending aspect ratio is {end_ratio}. '
                              f'Output aspect ratio is {output_ratio}. ')

@@ -971,7 +971,20 @@ def test_ken_burns2():
     # Distorting.
     a = static_image("test_files/flowers.png", 30, 10)
 
+    # Small distortion: OK.  1.779291553133515 vs 1.7777777777777777
+    a2 = scale_to_size(a, width=2945, height=1656)
+    b = ken_burns(a2, 
+        width=1024,
+        height=576,
+        start_top_left=(63,33),
+        start_bottom_right=(2022,1134),
+        end_top_left=(73,43),
+        end_bottom_right=(2821,1588),
+    )
+    b.verify()
 
+
+    # Big distortion: Bad.
     with pytest.raises(ValueError):
         ken_burns(clip=a,
                   width=520,
