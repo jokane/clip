@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from clip3 import *
+from clip import *
 
 # solid([0,0,0], 640, 480, 30, 300]).save('black.mp4')
 # solid([255,0,0], 640, 480, 30, 300).save('red.mp4')
@@ -139,10 +139,10 @@ from clip3 import *
 # x = vstack(x, y, z)
 # x.preview()
 
-x = from_file("samples/books.mp4")
-y = resample(from_file("samples/bunny.webm"), frame_rate=x.frame_rate(), sample_rate=x.sample_rate())
-
-z = superimpose_center(x, y, 3)
-z.preview()
-z.save("sic.mp4")
-
+# x = from_file("samples/books.mp4")
+# y = resample(from_file("samples/bunny.webm"), frame_rate=x.frame_rate(), sample_rate=x.sample_rate())
+# 
+# z = superimpose_center(x, y, 3)
+# z.preview()
+# z.save("sic.mp4")
+# 

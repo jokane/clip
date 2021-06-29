@@ -13,22 +13,22 @@ import zipfile
 import cv2
 import pytest
 
-from clip3 import *
+from clip import *
 
-def get_sample_files():  # pragma: no cover
+def get_test_files():  # pragma: no cover
     """ Download some media files to use for the test, if they don't exist
     already."""
 
-    if not os.path.exists("samples"):
-        os.mkdir("samples")
+    if not os.path.exists("test_files"):
+        os.mkdir("test_files")
 
     opener = urllib.request.build_opener()
     opener.addheaders = [('User-agent', 'Mozilla/5.0')]
     urllib.request.install_opener(opener)
 
     def snag(fname, url):
-        if not os.path.exists("samples/" + fname):
-            urllib.request.urlretrieve(url, "samples/" + fname)
+        if not os.path.exists("test_files/" + fname):
+            urllib.request.urlretrieve(url, "test_files/" + fname)
 
     snag("books.mp4", "https://www.pexels.com/video/5224014/download")
     snag("music.mp3", "https://www.dropbox.com/s/mvvwaw1msplnteq/City%20Lights%20-%20The%20Lemming%20Shepherds.mp3?dl=1") #pylint: disable=line-too-long
@@ -37,23 +37,23 @@ def get_sample_files():  # pragma: no cover
     snag("bunny.webm", "https://www.learningcontainer.com/wp-content/uploads/2020/05/sample-webm-file.webm") # pylint: disable=line-too-long
     snag("snowman.pdf", "https://ctan.math.utah.edu/ctan/tex-archive/graphics/pgf/contrib/scsnowman/scsnowman-sample.pdf") # pylint: disable=line-too-long
 
-    if not os.path.exists("samples/bunny_frames"):
-        os.mkdir("samples/bunny_frames")
-        ffmpeg('-i samples/bunny.webm', 'samples/bunny_frames/%04d.png')
+    if not os.path.exists("test_files/bunny_frames"):
+        os.mkdir("test_files/bunny_frames")
+        ffmpeg('-i test_files/bunny.webm', 'test_files/bunny_frames/%04d.png')
 
-    if not os.path.exists("samples/bunny.zip"):
-        with temporarily_changed_directory("samples"):
+    if not os.path.exists("test_files/bunny.zip"):
+        with temporarily_changed_directory("test_files"):
             os.system("zip bunny.zip bunny_frames/*.png")
 
-    exists = os.path.exists("samples/ethnocentric_rg.ttf")
-    exists = exists and os.path.exists("samples/ethnocentric_rg_it.ttf")
+    exists = os.path.exists("test_files/ethnocentric_rg.ttf")
+    exists = exists and os.path.exists("test_files/ethnocentric_rg_it.ttf")
     if not exists:
         zip_data = urllib.request.urlopen("https://dl.dafont.com/dl/?f=ethnocentric").read()
         file_like_object = io.BytesIO(zip_data)
         with zipfile.ZipFile(file_like_object) as z:
-            with open("samples/ethnocentric_rg.ttf", 'wb') as f:
+            with open("test_files/ethnocentric_rg.ttf", 'wb') as f:
                 f.write(z.open("ethnocentric rg.ttf").read())
-            with open("samples/ethnocentric_rg_it.ttf", 'wb') as f:
+            with open("test_files/ethnocentric_rg_it.ttf", 'wb') as f:
                 f.write(z.open("ethnocentric rg it.ttf").read())
 
 def test_validate():
@@ -117,8 +117,8 @@ def test_solid():
     x = solid([0,0,0], 640, 480, 30, 300)
     x.verify()
 
-    samples = x.get_samples()
-    assert samples.shape == (x.num_samples(), x.num_channels())
+    test_files = x.get_samples()
+    assert test_files.shape == (x.num_samples(), x.num_channels())
 
 def test_clip_metrics():
     secs = 30
@@ -253,7 +253,7 @@ def test_composite5():
 
 def test_composite6():
     # Clipping above, below, left, and right.
-    x = static_image("samples/flowers.png", 30, 10)
+    x = static_image("test_files/flowers.png", 30, 10)
     x = scale_by_factor(x, 0.4)
 
     z = composite(
@@ -267,7 +267,7 @@ def test_composite6():
 
 def test_composite7():
     # Totally off-screen.
-    x = static_image("samples/flowers.png", 30, 10)
+    x = static_image("test_files/flowers.png", 30, 10)
     x = scale_by_factor(x, 0.4)
 
     z = composite(
@@ -282,7 +282,7 @@ def test_composite7():
 
 def test_composite8():
     # Alpha blending.
-    x = static_image("samples/flowers.png", 30, 5000)
+    x = static_image("test_files/flowers.png", 30, 5000)
     x = scale_by_factor(x, 0.4)
 
     z = composite(
@@ -296,7 +296,7 @@ def test_composite8():
 
 def test_composite9():
     # Bad inputs.
-    x = static_image("samples/flowers.png", 30, 5000)
+    x = static_image("test_files/flowers.png", 30, 5000)
     with pytest.raises(ValueError):
         # Bad position, iterable but wrong length.
         composite(Element(x, 0, [0,0,0], video_mode=VideoMode.BLEND))
@@ -319,7 +319,7 @@ def test_composite9():
 
 def test_composite10():
     # Callable position.
-    x = static_image("samples/flowers.png", 30, 5)
+    x = static_image("test_files/flowers.png", 30, 5)
     x = scale_by_factor(x, 0.4)
 
     def pos1(index):
@@ -449,33 +449,33 @@ def test_metrics_from_ffprobe_output2():
 
 def test_from_file1():
     with pytest.raises(FileNotFoundError):
-        from_file("samples/books12312312.mp4")
+        from_file("test_files/books12312312.mp4")
 
 def test_from_file2():
     cache.clear()
-    a = from_file("samples/bunny.webm", decode_chunk_length=1.0)
+    a = from_file("test_files/bunny.webm", decode_chunk_length=1.0)
     a = slice_clip(a, 0, 1.1)
     a.verify()
 
-    b = from_file("samples/bunny.webm", decode_chunk_length=None)
+    b = from_file("test_files/bunny.webm", decode_chunk_length=None)
     b.verify()
 
     # Again to use the cached dimensions.
-    c = from_file("samples/bunny.webm", decode_chunk_length=None)
+    c = from_file("test_files/bunny.webm", decode_chunk_length=None)
     c.verify()
 
 def test_from_file3():
     cache.clear()
 
     # For the case with no video.
-    d = from_file("samples/music.mp3")
+    d = from_file("test_files/music.mp3")
     d.verify()
 
 def test_from_file4():
     cache.clear()
 
     # For the case with no audio.
-    e = from_file("samples/books.mp4", decode_chunk_length=1.0)
+    e = from_file("test_files/books.mp4", decode_chunk_length=1.0)
     e = slice_clip(e, 0, 0.5)
     e.verify()
 
@@ -484,7 +484,7 @@ def test_audio_samples_from_file():
     with pytest.raises(FFMPEGException):
         # No audio track.
         audio_samples_from_file(
-          "samples/books.mp4",
+          "test_files/books.mp4",
           expected_num_samples=0,
           expected_num_channels=1,
           expected_sample_rate=0
@@ -493,7 +493,7 @@ def test_audio_samples_from_file():
     with pytest.raises(ValueError):
         # Wrong sample rate.
         audio_samples_from_file(
-          "samples/music.mp3",
+          "test_files/music.mp3",
           expected_num_samples=3335168,
           expected_num_channels=2,
           expected_sample_rate=48000
@@ -502,7 +502,7 @@ def test_audio_samples_from_file():
     with pytest.raises(ValueError):
         # Wrong number of channels
         audio_samples_from_file(
-          "samples/music.mp3",
+          "test_files/music.mp3",
           expected_num_samples=3335168,
           expected_num_channels=1,
           expected_sample_rate=44100
@@ -511,7 +511,7 @@ def test_audio_samples_from_file():
     with pytest.raises(ValueError):
         # Wrong length.
         audio_samples_from_file(
-          "samples/music.mp3",
+          "test_files/music.mp3",
           expected_num_samples=4335170,
           expected_num_channels=2,
           expected_sample_rate=44100
@@ -519,7 +519,7 @@ def test_audio_samples_from_file():
 
     # # Slightly too long.
     audio_samples_from_file(
-      "samples/music.mp3",
+      "test_files/music.mp3",
       expected_num_samples=3337343,
       expected_num_channels=2,
       expected_sample_rate=44100
@@ -527,7 +527,7 @@ def test_audio_samples_from_file():
 
     # Slightly too short.
     audio_samples_from_file(
-      "samples/music.mp3",
+      "test_files/music.mp3",
       expected_num_samples=3337345,
       expected_num_channels=2,
       expected_sample_rate=44100
@@ -535,7 +535,7 @@ def test_audio_samples_from_file():
 
     # All good.
     audio_samples_from_file(
-      "samples/music.mp3",
+      "test_files/music.mp3",
       expected_num_samples=3337344,
       expected_num_channels=2,
       expected_sample_rate=44100
@@ -639,31 +639,31 @@ def test_crop():
         crop(a, [10, 10], [100, 10000])
 
 def test_get_font():
-    get_font("samples/ethnocentric_rg.ttf", 10)
-    get_font("samples/ethnocentric_rg.ttf", 10)
-    get_font("samples/ethnocentric_rg_it.ttf", 20)
+    get_font("test_files/ethnocentric_rg.ttf", 10)
+    get_font("test_files/ethnocentric_rg.ttf", 10)
+    get_font("test_files/ethnocentric_rg_it.ttf", 20)
 
     with pytest.raises(ValueError):
         get_font("clip3.py", 20)
 
     with pytest.raises(ValueError):
-        get_font("samples/asdasdasdsad.ttf", 20)
+        get_font("test_files/asdasdasdsad.ttf", 20)
 
 def test_draw_text():
-    font = "samples/ethnocentric_rg_it.ttf"
+    font = "test_files/ethnocentric_rg_it.ttf"
     x = draw_text("Hello!", font, font_size=200, color=[255,0,255], frame_rate=30, length=5)
     x.verify()
 
 
 def test_alpha_blend():
-    f0 = cv2.imread("samples/flowers.png", cv2.IMREAD_UNCHANGED)
+    f0 = cv2.imread("test_files/flowers.png", cv2.IMREAD_UNCHANGED)
     f1 = np.zeros(shape=f0.shape, dtype=np.uint8)
     f2 = alpha_blend(f0, f1)
-    cv2.imwrite('samples/blended.png', f2)
+    cv2.imwrite('test_files/blended.png', f2)
 
-    f0 = cv2.imread("samples/water.png", cv2.IMREAD_UNCHANGED)
+    f0 = cv2.imread("test_files/water.png", cv2.IMREAD_UNCHANGED)
     f0 = f0[0:439,:,:]
-    f1 = cv2.imread("samples/flowers.png", cv2.IMREAD_UNCHANGED)
+    f1 = cv2.imread("test_files/flowers.png", cv2.IMREAD_UNCHANGED)
     f2 = alpha_blend(f0, f1)
 
 def test_to_monochrome():
@@ -741,7 +741,7 @@ def test_scale_to_fit():
 
 def test_static_frame():
 
-    a = static_image("samples/water.png", 30, 10)
+    a = static_image("test_files/water.png", 30, 10)
     a.verify()
 
     with pytest.raises(TypeError):
@@ -759,7 +759,7 @@ def test_static_frame():
 def test_resample1():
     # Basic case.
     length = 5
-    a = from_file("samples/bunny.webm", decode_chunk_length=length)
+    a = from_file("test_files/bunny.webm", decode_chunk_length=length)
     a = slice_clip(a, 0, length)
 
     fr = 29
@@ -774,7 +774,7 @@ def test_resample1():
 def test_resample2():
     # Cover all of the default-parameter branches.
     length = 5
-    a = from_file("samples/bunny.webm", decode_chunk_length=length)
+    a = from_file("test_files/bunny.webm", decode_chunk_length=length)
     a = slice_clip(a, 0, length)
 
     b = resample(a)
@@ -829,7 +829,7 @@ def test_letterbox():
     b.verify()
 
 def test_repeat_frame():
-    a = from_file("samples/bunny.webm", decode_chunk_length=1.0)
+    a = from_file("test_files/bunny.webm", decode_chunk_length=1.0)
     a = slice_clip(a, 0, 1)
 
     b = repeat_frame(a, 0.2, 5)
@@ -838,7 +838,7 @@ def test_repeat_frame():
     assert b.frame_signature(0) == a.frame_signature(int(0.2*a.frame_rate()))
 
 def test_hold_at_end():
-    a = from_file("samples/bunny.webm", decode_chunk_length=1.0)
+    a = from_file("test_files/bunny.webm", decode_chunk_length=1.0)
     a = slice_clip(a, 0, 1)
 
     b = hold_at_end(a, 5)
@@ -846,24 +846,24 @@ def test_hold_at_end():
     assert b.length() == 5
 
 def test_image_glob1():
-    a = image_glob("samples/bunny_frames/*.png", frame_rate=24)
+    a = image_glob("test_files/bunny_frames/*.png", frame_rate=24)
     a.verify()
 
 def test_image_glob2():
     with pytest.raises(FileNotFoundError):
-        image_glob("samples/bunny_frames/*.poo", frame_rate=24)
+        image_glob("test_files/bunny_frames/*.poo", frame_rate=24)
 
 def test_zip_file1():
-    a = zip_file("samples/bunny.zip", frame_rate=15)
+    a = zip_file("test_files/bunny.zip", frame_rate=15)
     a.verify()
 
 def test_zip_file2():
     with pytest.raises(FileNotFoundError):
-        zip_file("samples/bunny.zap", frame_rate=15)
+        zip_file("test_files/bunny.zap", frame_rate=15)
 
 
 def test_to_default_metrics():
-    a = from_file("samples/bunny.webm", decode_chunk_length=None)
+    a = from_file("test_files/bunny.webm", decode_chunk_length=None)
     a = slice_clip(a, 0, 1.0)
 
     with pytest.raises(ValueError):
@@ -898,11 +898,11 @@ def test_timewarp():
     assert 2*b.length() == a.length()
 
 def test_pdf_page1():
-    a = pdf_page("samples/snowman.pdf", page_num=1, frame_rate=10, length=3)
+    a = pdf_page("test_files/snowman.pdf", page_num=1, frame_rate=10, length=3)
     a.verify()
 
 def test_pdf_page2():
-    a = pdf_page("samples/snowman.pdf",
+    a = pdf_page("test_files/snowman.pdf",
                  page_num=1,
                  frame_rate=10,
                  length=3,
@@ -912,13 +912,13 @@ def test_pdf_page2():
     assert a.height() == 120
 
 def test_spin():
-    a = static_image("samples/flowers.png", 30, 5)
+    a = static_image("test_files/flowers.png", 30, 5)
     b = spin(a, 2)
     b.verify()
 
 def test_vstack():
-    a = static_image("samples/flowers.png", 30, 3)
-    b = static_image("samples/water.png", 30, 5)
+    a = static_image("test_files/flowers.png", 30, 3)
+    b = static_image("test_files/water.png", 30, 5)
 
     c = vstack(a, b, align=Align.LEFT)
     c.verify()
@@ -933,14 +933,14 @@ def test_vstack():
         vstack(a, b, align=Align.TOP)
 
 def test_superimpose_center():
-    a = static_image("samples/flowers.png", 30, 3)
-    b = static_image("samples/water.png", 30, 5)
+    a = static_image("test_files/flowers.png", 30, 3)
+    b = static_image("test_files/water.png", 30, 5)
 
     c = superimpose_center(a, b, 0)
     c.verify()
 
 def test_loop():
-    a = static_image("samples/flowers.png", 30, 1.2)
+    a = static_image("test_files/flowers.png", 30, 1.2)
     b = spin(a, 1)
     c = loop(b, 10)
     c.verify()
@@ -948,7 +948,7 @@ def test_loop():
 
 def test_ken_burns1():
     # Legit.
-    a = static_image("samples/flowers.png", 30, 10)
+    a = static_image("test_files/flowers.png", 30, 10)
     b = ken_burns(clip=a,
                   width=520,
                   height=520,
@@ -960,7 +960,7 @@ def test_ken_burns1():
 
 def test_ken_burns2():
     # Distorting.
-    a = static_image("samples/flowers.png", 30, 10)
+    a = static_image("test_files/flowers.png", 30, 10)
 
 
     with pytest.raises(ValueError):
@@ -991,9 +991,9 @@ def test_ken_burns2():
                   end_top_left=[2000,2000],
                   end_bottom_right=[3000,3000]).verify()
 
-# Grab all of the sample files first.  (...instead of checking within each
+# Grab all of the test source files first.  (...instead of checking within each
 # test.)
-get_sample_files()
+get_test_files()
 
 # If we're run as a script, just execute all of the tests.  Or, if a command
 # line argument is given, execute only the tests containing that pattern.
