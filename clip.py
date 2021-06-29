@@ -2363,3 +2363,11 @@ class ken_burns(MutatorClip):
         return sized_fragment
 
 
+def fade(clip1, clip2):
+    """ Fade from one clip to another.  Both must have the same length. """
+    require_clip(clip1, "first clip")
+    require_clip(clip2, "second clip")
+    require_equal(clip1.length(), clip2.length(), "clip lengths")
+
+    return chain(clip1, clip2, fade=clip1.length())
+

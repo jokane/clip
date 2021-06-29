@@ -28,6 +28,7 @@ def get_test_files():  # pragma: no cover
 
     def snag(fname, url):
         if not os.path.exists("test_files/" + fname):
+            print(f"Downloading {fname}...")
             urllib.request.urlretrieve(url, "test_files/" + fname)
 
     snag("books.mp4", "https://www.pexels.com/video/5224014/download")
