@@ -164,7 +164,7 @@ def require_int_point(x, name):
 
 def require_positive(x, name):
     """ Raise an informative exception if x is not positive. """
-    require(x, is_positive, "positive", name, ValueError)
+    require(x, is_positive, "positive number", name, ValueError)
 
 def require_even(x, name):
     """ Raise an informative exception if x is not even. """
@@ -2359,3 +2359,9 @@ def fade(clip1, clip2):
 
     return chain(clip1, clip2, fade_time=clip1.length())
 
+class silence_audio(MutatorClip):
+    """ Replace whatever audio we have with silence. """
+    def __init__(self, clip):
+        require_clip(clip)
+    def get_samples():
+        return np.zeros([self.metrics.num_samples(), self.metrics.num_channels])
