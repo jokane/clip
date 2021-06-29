@@ -1458,12 +1458,10 @@ class from_file(Clip):
     def get_samples(self):
         if self.samples is None:
             if self.has_audio:
-                self.samples = audio_samples_from_file(
-                  self.fname,
-                  self.sample_rate(),
-                  self.num_channels(),
-                  self.num_samples()
-                )
+                self.samples = audio_samples_from_file(self.fname,
+                                                       self.sample_rate(),
+                                                       self.num_channels(),
+                                                       self.num_samples())
             else:
                 self.samples = np.zeros([self.metrics.num_samples(), self.metrics.num_channels])
         return self.samples
@@ -1561,11 +1559,9 @@ class crop(MutatorClip):
         self.lower_left = lower_left
         self.upper_right = upper_right
 
-        self.metrics = Metrics(
-          self.metrics,
-          width=upper_right[0]-lower_left[0],
-          height=upper_right[1]-lower_left[1]
-        )
+        self.metrics = Metrics(self.metrics,
+                               width=upper_right[0]-lower_left[0],
+                               height=upper_right[1]-lower_left[1])
 
     def frame_signature(self, index):
         return ['crop', self.lower_left, self.upper_right, self.clip.frame_signature(index)]
