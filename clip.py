@@ -1860,12 +1860,10 @@ class resample(MutatorClip):
         else:
             length = self.clip.length()
 
-        self.metrics = Metrics(
-          src=self.clip.metrics,
-          frame_rate = frame_rate,
-          sample_rate = sample_rate,
-          length = length
-        )
+        self.metrics = Metrics(src=self.clip.metrics,
+                               frame_rate = frame_rate,
+                               sample_rate = sample_rate,
+                               length = length)
 
     def new_index(self, index):
         """ Return the index in the original clip to be used at the given index
