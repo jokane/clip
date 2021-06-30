@@ -626,10 +626,16 @@ def test_crop():
       sine_wave(880, 0.1, 10, 48000, 2)
     )
 
+    # Typical usage.
     b = crop(a, [10, 10], [100, 100])
     b.verify()
     assert b.width() == 90
     assert b.height() == 90
+
+
+    # Zero is okay.
+    c = crop(a, [0, 0], [100, 100])
+    c.verify()
 
     with pytest.raises(ValueError):
         crop(a, [-1, 10], [100, 100])
@@ -1012,6 +1018,25 @@ def test_ken_burns2():
                   start_bottom_right=[100,100],
                   end_top_left=[2000,2000],
                   end_bottom_right=[3000,3000]).verify()
+
+def test_fade_between():
+    a = black(640, 480, 30, 3)
+    b = white(640, 480, 30, 3)
+
+    # Normal use.
+    c = fade_between(a, b)
+    c.verify()
+
+    # Must have same length.
+    d = white(640, 480, 30, 4)
+    with pytest.raises(ValueError):
+        fade_between(a, d)
+
+def test_silence_audio():
+    a = from_file("test_files/bunny.webm", decode_chunk_length=5)
+    a = slice_clip(a, 0, 5)
+    b = silence_audio(a)
+    b.verify()
 
 # Grab all of the test source files first.  (...instead of checking within each
 # test.)

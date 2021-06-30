@@ -1546,9 +1546,9 @@ class crop(MutatorClip):
     def __init__(self, clip, lower_left, upper_right):
         super().__init__(clip)
         require_int(lower_left[0], "lower left")
-        require_positive(lower_left[0], "lower left")
+        require_non_negative(lower_left[0], "lower left")
         require_int(lower_left[1], "lower left")
-        require_positive(lower_left[1], "lower left")
+        require_non_negative(lower_left[1], "lower left")
         require_int(upper_right[0], "upper right")
         require_less_equal(upper_right[0], clip.width(), "upper right", "width")
         require_int(upper_right[1], "upper right")
@@ -2351,7 +2351,7 @@ class ken_burns(MutatorClip):
         return sized_fragment
 
 
-def fade(clip1, clip2):
+def fade_between(clip1, clip2):
     """ Fade from one clip to another.  Both must have the same length. """
     require_clip(clip1, "first clip")
     require_clip(clip2, "second clip")
@@ -2361,7 +2361,6 @@ def fade(clip1, clip2):
 
 class silence_audio(MutatorClip):
     """ Replace whatever audio we have with silence. """
-    def __init__(self, clip):
-        require_clip(clip)
-    def get_samples():
+    def get_samples(self):
         return np.zeros([self.metrics.num_samples(), self.metrics.num_channels])
+
