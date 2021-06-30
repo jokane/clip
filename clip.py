@@ -822,34 +822,22 @@ class sine_wave(AudioClip):
         samples = np.stack([samples]*self.num_channels(), axis=1)
         return samples
 
-class join(Clip):
+def join(video_clip, audio_clip):
     """ Create a new clip that combines the video of one clip with the audio of
-    another. """
-    def __init__(self, video_clip, audio_clip):
-        super().__init__()
+    another.  The length will be the length of the longer of the two."""
+    require_clip(video_clip, "video clip")
+    require_clip(audio_clip, "audio clip")
 
-        require_clip(video_clip, "video clip")
-        require_clip(audio_clip, "audio clip")
-        require_equal(video_clip.length(), audio_clip.length(), "clip lengths")
-        assert not isinstance(video_clip, AudioClip)
-        assert not isinstance(audio_clip, VideoClip)
-        assert not isinstance(audio_clip, solid)
+    assert not isinstance(video_clip, AudioClip)
+    assert not isinstance(audio_clip, VideoClip)
+    assert not isinstance(audio_clip, solid)
 
-        self.video_clip = video_clip
-        self.audio_clip = audio_clip
-
-        self.metrics = Metrics(
-          src=video_clip.metrics,
-          sample_rate=audio_clip.sample_rate(),
-          num_channels=audio_clip.num_channels()
-        )
-
-    def frame_signature(self, index):
-        return self.video_clip.frame_signature(index)
-    def get_frame(self, index):
-        return self.video_clip.get_frame(index)
-    def get_samples(self):
-        return self.audio_clip.get_samples()
+    return composite(Element(video_clip, 0, [0,0],
+                             video_mode=VideoMode.REPLACE,
+                             audio_mode=AudioMode.IGNORE),
+                     Element(audio_clip, 0, [0,0],
+                             video_mode=VideoMode.IGNORE,
+                             audio_mode=AudioMode.REPLACE))
 
 @numba.jit(nopython=True) # pragma: no cover
 def alpha_blend(f0, f1):
@@ -893,12 +881,14 @@ class VideoMode(Enum):
     REPLACE = 1
     BLEND = 2
     ADD = 3
+    IGNORE = 4
 
 class AudioMode(Enum):
     """ When defining and element of a composite, how should the video for this
     element be composited into the final clip?"""
-    REPLACE = 4
-    ADD = 5
+    REPLACE = 5
+    ADD = 6
+    IGNORE = 7
 
 class Element:
     """An element to be included in a composite."""
@@ -966,6 +956,21 @@ class Element:
             pos = self.position
         return [self.video_mode, pos, self.clip.frame_signature(clip_index)]
 
+    def get_coordinates(self, index, shape):
+        """ Compute the coordinates at which this element should appear at the
+        given index. """
+        if callable(self.position):
+            pos = self.position(index)
+        else:
+            pos = self.position
+        x = pos[0]
+        y = pos[1]
+        x0 = x
+        x1 = x + shape[1]
+        y0 = y
+        y1 = y + shape[0]
+        return x0, x1, y0, y1
+
     def apply_to_frame(self, under, index):
         """ Modify the given frame as described by this element. """
         # If this element does not apply at this index, make no change.
@@ -974,20 +979,9 @@ class Element:
         if index < start_index or index >= start_index + self.clip.num_frames():
             return
 
-        # Get the frame that we're compositing in.
+        # Get the frame that we're compositing in and figure out where it goes.
         over_patch = self.clip.get_frame(clip_index)
-
-        # Get the coordinates where this frame will go.
-        if callable(self.position):
-            pos = self.position(index)
-        else:
-            pos = self.position
-        x = pos[0]
-        y = pos[1]
-        x0 = x
-        x1 = x + over_patch.shape[1]
-        y0 = y
-        y1 = y + over_patch.shape[0]
+        x0, x1, y0, y1 = self.get_coordinates(index, over_patch.shape)
 
         # If it's totally off-screen, make no change.
         if x1 < 0 or x0 > under.shape[1] or y1 < 0 or y0 > under.shape[0]:
@@ -1017,8 +1011,10 @@ class Element:
             under[y0:y1, x0:x1, :] = blended
         elif self.video_mode == VideoMode.ADD:
             under[y0:y1, x0:x1, :] += over_patch
+        elif self.video_mode == VideoMode.IGNORE:
+            pass
         else:
-            assert False # pragma: no cover
+            raise NotImplementedError(self.video_mode) # pragma: no cover
 
 class composite(Clip):
     """ Given a collection of elements, form a composite clip."""
@@ -1053,9 +1049,10 @@ class composite(Clip):
         if width is None or height is None:
             nw, nh = 0, 0
             for e in self.elements:
-                dim = e.required_dimensions()
-                nw = max(nw, dim[0])
-                nh = max(nh, dim[1])
+                if e.video_mode != VideoMode.IGNORE:
+                    dim = e.required_dimensions()
+                    nw = max(nw, dim[0])
+                    nh = max(nh, dim[1])
             if width is None:
                 width = nw
             if height is None:
@@ -1100,6 +1097,10 @@ class composite(Clip):
                 samples[start_sample:end_sample] = clip_samples
             elif e.audio_mode == AudioMode.ADD:
                 samples[start_sample:end_sample] += clip_samples
+            elif e.audio_mode == AudioMode.IGNORE:
+                pass
+            else:
+                raise NotImplementedError(e.audio_mode) # pragma: no cover
 
         return samples
 
@@ -1850,8 +1851,10 @@ class resample(MutatorClip):
     def new_index(self, index):
         """ Return the index in the original clip to be used at the given index
         of the present clip. """
-        x = int(index * self.clip.length()/self.length())
-        return x
+        seconds_here = self.length() * index / self.num_frames()
+        seconds_there = seconds_here * self.clip.length() / self.length()
+        index_there = seconds_there * self.clip.frame_rate()
+        return int(index_there)
 
     def frame_signature(self, index):
         return self.clip.frame_signature(self.new_index(index))

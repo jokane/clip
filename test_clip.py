@@ -342,11 +342,13 @@ def test_sine_wave():
     x.verify()
 
 def test_join():
-    x = sine_wave(440, 0.25, 5, 48000, 2)
+    x = sine_wave(440, 0.25, 3, 48000, 2)
     y = solid([0,255,0], 640, 480, 30, 5)
     z = join(y, x)
     z.verify()
+    assert y.length() == 5
 
+    # Complain if we can detect that audio and video are swapped.
     with pytest.raises(AssertionError):
         join(x, y)
 
@@ -794,6 +796,20 @@ def test_resample2():
 
     b = resample(a)
     b.verify()
+
+def test_resample3():
+    # Ensure that frames are being resampled correctly.
+    length = 5
+    a = from_file("test_files/bunny.webm", decode_chunk_length=length)
+    a = slice_clip(a, 0, length)
+
+    fr = a.frame_rate()/2
+    print("fr=", fr)
+    b = resample(a, frame_rate=fr)
+    assert b.frame_rate() == a.frame_rate()/2
+    assert b.new_index(0) == 0
+    assert b.new_index(b.frame_rate()) == a.frame_rate()
+    b.verify(verbose=True)
 
 def test_fade_in():
     cache.clear()
