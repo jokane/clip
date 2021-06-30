@@ -1218,21 +1218,23 @@ def metrics_from_stream_dicts(video_stream, audio_stream, fname):
                        num_channels = eval(audio_stream['channels']),
                        length = min(vlen, alen)), True, True
     elif video_stream:
+        vlen = get_duration_from_ffprobe_stream(video_stream)
         return Metrics(src = Clip.default_metrics,
                        width = eval(video_stream['width']),
                        height = eval(video_stream['height']),
                        frame_rate = eval(video_stream['avg_frame_rate']),
-                       length = eval(video_stream['duration'])), True, False
+                       length = vlen), True, False
     elif audio_stream:
+        alen = get_duration_from_ffprobe_stream(audio_stream)
         return Metrics(src = Clip.default_metrics,
                        sample_rate = eval(audio_stream['sample_rate']),
                        num_channels = eval(audio_stream['channels']),
-                       length = eval(audio_stream['duration'])), False, True
+                       length = alen), False, True
     else:
         # Should be impossible to get here, but just in case...
         raise ValueError(f"File {fname} contains neither audio nor video.") # pragma: no cover
 
-def metrics_from_ffprobe_output(ffprobe_output, fname):
+def metrics_from_ffprobe_output(ffprobe_output, fname, suppress_video=False, suppress_audio=False):
     """ Given the output of a run of ffprobe -of compact -show_entries
     stream, return a Metrics object based on that data, or complain if
     something strange is in there. """
@@ -1249,19 +1251,23 @@ def metrics_from_ffprobe_output(ffprobe_output, fname):
             assert key not in stream
             stream[key] = val
 
-        if stream['codec_type'] == 'video':
+        if stream['codec_type'] == 'video' and not suppress_video:
             if video_stream is not None:
                 raise ValueError(f"Don't know what to do with {fname},"
                   "which has multiple video streams.")
             video_stream = stream
-        elif stream['codec_type'] == 'audio':
+        elif stream['codec_type'] == 'video' and suppress_video:
+            pass
+        elif stream['codec_type'] == 'audio' and not suppress_audio:
             if audio_stream is not None:
                 raise ValueError(f"Don't know what to do with {fname},"
                   "which has multiple audio streams.")
             audio_stream = stream
+        elif stream['codec_type'] == 'audio' and suppress_audio:
+            pass
         else:
-            raise ValueError(f"Don't know what to do with {fname},"
-              "which has an unknown stream of type {stream['codec_type']}.")
+            raise ValueError(f"Don't know what to do with {fname}, "
+              f"which has an unknown stream of type {stream['codec_type']}.")
 
     return metrics_from_stream_dicts(video_stream, audio_stream, fname)
 
@@ -1337,7 +1343,7 @@ def audio_samples_from_file(fname, expected_sample_rate, expected_num_channels,
 class from_file(Clip):
     """ Create a clip from a file such as an mp4, flac, or other format
     readable by ffmpeg. """
-    def __init__(self, fname, decode_chunk_length=10):
+    def __init__(self, fname, decode_chunk_length=10, suppress_video=False, suppress_audio=False):
         """ Video decoding happens in batches.  Use decode_chunk_length to
         specify the number of seconds of frames decoded in each batch.
         Larger values reduce the overhead of starting the decode process,
@@ -1350,11 +1356,11 @@ class from_file(Clip):
             raise FileNotFoundError(f"Could not open file {fname}.")
         self.fname = os.path.abspath(fname)
 
-        self.acquire_metrics()
+        self.acquire_metrics(suppress_video, suppress_audio)
         self.decode_chunk_length = decode_chunk_length
         self.samples = None
 
-    def acquire_metrics(self):
+    def acquire_metrics(self, suppress_video, suppress_audio):
         """ Set the metrics attribute, either by grabbing the metrics from the
         cache, or by getting them the hard way via ffprobe."""
 
@@ -1379,7 +1385,7 @@ class from_file(Clip):
 
         # Parse the (very detailed) ffprobe response to get the metrics we
         # need.
-        response = metrics_from_ffprobe_output(deets, self.fname)
+        response = metrics_from_ffprobe_output(deets, self.fname, suppress_video, suppress_audio)
         self.metrics, self.has_video, self.has_audio = response
 
     def frame_signature(self, index):

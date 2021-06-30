@@ -483,6 +483,13 @@ def test_from_file4():
     e = slice_clip(e, 0, 0.5)
     e.verify()
 
+def test_from_file5():
+    # Suppress audio and suppress video.
+    a = from_file("test_files/bunny.webm", suppress_audio=True)
+    assert a.has_audio is False
+
+    b = from_file("test_files/bunny.webm", suppress_video=True)
+    assert b.has_audio is True
 
 def test_audio_samples_from_file():
     with pytest.raises(FFMPEGException):
