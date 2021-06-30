@@ -1660,7 +1660,8 @@ class filter_frames(MutatorClip):
         # changed.
         bytecode = dis.Bytecode(func, first_line=0)
         description = bytecode.dis()
-        self.sig = description.__hash__()
+        self.sig = hashlib.sha1(description.encode('UTF-8')).hexdigest()[:7]
+
 
         # Acquire a name for the filter.
         if name is None:
@@ -1800,7 +1801,8 @@ class static_frame(VideoClip):
                                length=length)
 
         self.the_frame = the_frame.copy()
-        self.sig = hash(str(self.the_frame.data))
+        self.sig = hashlib.sha1(str(self.the_frame.data).encode('UTF-8')).hexdigest()[:7]
+
         self.frame_name = frame_name
 
     def frame_signature(self, index):
