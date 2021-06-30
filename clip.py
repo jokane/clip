@@ -2072,10 +2072,6 @@ def to_default_metrics(clip):
 
     require_clip(clip, "clip")
 
-    print()
-    print("Forcing metrics from:", clip.metrics)
-    print("To:", Clip.default_metrics)
-
     dm = Clip.default_metrics
 
     # Video dimensions.
@@ -2102,8 +2098,6 @@ def to_default_metrics(clip):
         raise NotImplementedError(f"Don't know how to convert from {nc_before}"
                                   f"channels to {nc_after}.")
 
-    print("After:", clip.metrics)
-    print()
     return clip
 
 def timewarp(clip, factor):
