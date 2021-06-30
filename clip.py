@@ -1872,8 +1872,9 @@ class resample(MutatorClip):
 
     def get_samples(self):
         data = self.clip.get_samples()
-        x = scipy.signal.resample(data, self.num_samples())
-        return x
+        if self.clip.sample_rate() != self.sample_rate() or self.clip.length() != self.length():
+            data = scipy.signal.resample(data, self.num_samples())
+        return data
 
 class fade_base(MutatorClip, ABC):
     """Fade in from or out to silent black."""
