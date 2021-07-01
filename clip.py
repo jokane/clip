@@ -935,7 +935,7 @@ class Element:
         (0,0), so things at negative coordinates will still be hidden.) """
         if callable(self.position):
             nw, nh = 0, 0
-            for index in range(self.clip.length()):
+            for index in range(self.clip.num_frames()):
                 pos = self.position(index)
                 nw = max(nw, pos[0] + self.clip.width())
                 nh = max(nh, pos[1] + self.clip.height())
