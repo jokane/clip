@@ -108,7 +108,10 @@ def is_non_negative(x):
 
 def is_color(color):
     """ Is this a color, in RGB 8-bit format? """
-    if len(color) != 3: return False
+    try:
+        if len(color) != 3: return False
+    except TypeError:
+        return False
     if not is_int(color[0]): return False
     if not is_int(color[1]): return False
     if not is_int(color[2]): return False
@@ -776,7 +779,7 @@ class solid(Clip):
     """A video clip in which each frame has the same solid color."""
     def __init__(self, color, width, height, frame_rate, length):
         super().__init__()
-        assert is_color(color)
+        require_color(color, "solid color")
         self.metrics = Metrics(Clip.default_metrics,
                                width=width,
                                height=height,

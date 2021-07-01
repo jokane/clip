@@ -86,6 +86,8 @@ def test_validate():
     require_equal(1, 1, "name")
 
     require_color([0,0,0], "color")
+    with pytest.raises(TypeError):
+        require_color(1024, "color")
 
     with pytest.raises(ValueError):
         require_equal(1, "1", "name")
