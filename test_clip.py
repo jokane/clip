@@ -906,12 +906,21 @@ def test_repeat_frame():
     assert b.length() == 5
     assert b.frame_signature(0) == a.frame_signature(int(0.2*a.frame_rate()))
 
-def test_hold_at_end():
+def test_hold_at_end1():
+    # Normal usage.
     a = from_file("test_files/bunny.webm", decode_chunk_length=1.0)
     a = slice_clip(a, 0, 1)
 
     b = hold_at_end(a, 5)
     b.verify()
+    assert b.length() == 5
+
+def test_hold_at_end2():
+    # When length is not an exact number of frames.
+    a = from_file("test_files/bunny.webm", decode_chunk_length=1.0)
+    a = slice_clip(a, 0, 0.98)
+    b = hold_at_end(a, 5)
+    b.verify(verbose=True)
     assert b.length() == 5
 
 def test_image_glob1():

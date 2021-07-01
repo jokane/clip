@@ -1721,6 +1721,7 @@ class filter_frames(MutatorClip):
 
 
     def frame_signature(self, index):
+        assert index < self.num_frames()
         return ["filter", {
           'func' : self.name,
           'sig'  : self.sig,
@@ -1866,6 +1867,7 @@ class resample(MutatorClip):
     def new_index(self, index):
         """ Return the index in the original clip to be used at the given index
         of the present clip. """
+        assert index < self.num_frames()
         seconds_here = self.length() * index / self.num_frames()
         assert seconds_here <= self.length()
         seconds_there = seconds_here * self.clip.length() / self.length()
@@ -1996,7 +1998,16 @@ class repeat_frame(VideoClip):
         self.clip = clip
         self.frame_index = int(when * self.frame_rate())
 
+        # Special case for repeating at/near the end of the clip: Because of
+        # how time is scaled, we might end up asking for one frame beyond the
+        # end.
+        if self.frame_index == self.clip.num_frames():
+          self.frame_index -= 1
+
+        assert self.frame_index < self.clip.num_frames()
+
     def frame_signature(self, index):
+        assert index < self.num_frames()
         return self.clip.frame_signature(self.frame_index)
 
     def get_frame(self, index):
@@ -2195,6 +2206,7 @@ class spin(MutatorClip):
         self.degrees_per_frame = 360 * rotations_per_frame
 
     def frame_signature(self, index):
+        assert index < self.num_frames()
         sig = self.clip.frame_signature(index)
         degrees = self.degrees_per_frame * index
         return [f'rotated by {degrees}', sig]
