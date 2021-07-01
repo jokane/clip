@@ -2024,6 +2024,9 @@ class image_glob(VideoClip):
         if len(self.filenames) == 0:
             raise FileNotFoundError(f'No files matched pattern: {pattern}')
 
+        # Get full pathnames, in case the current directory changes.
+        self.filenames = list(map(lambda x: os.path.join(os.getcwd(), x), self.filenames))
+
         sample_frame = cv2.imread(self.filenames[0])
         assert sample_frame is not None
 

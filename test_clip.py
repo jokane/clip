@@ -922,6 +922,14 @@ def test_image_glob2():
     with pytest.raises(FileNotFoundError):
         image_glob("test_files/bunny_frames/*.poo", frame_rate=24)
 
+def test_image_glob3():
+    # Make sure we can still find the files if the current directory changes.
+    a = image_glob("test_files/bunny_frames/*.png", frame_rate=24)
+    a.verify()
+
+    with temporary_current_directory():
+        a.verify()
+
 def test_zip_file1():
     a = zip_file("test_files/bunny.zip", frame_rate=15)
     a.verify()
