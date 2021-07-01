@@ -756,29 +756,58 @@ def test_scale_to_fit():
     c.verify()
     assert abs(b.width()/b.height() - 1.0)  < 1e-10
 
-def test_static_frame():
-
-    # Legit usage.
-    # An RGBA image.
+def test_static_frame1():
+    # Legit usage: An RGBA image.
     a = static_image("test_files/water.png", 30, 10)
     a.verify()
 
-    # An RGB image.
+def test_static_frame2():
+    # Legit usage: An RGB image.
     b = static_image("test_files/brian.jpg", 30, 10)
     b.verify()
 
 
+def test_static_frame3():
+    # Wrong type
     with pytest.raises(TypeError):
-        # Wrong type
         static_frame("not a frame", "name", 30, 10)
 
+def test_static_frame4():
+    # Wrong shape
     with pytest.raises(ValueError):
-        # Wrong shape
         static_frame(np.zeros([100, 100]), "name", 30, 10)
 
+def test_static_frame5():
+    # Wrong number of channels
     with pytest.raises(ValueError):
-        # Wrong number of channels
         static_frame(np.zeros([100, 100, 3]), "name", 30, 10)
+
+def test_static_frame6():
+    # Frame signatures should depend (only) on the contents; same contents give
+    # same frame signature.
+    black_frame = np.zeros([100, 200, 4], np.uint8)
+    black_frame[:] = [0, 0, 0, 255]
+
+    black_frame2 = np.zeros([100, 200, 4], np.uint8)
+    black_frame2[:] = [0, 0, 0, 255]
+
+    mostly_black_frame = np.zeros([100, 200, 4], np.uint8)
+    mostly_black_frame[:] = [0, 0, 0, 255]
+    mostly_black_frame[50,50,1] = 6
+
+    white_frame = np.zeros([100, 200, 4], np.uint8)
+    white_frame[:] = [255, 255, 255, 255]
+
+    a = static_frame(black_frame, "blackness", 30, 3)
+    b = static_frame(black_frame2, "blackness", 30, 3)
+    c = static_frame(white_frame, "whiteness", 30, 3)
+    d = static_frame(mostly_black_frame, "mostly black", 30, 3)
+
+    assert a.sig == b.sig
+    assert a.sig != c.sig
+    assert a.sig != d.sig
+
+
 
 def test_resample1():
     # Basic case.

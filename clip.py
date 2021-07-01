@@ -1368,7 +1368,7 @@ class from_file(Clip):
         cached_filename, exists = cache.lookup(hashlib.md5(self.fname.encode()).hexdigest(), 'dim')
         if exists:
             # Yes. Grab it.
-            print(f"Using cached dimensions for {self.fname}")
+            # print(f"Using cached dimensions for {self.fname}")
             with open(cached_filename, 'r') as f:
                 deets = f.read()
         else:
@@ -1807,7 +1807,8 @@ class static_frame(VideoClip):
                                length=length)
 
         self.the_frame = the_frame.copy()
-        self.sig = hashlib.sha1(str(self.the_frame.data).encode('UTF-8')).hexdigest()[:7]
+        hash_source = self.the_frame.tobytes()
+        self.sig = hashlib.sha1(hash_source).hexdigest()[:7]
 
         self.frame_name = frame_name
 
