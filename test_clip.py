@@ -844,10 +844,10 @@ def test_resample3():
     fr = a.frame_rate()/2
     print("fr=", fr)
     b = resample(a, frame_rate=fr)
+    b.verify(verbose=True)
     assert b.frame_rate() == a.frame_rate()/2
     assert b.new_index(0) == 0
     assert b.new_index(b.frame_rate()) == a.frame_rate()
-    b.verify(verbose=True)
 
 def test_fade_in():
     cache.clear()

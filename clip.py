@@ -1867,8 +1867,11 @@ class resample(MutatorClip):
         """ Return the index in the original clip to be used at the given index
         of the present clip. """
         seconds_here = self.length() * index / self.num_frames()
+        assert seconds_here <= self.length()
         seconds_there = seconds_here * self.clip.length() / self.length()
+        assert seconds_there <= self.clip.length()
         index_there = seconds_there * self.clip.frame_rate()
+        assert index_there < self.clip.num_frames(), f'{index_there}, {self.clip.num_frames()}'
         return int(index_there)
 
     def frame_signature(self, index):
@@ -2038,6 +2041,7 @@ class image_glob(VideoClip):
                                length = len(self.filenames)/frame_rate)
 
     def frame_signature(self, index):
+        assert index<self.num_frames()
         return self.filenames[index]
 
     def get_frame(self, index):
