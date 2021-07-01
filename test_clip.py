@@ -1100,6 +1100,10 @@ def test_silence_audio():
     b = silence_audio(a)
     b.verify()
 
+def test_read_image():
+    with pytest.raises(FileNotFoundError):
+        read_image("xyz.png")
+
 # Grab all of the test source files first.  (...instead of checking within each
 # test.)
 get_test_files()

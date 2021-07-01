@@ -202,7 +202,8 @@ def read_image(fname):
     """Read an image from disk, make sure it has the correct RGBA uint8 format,
     and return it."""
     if not os.path.exists(fname):
-        raise FileNotFoundError(f"Trying to open {fname}, which does not exist.  (Current working directory is {os.getcwd()}")
+        raise FileNotFoundError(f"Trying to open {fname}, which does not exist. "
+                                f"(Current working directory is {os.getcwd()}")
     frame = cv2.imread(fname, cv2.IMREAD_UNCHANGED)
     assert frame is not None
     if frame.shape[2] == 3:
