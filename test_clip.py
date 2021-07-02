@@ -343,6 +343,20 @@ def test_composite10():
     )
     z.verify()
 
+def test_composite11():
+    # Ignored video should not impact the frame signatures.
+    a = static_image("test_files/flowers.png", 30, 5)
+
+    b = composite(
+      Element(a, 0, [0,0], video_mode=VideoMode.BLEND),
+    )
+
+    c = composite(
+      Element(a, 0, [0,0], video_mode=VideoMode.BLEND),
+      Element(a, 0, [10,10], video_mode=VideoMode.IGNORE),
+    )
+
+    assert b.frame_signature(0) == c.frame_signature(0)
 
 def test_sine_wave():
     x = sine_wave(880, 0.1, 5, 48000, 2)

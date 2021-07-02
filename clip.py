@@ -952,6 +952,8 @@ class Element:
         frame signature.  Returns None if this element does not contribute to
         this frame. """
         start_index = self.start_index()
+        if self.video_mode==VideoMode.IGNORE:
+            return None
         if index < start_index or index >= start_index + self.clip.num_frames():
             return None
         clip_index = index - self.start_index()
