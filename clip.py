@@ -957,7 +957,7 @@ class Element:
         clip_index = index - self.start_index()
         assert clip_index >= 0
         if callable(self.position):
-            pos = self.position(index)
+            pos = self.position(index - start_index)
         else:
             pos = self.position
         return [self.video_mode, pos, self.clip.frame_signature(clip_index)]
@@ -987,7 +987,7 @@ class Element:
 
         # Get the frame that we're compositing in and figure out where it goes.
         over_patch = self.clip.get_frame(clip_index)
-        x0, x1, y0, y1 = self.get_coordinates(index, over_patch.shape)
+        x0, x1, y0, y1 = self.get_coordinates(clip_index, over_patch.shape)
 
         # If it's totally off-screen, make no change.
         if x1 < 0 or x0 > under.shape[1] or y1 < 0 or y0 > under.shape[0]:
@@ -1722,9 +1722,7 @@ class filter_frames(MutatorClip):
 
     def frame_signature(self, index):
         assert index < self.num_frames()
-        return ["filter", {
-          'func' : self.name,
-          'sig'  : self.sig,
+        return [f"{self.name} (filter:{self.sig})", {
           'index' : index if self.depends_on_index else None,
           'width' : self.width(),
           'height' : self.height(),
