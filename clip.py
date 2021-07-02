@@ -1138,11 +1138,14 @@ def chain(*args, fade_time = 0):
                 clip = fade_in(clip, fade_time)
             if i<len(clips)-1:
                 clip = fade_out(clip, fade_time)
+            vmode = VideoMode.ADD
+        else:
+            vmode = VideoMode.REPLACE
 
         elements.append(Element(clip=clip,
                                 start_time=start_time,
                                 position=(0,0),
-                                video_mode=VideoMode.ADD,
+                                video_mode=vmode,
                                 audio_mode=AudioMode.ADD))
 
         start_time += clip.length() - fade_time
@@ -1461,7 +1464,8 @@ class from_file(Clip):
                         # video length, or sometimes from simply missing
                         # frames.  To keep things rolling, let's fill in a
                         # black frame instead.
-                        print(f"[Exploding {self.fname} did not produce frame {index}. "
+                        nf = self.num_frames()
+                        print(f"[Exploding {self.fname} did not produce frame {index}/{nf}. "
                           "Using black instead.]")
                         fr = np.zeros([self.height(), self.width(), 3], np.uint8)
                         cv2.imwrite(cached_fname, fr)
