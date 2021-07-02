@@ -138,6 +138,11 @@ def test_clip_metrics():
     x = solid([0,0,0], 640, 480, 30, 60*60+1)
     assert x.readable_length()[:2] == '1:'
 
+def test_clip_metrics2():
+    # A fractional frame at the end.
+    a = black(640, 480, 1, 1.25)
+    assert a.num_frames()==2
+
 def test_temporary_current_directory():
     with temporary_current_directory():
         assert glob.glob('*') == []
@@ -847,7 +852,7 @@ def test_resample3():
     b.verify(verbose=True)
     assert b.frame_rate() == a.frame_rate()/2
     assert b.new_index(0) == 0
-    assert b.new_index(b.frame_rate()) == a.frame_rate()
+
 
 def test_fade_in():
     cache.clear()

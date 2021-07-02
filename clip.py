@@ -349,7 +349,7 @@ class Metrics:
 
     def num_frames(self):
         """Length of the clip, in video frames."""
-        return int(self.length * self.frame_rate)
+        return int(math.ceil(self.length * self.frame_rate))
 
     def num_samples(self):
         """Length of the clip, in audio samples."""
@@ -1865,14 +1865,25 @@ class resample(MutatorClip):
     def new_index(self, index):
         """ Return the index in the original clip to be used at the given index
         of the present clip. """
+        # print()
+        # print("index:", index)
+        # print("self.length():", self.length())
+        # print("self.num_frames():", self.num_frames())
         assert index < self.num_frames()
         seconds_here = self.length() * index / self.num_frames()
+        # print("seconds_here:", seconds_here)
         assert seconds_here <= self.length()
         seconds_there = seconds_here * self.clip.length() / self.length()
+        # print("seconds_there:", seconds_there)
+        # print("self.clip.frame_rate():", self.clip.frame_rate())
         assert seconds_there <= self.clip.length()
-        index_there = seconds_there * self.clip.frame_rate()
+        index_there = int(seconds_there * self.clip.frame_rate())
+        # print("index_there:", index_there)
+        # print("correct time range for index_there:",
+        #      index_there/self.clip.frame_rate(), (index_there+1)/self.clip.frame_rate())
+        # print("self.clip.num_frames():", self.clip.num_frames())
         assert index_there < self.clip.num_frames(), f'{index_there}, {self.clip.num_frames()}'
-        return int(index_there)
+        return index_there
 
     def frame_signature(self, index):
         return self.clip.frame_signature(self.new_index(index))
@@ -2000,7 +2011,7 @@ class repeat_frame(VideoClip):
         # how time is scaled, we might end up asking for one frame beyond the
         # end.
         if self.frame_index == self.clip.num_frames():
-          self.frame_index -= 1
+            self.frame_index -= 1
 
         assert self.frame_index < self.clip.num_frames()
 
