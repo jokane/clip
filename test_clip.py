@@ -1020,7 +1020,7 @@ def test_vstack():
     e = vstack(a, b, align=Align.CENTER)
     e.verify()
 
-    with pytest.raises(ValueError):
+    with pytest.raises(NotImplementedError):
         vstack(a, b, align=Align.TOP)
 
 def test_superimpose_center():

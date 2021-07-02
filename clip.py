@@ -2274,7 +2274,7 @@ def vstack(*args, align=Align.CENTER, width=0, video_mode=VideoMode.REPLACE):
         elif align==Align.RIGHT:
             x = width - clip.width()
         else:
-            raise ValueError(f"Don't know how to align {align} in a vstack.")
+            raise NotImplementedError(f"Don't know how to align {align} in a vstack.")
 
         elements.append(Element(clip=clip,
                                 start_time=0,
