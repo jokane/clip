@@ -2331,14 +2331,14 @@ class ken_burns(MutatorClip):
                      "end top left x", "end bottom right x")
         require_less(end_top_left[1], end_bottom_right[1],
                      "end top left y", "end bottom right y")
-        require_less(start_bottom_right[0], clip.width(),
-                     "start bottom right x", "clip width")
-        require_less(start_bottom_right[1], clip.height(),
-                     "start bottom right y", "clip height")
-        require_less(end_bottom_right[0], clip.width(),
-                     "end bottom right x", "clip width")
-        require_less(end_bottom_right[1], clip.height(),
-                     "end bottom right y", "clip height")
+        require_less_equal(start_bottom_right[0], clip.width(),
+                           "start bottom right x", "clip width")
+        require_less_equal(start_bottom_right[1], clip.height(),
+                           "start bottom right y", "clip height")
+        require_less_equal(end_bottom_right[0], clip.width(),
+                           "end bottom right x", "clip width")
+        require_less_equal(end_bottom_right[1], clip.height(),
+                           "end bottom right y", "clip height")
 
 
         start_ratio = ((start_bottom_right[0] - start_top_left[0])

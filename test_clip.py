@@ -1050,23 +1050,22 @@ def test_ken_burns1():
     b.verify()
 
 def test_ken_burns2():
-    # Distorting.
-    a = static_image("test_files/flowers.png", 30, 10)
-
     # Small distortion: OK.  1.779291553133515 vs 1.7777777777777777
+    a = static_image("test_files/flowers.png", 30, 10)
     a2 = scale_to_size(a, width=2945, height=1656)
-    b = ken_burns(a2,
-        width=1024,
-        height=576,
-        start_top_left=(63,33),
-        start_bottom_right=(2022,1134),
-        end_top_left=(73,43),
-        end_bottom_right=(2821,1588),
-    )
+    b = ken_burns(clip=a2,
+                  width=1024,
+                  height=576,
+                  start_top_left=(63,33),
+                  start_bottom_right=(2022,1134),
+                  end_top_left=(73,43),
+                  end_bottom_right=(2821,1588))
     b.verify()
 
+def test_ken_burns3():
+    # Big distortions: Bad.
+    a = static_image("test_files/flowers.png", 30, 10)
 
-    # Big distortion: Bad.
     with pytest.raises(ValueError):
         ken_burns(clip=a,
                   width=520,
@@ -1094,6 +1093,20 @@ def test_ken_burns2():
                   start_bottom_right=[100,100],
                   end_top_left=[2000,2000],
                   end_bottom_right=[3000,3000]).verify()
+
+
+def test_ken_burns4():
+    # Grabbing at the exact width or height: OK, because the slice is not
+    # inclusive.
+    a = black(width=100, height=100, frame_rate=30, length=3)
+    b = ken_burns(clip=a,
+                  width=50,
+                  height=50,
+                  start_top_left=(10,10),
+                  start_bottom_right=(100,100),
+                  end_top_left=(10,10),
+                  end_bottom_right=(100,100))
+    b.verify()
 
 def test_fade_between():
     a = black(640, 480, 30, 3)
