@@ -2245,8 +2245,22 @@ class spin(MutatorClip):
         rotated_frame = cv2.warpAffine(frame,
                                        rot_mat,
                                        frame.shape[1::-1],
-                                       flags=cv2.INTER_LINEAR,
-                                       borderValue=(0,0,0,0))
+                                       flags=cv2.INTER_NEAREST,
+                                       borderMode=cv2.BORDER_CONSTANT,
+                                       borderValue=[0,0,0,0])
+        # Using INTER_NEAREST here instead of INTER_LINEAR has two effects:
+        # 1. It prevents an artifical "border" from appearing when INTER_LINEAR
+        # blends "real" pixels with the background zeros around the edge of the
+        # real image.  This is sort of built in if we rotate when there are
+        # "real" pixels close to [0,0,0,0] background pixels.
+        # 2. It gives straight lines a jagged looks.
+        #
+        # Perhaps a better version might someday get the best of both worlds by
+        # embedding the real image in a larger canvas (filled somehow with the
+        # right color -- perhaps by grabbing from the boundary of the real
+        # image?), rotating that larger image with INTER_LINEAR (creating an
+        # ugly by distant border), and then cropping back to the radius x
+        # radius size that we need.
 
         return rotated_frame
 
