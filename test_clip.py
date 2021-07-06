@@ -872,21 +872,22 @@ def test_fades():
     a = white(640, 480, 30, 3)
 
     for cls in [fade_in, fade_out]:
-        # Normal usage.
-        b = cls(a, 1.5)
-        b.verify()
+        for transparent in [True, False]:
+            # Normal usage.
+            b = cls(a, 1.5,transparent=transparent)
+            b.verify()
 
-        # Negative fade time.
-        with pytest.raises(ValueError):
-            cls(a, -1)
+            # Negative fade time.
+            with pytest.raises(ValueError):
+                cls(a, -1)
 
-        # Bogus types as input.
-        with pytest.raises(TypeError):
-            cls(-1, a)
+            # Bogus types as input.
+            with pytest.raises(TypeError):
+                cls(-1, a)
 
-        # Fade time longer than clip.
-        with pytest.raises(ValueError):
-            cls(a, 10)
+            # Fade time longer than clip.
+            with pytest.raises(ValueError):
+                cls(a, 10)
 
 def test_slice_out1():
     # Bad times.
