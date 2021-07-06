@@ -1112,7 +1112,7 @@ class composite(Clip):
 
         return samples
 
-def chain(*args, fade_time = 0):
+def chain(*args, length=None, fade_time = 0):
     """ Concatenate a series of clips.  The clips may be given individually, in
     lists or other iterables, or a mixture of both.  Optionally overlap them a
     little and fade between them."""
@@ -1153,7 +1153,7 @@ def chain(*args, fade_time = 0):
         start_time += clip.length() - fade_time
 
     # Let composite do all the work.
-    return composite(*elements)
+    return composite(*elements, length=length)
 
 class scale_alpha(MutatorClip):
     """ Scale the alpha channel of a given clip by the given factor, which may
@@ -2044,8 +2044,12 @@ def hold_at_end(clip, target_length):
     require_float(target_length, "target length")
     require_positive(target_length, "target length")
 
+    # Here the repeat_frame almost certainly goes beyond target length, and
+    # we force the final product to have the right length directly.  This
+    # prevents getting a blank frame at end in some cases.
     return chain(clip,
-                 repeat_frame(clip, clip.length(), target_length-clip.length()))
+                 repeat_frame(clip, clip.length(), target_length),
+                 length=target_length)
 
 
 class image_glob(VideoClip):

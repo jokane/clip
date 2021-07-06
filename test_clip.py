@@ -1146,6 +1146,13 @@ def test_read_image():
 # test.)
 get_test_files()
 
+# Use a different-from-default directory for the cache, to reduce the pain
+# of running these tests (which clear the cache on occasion) when useful
+# things are in the default cache.
+cache.directory = '/tmp/clipcache-test'
+cache.clear()
+
+
 # If we're run as a script, just execute all of the tests.  Or, if a command
 # line argument is given, execute only the tests containing that pattern.
 if __name__ == '__main__':  #pragma: no cover
