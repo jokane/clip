@@ -1904,7 +1904,7 @@ class resample(MutatorClip):
         return data
 
 class fade_base(MutatorClip, ABC):
-    """Fade in from or out to silent black."""
+    """Fade in from or out to silent transparency."""
 
     def __init__(self, clip, fade_length):
         super().__init__(clip)
@@ -1926,16 +1926,25 @@ class fade_base(MutatorClip, ABC):
             return [f'faded by {alpha}', sig]
 
     def get_frame(self, index):
-        frame = self.clip.get_frame(index)
+        #frame = self.clip.get_frame(index)
+        #alpha = self.alpha(index)
+        #return (alpha * frame).astype(np.uint8)
         alpha = self.alpha(index)
-        return (alpha * frame).astype(np.uint8)
+        assert alpha >= 0.0
+        assert alpha <= 1.0
+        if alpha < 1.0:
+            frame = self.clip.get_frame(index).copy()
+            frame[:,:,3] = (frame[:,:,3]*alpha).astype(np.uint8)
+            return frame.astype(np.uint8)
+        else:
+            return self.clip.get_frame(index)
 
     @abstractmethod
     def get_samples(self):
         """ Return samples; implemented in fade_in and fade_out below."""
 
 class fade_in(fade_base):
-    """ Fade in from silent black. """
+    """ Fade in from silent tranparency. """
     def alpha(self, index):
         return min(1, index/int(self.fade_length * self.clip.frame_rate()))
     def get_samples(self):
@@ -1947,7 +1956,7 @@ class fade_in(fade_base):
 
 
 class fade_out(fade_base):
-    """ Fade out to silent black. """
+    """ Fade out to silent transparency. """
     def alpha(self, index):
         return min(1, (self.clip.num_frames() - index)
                        / int(self.fade_length * self.clip.frame_rate()))

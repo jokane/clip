@@ -867,28 +867,24 @@ def test_resample3():
     assert b.frame_rate() == a.frame_rate()/2
     assert b.new_index(0) == 0
 
-
-def test_fade_in():
-    cache.clear()
-    a = white(640, 480, 30, 3)
-
-    b = fade_in(a, 1.5)
-    b.verify()
-
 def test_fades():
     cache.clear()
     a = white(640, 480, 30, 3)
 
     for cls in [fade_in, fade_out]:
+        # Normal usage.
         b = cls(a, 1.5)
         b.verify()
 
+        # Negative fade time.
         with pytest.raises(ValueError):
             cls(a, -1)
 
+        # Bogus types as input.
         with pytest.raises(TypeError):
             cls(-1, a)
 
+        # Fade time longer than clip.
         with pytest.raises(ValueError):
             cls(a, 10)
 
