@@ -191,19 +191,46 @@ def test_ffmpeg():
     with pytest.raises(FFMPEGException), temporary_current_directory():
         ffmpeg('-i /dev/zero', '/dev/null', task="Testing", num_frames=100)
 
-def test_save():
+def test_save1():
+    # Basic case, with video.
     cache.clear()
-
     x = solid([0,0,0], 640, 480, 30, 10)
     with temporary_current_directory():
         x.save('test.mp4')
         assert os.path.exists('test.mp4')
 
+
+def test_save2():
+    # Pure audio output.
+    x = solid([0,0,0], 640, 480, 30, 10)
     with temporary_current_directory():
         x.save('foo.flac')
-        x.save('foo.wav')
         assert os.path.exists('foo.flac')
-        assert os.path.exists('foo.wav')
+
+def test_save3():
+    # With a target filesize.
+    a = from_file("test_files/bunny.webm", decode_chunk_length=None)
+    for ts in [5, 10]:
+        with temporary_current_directory():
+            a.save('small_bunny.mp4', target_size=ts, two_pass=True)
+            actual_bytes = os.path.getsize("small_bunny.mp4")
+            target_bytes = 2**20*ts
+            difference = abs(actual_bytes - target_bytes)
+            margin = 0.02 * target_bytes
+            assert difference < margin, f'{difference} {margin}'
+
+def test_save4():
+    # With a target bitrate.
+    x = solid([0,0,0], 640, 480, 30, 2)
+    with temporary_current_directory():
+        x.save('test.mp4', bitrate='1024k')
+        assert os.path.exists('test.mp4')
+
+def test_save5():
+    # With both file size and bitrate.
+    x = solid([0,0,0], 640, 480, 30, 2)
+    with pytest.raises(ValueError):
+        x.save('test.mp4', bitrate='1024k', target_size=5)
 
 def test_composite1():
     # For automatically computing the height.

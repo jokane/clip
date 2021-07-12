@@ -628,11 +628,16 @@ class Clip(ABC):
                     # Update the progress bar.
                     pb.update(index)
 
-    def save(self, fname, bitrate='1024k', preset='slow'):
+    def save(self, fname, bitrate=None, target_size=None, two_pass=False, preset='slow'):
         """ Save to a file.
 
-        Bitrate controsl the target bitrate.  Handles the tradeoff between
+        Bitrate controls the target bitrate.  Handles the tradeoff between
         file size and output quality.
+
+        Target size specifies the file size we want, in MB.
+
+        At most one of bitrate and target_size should be given.  If both are
+        omitted, bitrate defaults to 1024k.
 
         Preset controls how quickly ffmpeg encodes.  Handles the tradeoff
         between encoding speed and output quality.  Choose from:
@@ -654,36 +659,62 @@ class Clip(ABC):
         # temporary current directory.
         full_fname = os.path.join(os.getcwd(), fname)
 
+        # Figure out what bitrate to target.
+        if bitrate is None and target_size is None:
+            # A sensible high-quality default.
+            bitrate = '1024k'
+        elif bitrate is None and target_size is not None:
+            # Compute target bit rate, which should be in bits per second,
+            # from the target filesize.
+            target_bytes = 2**20 * target_size
+            target_bits = 8*target_bytes
+            bitrate = target_bits / self.length()
+            bitrate -= 128*1024 # Audio defaults to 1024 kilobits/second.
+        elif bitrate is not None and target_size is None:
+            # Nothing to do -- just use the bitrate as given.
+            pass
+        else:
+            raise ValueError("Specify either bitrate or target_size, not both.")
+
+
         with tempfile.TemporaryDirectory() as td:
-            # Fill this directory with the audio and a bunch of (symlinks to)
+            # Fill the temporary directory with the audio and a bunch of (symlinks to)
             # individual frames.
             self.stage(td, fname)
 
             # Invoke ffmpeg to assemble all of these into the completed video.
             with temporarily_changed_directory(td):
-                ffmpeg(
+                # Some shared arguments across all ffmpeg calls: single pass,
+                # first pass of two, and second pass of two.
+                # These include filters to:
+                # - Ensure that the width and height are even, padding with a
+                #   black row or column if needed.
+                # - Set the pixel format to yuv420p, which seems to be needed
+                #   to get outputs that play on Apple gadgets.
+                # - Set the output frame rate.
+                args = [
                     f'-framerate {self.frame_rate()}',
                     f'-i %06d.{frame_cache_format}',
                     '-i audio.flac',
                     '-vcodec libx264',
-                    '-f mp4 ',
+                    '-f mp4',
                     f'-vb {bitrate}' if bitrate else '',
                     f'-preset {preset}' if preset else '',
                     '-profile:v high',
-                    # Filters here to:
-                    # - Put a black background behind each frame, ensure that any
-                    #   remaining trasparency is handled correctly.
-                    # - Ensure that the width and height are even, padding with a
-                    #   black pixel if needed.
-                    # - Set the pixel format to yuv420p, which seems to be needed
-                    #   to get outputs that play on Apple gadgets.
-                    # - Set the output frame rate.
-                    #f'-filter_complex "color=black,format=rgb24[c];[c][0]scale2ref[c][i];[c][i]overlay=format=auto:shortest=1,setsar=1,format=yuv420p,pad=width=ceil(iw/2)*2:height=ceil(ih/2)*2,fps={self.frame_rate()}"', #pylint: disable=line-too-long
                     f'-filter_complex "format=yuv420p,pad=width=ceil(iw/2)*2:height=ceil(ih/2)*2,fps={self.frame_rate()}"', #pylint: disable=line-too-long
-                    f'{full_fname}',
-                    task=f"Encoding {fname}",
-                    num_frames=self.num_frames()
-                )
+                ]
+
+                if not two_pass:
+                    ffmpeg(task=f"Encoding {fname}",
+                           *(args + [f'{full_fname}']),
+                           num_frames=self.num_frames())
+                else:
+                    ffmpeg(task=f"Encoding {fname}, pass 1",
+                           *(args + ['-pass 1', '/dev/null']),
+                           num_frames=self.num_frames())
+                    ffmpeg(task=f"Encoding {fname}, pass 2",
+                           *(args + ['-pass 2', f'{full_fname}']),
+                           num_frames=self.num_frames())
 
             print(f'Wrote {self.readable_length()} to {fname}.')
 
