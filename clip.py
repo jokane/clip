@@ -358,8 +358,8 @@ class Metrics:
 
 @contextlib.contextmanager
 def temporarily_changed_directory(directory):
-    """Create a context in which  the current directory has been changed to the
-    given one, which should exist already.  When the context end, change the
+    """Create a context in which the current directory has been changed to the
+    given one, which should exist already.  When the context ends, change the
     current directory back."""
     previous_current_directory = os.getcwd()
     os.chdir(directory)
