@@ -539,10 +539,26 @@ def test_from_file5():
     b = from_file("test_files/bunny.webm", suppress_video=True)
     assert b.has_audio is True
 
+
+def asff_helper(fname,
+                expected_num_samples,
+                expected_num_channels,
+                expected_sample_rate):
+    """ Run audio_samples_from_file on the given input and sanity check the
+    result. """
+    # Grab the audio samples.
+    s = audio_samples_from_file(fname,
+                                expected_num_samples=expected_num_samples,
+                                expected_num_channels=expected_num_channels,
+                                expected_sample_rate=expected_sample_rate)
+
+    # If they're all 0, something is wrong.
+    assert s.any()
+
 def test_audio_samples_from_file1():
     with pytest.raises(FFMPEGException):
         # No audio track.
-        audio_samples_from_file(
+        asff_helper(
           "test_files/books.mp4",
           expected_num_samples=0,
           expected_num_channels=1,
@@ -552,7 +568,7 @@ def test_audio_samples_from_file1():
 def test_audio_samples_from_file2():
     with pytest.raises(ValueError):
         # Wrong sample rate.
-        audio_samples_from_file(
+        asff_helper(
           "test_files/music.mp3",
           expected_num_samples=3335168,
           expected_num_channels=2,
@@ -562,7 +578,7 @@ def test_audio_samples_from_file2():
 def test_audio_samples_from_file3():
     with pytest.raises(ValueError):
         # Wrong number of channels
-        audio_samples_from_file(
+        asff_helper(
           "test_files/music.mp3",
           expected_num_samples=3335168,
           expected_num_channels=1,
@@ -572,7 +588,7 @@ def test_audio_samples_from_file3():
 def test_audio_samples_from_file4():
     with pytest.raises(ValueError):
         # Wrong length.
-        audio_samples_from_file(
+        asff_helper(
           "test_files/music.mp3",
           expected_num_samples=4335170,
           expected_num_channels=2,
@@ -581,7 +597,7 @@ def test_audio_samples_from_file4():
 
 def test_audio_samples_from_file5():
     # Slightly too long.
-    audio_samples_from_file(
+    asff_helper(
       "test_files/music.mp3",
       expected_num_samples=3337343,
       expected_num_channels=2,
@@ -590,7 +606,7 @@ def test_audio_samples_from_file5():
 
 def test_audio_samples_from_file6():
     # Slightly too short.
-    audio_samples_from_file(
+    asff_helper(
       "test_files/music.mp3",
       expected_num_samples=3337345,
       expected_num_channels=2,
@@ -599,7 +615,7 @@ def test_audio_samples_from_file6():
 
 def test_audio_samples_from_file7():
     # All good.
-    audio_samples_from_file(
+    asff_helper(
       "test_files/music.mp3",
       expected_num_samples=3337344,
       expected_num_channels=2,
