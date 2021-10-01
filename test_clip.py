@@ -539,7 +539,7 @@ def test_from_file5():
     b = from_file("test_files/bunny.webm", suppress_video=True)
     assert b.has_audio is True
 
-def test_audio_samples_from_file():
+def test_audio_samples_from_file1():
     with pytest.raises(FFMPEGException):
         # No audio track.
         audio_samples_from_file(
@@ -549,6 +549,7 @@ def test_audio_samples_from_file():
           expected_sample_rate=0
         )
 
+def test_audio_samples_from_file2():
     with pytest.raises(ValueError):
         # Wrong sample rate.
         audio_samples_from_file(
@@ -558,6 +559,7 @@ def test_audio_samples_from_file():
           expected_sample_rate=48000
         )
 
+def test_audio_samples_from_file3():
     with pytest.raises(ValueError):
         # Wrong number of channels
         audio_samples_from_file(
@@ -567,6 +569,7 @@ def test_audio_samples_from_file():
           expected_sample_rate=44100
         )
 
+def test_audio_samples_from_file4():
     with pytest.raises(ValueError):
         # Wrong length.
         audio_samples_from_file(
@@ -576,7 +579,8 @@ def test_audio_samples_from_file():
           expected_sample_rate=44100
         )
 
-    # # Slightly too long.
+def test_audio_samples_from_file5():
+    # Slightly too long.
     audio_samples_from_file(
       "test_files/music.mp3",
       expected_num_samples=3337343,
@@ -584,6 +588,7 @@ def test_audio_samples_from_file():
       expected_sample_rate=44100
     )
 
+def test_audio_samples_from_file6():
     # Slightly too short.
     audio_samples_from_file(
       "test_files/music.mp3",
@@ -592,6 +597,7 @@ def test_audio_samples_from_file():
       expected_sample_rate=44100
     )
 
+def test_audio_samples_from_file7():
     # All good.
     audio_samples_from_file(
       "test_files/music.mp3",
