@@ -552,7 +552,13 @@ def asff_helper(fname,
                                 expected_num_channels=expected_num_channels,
                                 expected_sample_rate=expected_sample_rate)
 
-    # If they're all 0, something is wrong.
+    # Make sure we got the right sort of matrix back.
+    assert s.shape == (expected_num_samples, expected_num_channels)
+    assert s.dtype == np.float64
+
+    # If they're all 0, something is wrong.  This was
+    # failing for a while when we mistakenly tried to put
+    # float64 data into a uint numpy array.
     assert s.any()
 
 def test_audio_samples_from_file1():

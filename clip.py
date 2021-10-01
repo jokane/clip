@@ -1348,7 +1348,7 @@ def audio_samples_from_file(fname, expected_sample_rate, expected_num_channels,
         # If there's a small mismatch, just patch it.
         # - Too short?
         if data.shape[0] < expected_num_samples:
-            new_data = np.zeros([expected_num_samples, expected_num_channels], dtype=np.uint8)
+            new_data = np.zeros([expected_num_samples, expected_num_channels], dtype=np.float64)
             new_data[0:data.shape[0],:] = data
             data = new_data
         # - Too long?
