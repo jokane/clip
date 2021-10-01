@@ -50,13 +50,16 @@ def get_test_files():  # pragma: no cover
     exists = os.path.exists("test_files/ethnocentric_rg.ttf")
     exists = exists and os.path.exists("test_files/ethnocentric_rg_it.ttf")
     if not exists:
-        zip_data = urllib.request.urlopen("https://dl.dafont.com/dl/?f=ethnocentric").read()
+        with urllib.request.urlopen("https://dl.dafont.com/dl/?f=ethnocentric") as u:
+            zip_data = u.read()
         file_like_object = io.BytesIO(zip_data)
         with zipfile.ZipFile(file_like_object) as z:
-            with open("test_files/ethnocentric_rg.ttf", 'wb') as f:
-                f.write(z.open("ethnocentric rg.ttf").read())
-            with open("test_files/ethnocentric_rg_it.ttf", 'wb') as f:
-                f.write(z.open("ethnocentric rg it.ttf").read())
+            with open("test_files/ethnocentric_rg.ttf", 'wb') as f, \
+              z.open("ethnocentric rg.ttf") as ttf:
+                f.write(ttf.read())
+            with open("test_files/ethnocentric_rg_it.ttf", 'wb') as f, \
+              z.open("ethnocentric rg_it.ttf") as ttf:
+                f.write(ttf.read())
 
 def test_validate():
     assert is_float(0.3)
@@ -76,7 +79,7 @@ def test_validate():
 
     require_even(2, "the number")
 
-    assert is_iterable(list())
+    assert is_iterable([])
     assert not is_iterable(123)
 
     assert is_string("Tim")

@@ -214,7 +214,7 @@ def read_image(fname):
 
 def flatten_args(args):
     """ Given a list of arguments, flatten one layer or lists and other iterables. """
-    ret = list()
+    ret = []
     for x in args:
         if is_iterable(x):
             ret += x
@@ -292,7 +292,7 @@ def get_font(font, size):
         except OSError as e:
             raise ValueError(f"Failed to open font {font}.") from e
     return get_font.cache[(font, size)]
-get_font.cache = dict()
+get_font.cache = {}
 
 
 @dataclass
@@ -421,7 +421,7 @@ class ClipCache:
 
     def scan_directory(self):
         """Examine the cache directory and remember what we see there."""
-        self.cache = dict()
+        self.cache = {}
         try:
             for cached_frame in os.listdir(self.directory):
                 self.cache[os.path.join(self.directory, cached_frame)] = True
@@ -543,12 +543,10 @@ class Clip(ABC):
         # Make sure we got a legit frame.
         assert frame is not None, \
           "Got None instead of a real frame for " + str(self.frame_signature(index))
-        assert frame.shape[1] == self.width(), \
-          "For %s, I got a frame of width %d instead of %d." % \
-          (self.frame_signature(index), frame.shape[1], self.width())
-        assert frame.shape[0] == self.height(), \
-          "From %s, I got a frame of height %d instead of %d." %  \
-          (self.frame_signature(index), frame.shape[0], self.height())
+        assert frame.shape[1] == self.width(), f"For {self.frame_signature(index)}," \
+            f"I got a frame of width {frame.shape[1]} instead of {self.width()}."
+        assert frame.shape[0] == self.height(), f"For {self.frame_signature(index)}," \
+            f"I got a frame of height {frame.shape[0]} instead of {self.height()}."
 
         # Add to disk and to the cache.
         cv2.imwrite(cached_filename, frame)
@@ -1164,7 +1162,7 @@ def chain(*args, length=None, fade_time = 0):
     # Figure out when each clip should start and make a list of elements for
     # composite.
     start_time = 0
-    elements = list()
+    elements = []
     for i, clip in enumerate(clips):
         if fade_time>0:
             if i>0:
@@ -1285,7 +1283,7 @@ def metrics_from_ffprobe_output(ffprobe_output, fname, suppress_video=False, sup
     audio_stream = None
 
     for line in ffprobe_output.strip().split('\n'):
-        stream = dict()
+        stream = {}
         fields = line.split('|')
         if fields[0] != 'stream': continue
         for pair in fields[1:]:
@@ -2330,7 +2328,7 @@ def vstack(*args, align=Align.CENTER, width=0, video_mode=VideoMode.REPLACE):
     width = max(width, max(map(lambda clip: clip.width(), clips)))
 
     y = 0
-    elements = list()
+    elements = []
     for clip in clips:
         if align==Align.LEFT:
             x = 0
