@@ -2363,7 +2363,7 @@ def stack_clips(*args, align, min_dim=0, vert, name):
                 a = 0
             elif align==Align.CENTER:
                 a = int((dim - clip_dim)/2)
-            elif align==[Align.RIGHT, Align.BOTTOM]:
+            else: # align in [Align.RIGHT, Align.BOTTOM]
                 a = dim - clip_dim
 
             elements.append(Element(clip=clip,
@@ -2386,6 +2386,24 @@ def vstack(*args, align=Align.CENTER, min_width=0):
 def hstack(*args, align=Align.CENTER, min_height=0):
     """ Arrange a series of clips in a horizontal row. """
     return stack_clips(args, align=align, min_dim=min_height, vert=False, name='hstack')
+
+def background(clip, bg_color):
+    """ Blend a clip onto a same-sized background of the given color. """
+    require_clip(clip, 'clip')
+    require_color(bg_color, 'background color')
+
+    return composite(Element(solid(bg_color,
+                                   clip.width(),
+                                   clip.height(),
+                                   clip.frame_rate(),
+                                   clip.length()),
+                             0,
+                             (0,0)),
+                      Element(clip,
+                              0,
+                              (0,0),
+                              video_mode=VideoMode.BLEND))
+
 
 def superimpose_center(under_clip, over_clip, start_time, audio_mode=AudioMode.ADD):
     """Superimpose one clip on another, in the center of each frame, starting at
