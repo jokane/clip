@@ -1,5 +1,5 @@
 #!/bin/bash
 set -e
 pylint clip.py test_clip.py || true
-coverage run --omit=.venv* -m pytest --durations=5
+NUMBA_DISABLE_JIT=1 coverage run --omit=.venv* -m pytest --durations=5
 coverage report -m

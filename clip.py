@@ -2319,33 +2319,73 @@ class Align(Enum):
     BOTTOM = 6
     END = 7
 
-def vstack(*args, align=Align.CENTER, width=0, video_mode=VideoMode.REPLACE):
-    """ Arrange a series of clips in vertical stack. """
+def stack_clips(*args, align, min_dim=0, vert, name):
+    """ Arrange a series of clips in a stack, either vertically or
+    horizontally.  Probably use vstack or hstack to call this. """
+
+    # Flatten things out, in case the inputs were wrapped in a list.
     clips = flatten_args(args)
-    for clip in clips:
-        require_clip(clip, "clip")
 
-    width = max(width, max(map(lambda clip: clip.width(), clips)))
-
-    y = 0
-    elements = []
+    # Compute the width or height.  Do this first so we can maybe center things
+    # below.
+    dim = min_dim
     for clip in clips:
-        if align==Align.LEFT:
-            x = 0
-        elif align==Align.CENTER:
-            x = int((width - clip.width())/2)
-        elif align==Align.RIGHT:
-            x = width - clip.width()
+        if isinstance(clip, Clip):
+            clip_dim = clip.width() if vert else clip.height()
+            dim = max(dim, clip_dim)
+        elif is_int(clip):
+            pass
         else:
-            raise NotImplementedError(f"Don't know how to align {align} in a vstack.")
+            raise TypeError(f"In {name}, got a {type(clip)} instead of Clip or int.")
 
-        elements.append(Element(clip=clip,
-                                start_time=0,
-                                position=[x, y],
-                                video_mode=video_mode))
-        y += clip.height()
+    # Sanity check the alignment.
+    if vert:
+        valid_aligns = [Align.LEFT, Align.RIGHT, Align.CENTER]
+    else:
+        valid_aligns = [Align.TOP, Align.BOTTOM, Align.CENTER]
 
-    return composite(elements, width=width)
+    if align not in valid_aligns:
+        raise NotImplementedError(f"Don't know how to align {align} in {name}.")
+
+
+    # Place each clip in the composite in the correct place.
+
+    a = 0  # The coordinate that we compute each time based on align.
+    b = 0  # The coordinate that moves steady forward.
+
+    elements = []
+
+    for clip in clips:
+        if isinstance(clip, Clip):
+            clip_dim = clip.width() if vert else clip.height()
+
+            if align in [Align.LEFT, Align.TOP]:
+                a = 0
+            elif align==Align.CENTER:
+                a = int((dim - clip_dim)/2)
+            elif align==[Align.RIGHT, Align.BOTTOM]:
+                a = dim - clip_dim
+
+            elements.append(Element(clip=clip,
+                                    start_time=0,
+                                    position=[a, b] if vert else [b, a]))
+
+            b += clip.height() if vert else clip.width()
+        else: # must be an int, as checked above
+            b += clip
+
+    if vert:
+        return composite(elements, width=dim, height=b)
+    else:
+        return composite(elements, height=dim, width=b)
+
+def vstack(*args, align=Align.CENTER, min_width=0):
+    """ Arrange a series of clips in a vertical stack. """
+    return stack_clips(args, align=align, min_dim=min_width, vert=True, name='vstack')
+
+def hstack(*args, align=Align.CENTER, min_height=0):
+    """ Arrange a series of clips in a horizontal row. """
+    return stack_clips(args, align=align, min_dim=min_height, vert=False, name='hstack')
 
 def superimpose_center(under_clip, over_clip, start_time, audio_mode=AudioMode.ADD):
     """Superimpose one clip on another, in the center of each frame, starting at
