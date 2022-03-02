@@ -1305,6 +1305,8 @@ def metrics_from_ffprobe_output(ffprobe_output, fname, suppress_video=False, sup
             audio_stream = stream
         elif stream['codec_type'] == 'audio' and suppress_audio:
             pass
+        elif stream['codec_type'] == 'data':
+            pass
         else:
             raise ValueError(f"Don't know what to do with {fname}, "
               f"which has an unknown stream of type {stream['codec_type']}.")
