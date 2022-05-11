@@ -1,14 +1,4 @@
-import glob import sys
 import cv2
-
-def test_clip_metrics2():
-    # A fractional frame at the end.
-    a = black(640, 480, 1, 1.25)
-    assert a.num_frames()==2
-
-def test_temporary_current_directory():
-    with temporary_current_directory():
-        assert glob.glob('*') == []
 
 def test_cache():
     c = ClipCache()
@@ -34,12 +24,6 @@ def test_cache():
 
     c.scan_directory()
 
-def test_customprogressbar():
-    with custom_progressbar("Testing", 100) as pb:
-        pb.update(0)
-        for i in range(100):
-            pb.update(i)
-
 def test_frame_to_sample():
     secs = 10
     x = solid([0,0,0], 640, 480, 30, secs)
@@ -47,21 +31,8 @@ def test_frame_to_sample():
     assert x.frame_to_sample(0) == 0
     assert x.frame_to_sample(x.frame_rate()) == x.sample_rate()
 
-def test_save1():
-    # Basic case, with video.
-    cache.clear()
-    x = solid([0,0,0], 640, 480, 30, 10)
-    with temporary_current_directory():
-        x.save('test.mp4')
-        assert os.path.exists('test.mp4')
 
 
-def test_save2():
-    # Pure audio output.
-    x = solid([0,0,0], 640, 480, 30, 10)
-    with temporary_current_directory():
-        x.save('foo.flac')
-        assert os.path.exists('foo.flac')
 
 def test_save3():
     # With a target filesize.
@@ -75,18 +46,6 @@ def test_save3():
             margin = 0.02 * target_bytes
             assert difference < margin, f'{difference} {margin}'
 
-def test_save4():
-    # With a target bitrate.
-    x = solid([0,0,0], 640, 480, 30, 2)
-    with temporary_current_directory():
-        x.save('test.mp4', bitrate='1024k')
-        assert os.path.exists('test.mp4')
-
-def test_save5():
-    # With both file size and bitrate.
-    x = solid([0,0,0], 640, 480, 30, 2)
-    with pytest.raises(ValueError):
-        x.save('test.mp4', bitrate='1024k', target_size=5)
 
 def test_composite1():
     # For automatically computing the height.
@@ -568,16 +527,6 @@ def test_crop():
     with pytest.raises(ValueError):
         crop(a, [10, 10], [100, 10000])
 
-def test_get_font():
-    get_font("test_files/ethnocentric_rg.ttf", 10)
-    get_font("test_files/ethnocentric_rg.ttf", 10)
-    get_font("test_files/ethnocentric_rg_it.ttf", 20)
-
-    with pytest.raises(ValueError):
-        get_font("clip3.py", 20)
-
-    with pytest.raises(ValueError):
-        get_font("test_files/asdasdasdsad.ttf", 20)
 
 def test_draw_text():
     font = "test_files/ethnocentric_rg_it.ttf"
@@ -1063,27 +1012,4 @@ def test_silence_audio():
     a = slice_clip(a, 0, 5)
     b = silence_audio(a)
     b.verify()
-
-
-# Use a different-from-default directory for the cache, to reduce the pain
-# of running these tests (which clear the cache on occasion) when useful
-# things are in the default cache.
-cache.directory = '/tmp/clipcache-test'
-cache.clear()
-
-
-# If we're run as a script, just execute all of the tests.  Or, if a command
-# line argument is given, execute only the tests containing that pattern.
-if __name__ == '__main__':  #pragma: no cover
-    try:
-        pattern = sys.argv[1]
-    except IndexError:
-        pattern = ""
-    for name, thing in list(globals().items()):
-        if 'test_' in name and pattern in name:
-            print('-'*80)
-            print(name)
-            print('-'*80)
-            thing()
-            print()
 

@@ -45,6 +45,7 @@ Possibly relevant implementation details:
 # pylint: disable=too-many-lines
 
 from abc import ABC, abstractmethod
+import collections
 import contextlib
 from dataclasses import dataclass
 import hashlib
@@ -61,6 +62,8 @@ import time
 import cv2
 import numpy as np
 import progressbar
+from PIL import ImageFont
+import soundfile
 
 def is_float(x):
     """ Can the given value be interpreted as a float? """
@@ -317,6 +320,22 @@ def read_image(fname):
     assert frame.dtype == np.uint8
     return frame
 
+def get_font(font, size):
+    """
+    Return a TrueType font for use on Pillow images, with caching to
+    prevent loading the same font again and again.    (The performance
+    improvement seems to be small but non-zero.)
+    """
+    if (font, size) not in get_font.cache:
+        try:
+            get_font.cache[(font, size)] = ImageFont.truetype(font, size)
+        except OSError as e:
+            raise ValueError(f"Failed to open font {font}.") from e
+    return get_font.cache[(font, size)]
+get_font.cache = {}
+
+
+
 def frame_times(clip_length, frame_rate):
     """ Return the timestamps at which frames should occur for a clip of the
     given length at the given frame rate.  Specifically, generate a timestamp
@@ -393,6 +412,58 @@ class Metrics:
         else:
             return f'{mins}:{secs:02}'
 
+class ClipCache:
+    """An object for managing the cache of already-computed frames, audio
+    segments, and other things."""
+    def __init__(self, directory, frame_format='png'):
+        self.directory = directory
+        self.cache = None
+        self.frame_format = frame_format
+
+        assert self.directory[0] == '/', \
+          'Creating cache with a relative path.  This can cause problems later if the ' \
+          'current directory changes, which is not unlikely to happen.'
+
+    def scan_directory(self):
+        """Examine the cache directory and remember what we see there."""
+        self.cache = {}
+        try:
+            for cached_frame in os.listdir(self.directory):
+                self.cache[os.path.join(self.directory, cached_frame)] = True
+        except FileNotFoundError:
+            os.mkdir(self.directory)
+
+        counts = '; '.join(map(lambda x: f'{x[1]} {x[0]}',
+          collections.Counter(map(lambda x: os.path.splitext(x)[1][1:],
+          self.cache.keys())).items()))
+        print(f'Found {len(self.cache)} cached items ({counts}) in {self.directory}')
+
+    def clear(self):
+        """ Delete all the files in the cache. """
+        if os.path.exists(self.directory):
+            shutil.rmtree(self.directory)
+        self.cache = None
+
+    def sig_to_fname(self, sig, ext):
+        """Compute the filename where something with the given signature and
+        extension should live."""
+        blob = hashlib.md5(str(sig).encode()).hexdigest()
+        return os.path.join(self.directory, f'{blob}.{ext}')
+
+    def lookup(self, sig, ext):
+        """Determine the appropriate filename for something with the given
+        signature and extension.  Return a tuple with that filename followed
+        by True or False, indicating whether that file exists or not."""
+        if self.cache is None: self.scan_directory()
+        cached_filename = self.sig_to_fname(sig, ext)
+        return (cached_filename, cached_filename in self.cache)
+
+    def insert(self, fname):
+        """Update the cache to reflect the fact that the given file exists."""
+        if self.cache is None: self.scan_directory()
+        self.cache[fname] = True
+
+
 class Clip(ABC):
     """The base class for all clips.  A finite series of frames, each with
     identical height and width, meant to be played at a given rate, along with
@@ -405,6 +476,12 @@ class Clip(ABC):
     def frame_signature(self, t):
         """A string that uniquely describes the appearance of this clip at the
         given time."""
+
+    def request_frame(self, t):
+        """Called during the rendering process, before any get_frame calls, to
+        indicate that a frame at the given t will be needed in the future.  Can
+        help if frames are generated in batches, such as in from_file.  Default
+        is to do nothing. """
 
     @abstractmethod
     def get_frame(self, t):
@@ -452,13 +529,16 @@ class Clip(ABC):
         return self.metrics.readable_length()
 
     def verify(self, frame_rate, verbose=False):
-        """ Fully realize a clip, ensuring that no exceptions occur and that
-        the right sizes of video frames and audio samples are returned. Useful
-        for testing. """
+        """ Fully realize this clip, ensuring that no exceptions occur and
+        that the right sizes of video frames and audio samples are returned.
+        Useful for testing. """
 
         self.metrics.verify()
 
         require_positive(frame_rate, 'frame rate')
+
+        for t in frame_times(self.length(), frame_rate):
+            self.request_frame(t)
 
         for t in frame_times(self.length(), frame_rate):
             sig = self.frame_signature(t)
@@ -478,6 +558,178 @@ class Clip(ABC):
         samples = self.get_samples()
         assert samples.shape == (self.num_samples(), self.num_channels())
 
+    def stage(self, directory, cache, frame_rate, fname=""):
+        """ Get everything for this clip onto to disk in the specified
+        directory:  Symlinks to each frame and a flac file of the audio. """
+
+        # Do things in the requested directory.
+        with temporarily_changed_directory(directory):
+            # Audio.
+            audio_fname = 'audio.flac'
+            data = self.get_samples()
+            assert data is not None
+            soundfile.write(audio_fname, data, self.sample_rate())
+
+            # Video.
+            task = f"Staging {fname}" if fname else "Staging"
+
+            fts = list(frame_times(self.length(), frame_rate))
+            for t in fts:
+                self.request_frame(t)
+
+            with custom_progressbar(task, len(fts)) as pb:
+                for index, t in enumerate(fts):
+                    # Make sure this frame is in the cache, and figure out
+                    # where.
+                    cached_filename = self.get_cached_filename(cache, t)
+
+                    # Add a symlink from this frame in the cache to the
+                    # staging area.
+                    os.symlink(cached_filename, f'{index:06d}.{cache.frame_format}')
+
+                    # Update the progress bar.
+                    pb.update(index)
+
+
+    def save(self, fname, frame_rate, bitrate=None, target_size=None, two_pass=False,
+             preset='slow', cache_dir='/tmp/clipcache/computed_frames'):
+        """ Save to a file.
+
+        Bitrate controls the target bitrate.  Handles the tradeoff between
+        file size and output quality.
+
+        Target size specifies the file size we want, in MB.
+
+        At most one of bitrate and target_size should be given.  If both are
+        omitted, the default is to target a bitrate of 1024k.
+
+        Preset controls how quickly ffmpeg encodes.  Handles the tradeoff
+        between encoding speed and output quality.  Choose from:
+            ultrafast superfast veryfast faster fast medium slow slower veryslow
+        The documentation for these says to "use the slowest preset you have
+        patience for."
+        """
+
+        # First, a simple case: If we're saving to an audio-only format, it's
+        # easy.
+        if re.search('.(flac|wav)$', fname):
+            data = self.get_samples()
+            assert data is not None
+            soundfile.write(fname, data, self.sample_rate())
+            return
+
+        # So we need to save video.  First, construct the complete path name.
+        # We'll need this during the ffmpeg step, because that runs in a
+        # temporary current directory.
+        full_fname = os.path.join(os.getcwd(), fname)
+
+        # Force the frame cache to be read before we change to the temp
+        # directory.
+        cache = ClipCache(cache_dir)
+        cache.scan_directory()
+
+        # Figure out what bitrate to target.
+        if bitrate is None and target_size is None:
+            # A hopefully sensible high-quality default.
+            bitrate = '1024k'
+        elif bitrate is None and target_size is not None:
+            # Compute target bit rate, which should be in bits per second,
+            # from the target filesize.
+            target_bytes = 2**20 * target_size
+            target_bits = 8*target_bytes
+            bitrate = target_bits / self.length()
+            bitrate -= 128*1024 # Audio defaults to 1024 kilobits/second.
+        elif bitrate is not None and target_size is None:
+            # Nothing to do -- just use the bitrate as given.
+            pass
+        else:
+            raise ValueError("Specify either bitrate or target_size, not both.")
+
+        with tempfile.TemporaryDirectory() as td:
+            # Fill the temporary directory with the audio and a bunch of
+            # (symlinks to) individual frames.
+            self.stage(directory=td,
+                       cache=cache,
+                       frame_rate=frame_rate,
+                       fname=fname)
+
+            # Invoke ffmpeg to assemble all of these into the completed video.
+            with temporarily_changed_directory(td):
+                # Some shared arguments across all ffmpeg calls: single pass,
+                # first pass of two, and second pass of two.
+                # These include filters to:
+                # - Ensure that the width and height are even, padding with a
+                #   black row or column if needed.
+                # - Set the pixel format to yuv420p, which seems to be needed
+                #   to get outputs that play on Apple gadgets.
+                # - Set the output frame rate.
+                args = [
+                    f'-framerate {frame_rate}',
+                    f'-i %06d.{cache.frame_format}',
+                    '-i audio.flac',
+                    '-vcodec libx264',
+                    '-f mp4',
+                    f'-vb {bitrate}' if bitrate else '',
+                    f'-preset {preset}' if preset else '',
+                    '-profile:v high',
+                    f'-filter_complex "format=yuv420p,pad=width=ceil(iw/2)*2:height=ceil(ih/2)*2,fps={frame_rate}"', #pylint: disable=line-too-long
+                ]
+
+                num_frames = int(self.length() * frame_rate)
+
+                if not two_pass:
+                    ffmpeg(task=f"Encoding {fname}",
+                           *(args + [f'{full_fname}']),
+                           num_frames=num_frames)
+                else:
+                    ffmpeg(task=f"Encoding {fname}, pass 1",
+                           *(args + ['-pass 1', '/dev/null']),
+                           num_frames=num_frames)
+                    ffmpeg(task=f"Encoding {fname}, pass 2",
+                           *(args + ['-pass 2', f'{full_fname}']),
+                           num_frames=num_frames)
+
+            print(f'Wrote {self.readable_length()} to {fname}.')
+
+    def get_cached_filename(self, cache, t):
+        """Make sure the frame is in the cache given, computing it if
+        necessary, and return its filename."""
+        # Look for the frame we need in the cache.
+        cached_filename, success = cache.lookup(
+          self.frame_signature(t),
+          cache.frame_format
+        )
+
+        # If it wasn't there, generate it and save it there.
+        if not success:
+            self.compute_and_cache_frame(t, cache, cached_filename)
+
+        # Done!
+        return cached_filename
+
+    def compute_and_cache_frame(self, t, cache, cached_filename):
+        """Call get_frame to compute one frame, and put it in the cache."""
+        # Get the frame.
+        frame = self.get_frame(t)
+
+        assert frame is not None, ("A clip of type " + type(self) +
+          " returned None instead of a real frame.")
+
+        # Make sure we got a legit frame.
+        assert frame is not None, \
+          "Got None instead of a real frame for " + str(self.frame_signature(t))
+        assert frame.shape[1] == self.width(), f"For {self.frame_signature(t)}," \
+            f"I got a frame of width {frame.shape[1]} instead of {self.width()}."
+        assert frame.shape[0] == self.height(), f"For {self.frame_signature(t)}," \
+            f"I got a frame of height {frame.shape[0]} instead of {self.height()}."
+
+        # Add to disk and to the cache.
+        print('hi!', os.getcwd(), cached_filename)
+        cv2.imwrite(cached_filename, frame)
+        cache.insert(cached_filename)
+
+        # Done!
+        return frame
 
 
 class VideoClip(Clip):

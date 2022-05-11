@@ -4,7 +4,9 @@
 # pylint: disable=wildcard-import
 # pylint: disable=too-many-lines
 
+import glob
 import io
+import sys
 import urllib.request
 import zipfile
 
@@ -139,6 +141,16 @@ def test_ffmpeg():
     with pytest.raises(FFMPEGException), temporary_current_directory():
         ffmpeg('-i /dev/zero', '/dev/null', task="Testing", num_frames=100)
 
+def test_temporary_current_directory():
+    with temporary_current_directory():
+        assert glob.glob('*') == []
+
+def test_customprogressbar():
+    with custom_progressbar("Testing", 100) as pb:
+        pb.update(0)
+        for i in range(100):
+            pb.update(i)
+
 def test_metrics():
     m1 = Metrics(Clip.default_metrics)
     m2 = Metrics(Clip.default_metrics, length=0.5)
@@ -247,7 +259,74 @@ def test_sha256sum_file():
     h = sha256sum_file('test_files/brian.jpg')
     assert h[:7] == 'e16d354'
 
+def test_get_font():
+    get_font("test_files/ethnocentric_rg.otf", 10)
+    get_font("test_files/ethnocentric_rg.otf", 10)
+    get_font("test_files/ethnocentric_rg_it.otf", 20)
+
+    with pytest.raises(ValueError):
+        get_font("clip3.py", 20)
+
+    with pytest.raises(ValueError):
+        get_font("test_files/asdasdasdsad.otf", 20)
+
+def test_save1():
+    # Basic case, with video.
+    x = solid([0,0,0], 640, 480, 10)
+    with temporary_current_directory():
+        print(os.getcwd())
+        x.save('test.mp4', frame_rate=30, cache_dir=os.getcwd())
+        assert os.path.exists('test.mp4')
+        x.save('test.mp4', frame_rate=30, cache_dir=os.getcwd())
+
+def test_save2():
+    # Pure audio output.
+    x = solid([0,0,0], 640, 480, 10)
+    with temporary_current_directory():
+        x.save('foo.flac', frame_rate=30)
+        assert os.path.exists('foo.flac')
+
+def test_save4():
+    # With a target bitrate.
+    x = solid([0,0,0], 640, 480, 2)
+    with temporary_current_directory():
+        x.save('test.mp4', frame_rate=30, bitrate='1024k')
+        assert os.path.exists('test.mp4')
+
+def test_save5():
+    # With both file size and bitrate.
+    x = solid([0,0,0], 640, 480, 2)
+    with pytest.raises(ValueError):
+        x.save('test.mp4', frame_rate=30, bitrate='1024k', target_size=5)
+
+def test_cache1():
+    # Create a new directory when needed.  Remove it when we clear the cache.
+    with temporary_current_directory():
+        directory = os.path.join(os.getcwd(), 'xyzzy')
+        assert not os.path.isdir(directory)
+        cache = ClipCache(os.path.join(os.getcwd(), 'xyzzy'))
+        cache.scan_directory()
+        assert os.path.isdir(directory)
+        cache.clear()
+        assert not os.path.isdir(directory)
+
 # Grab all of the test source files first.  (...instead of checking within each
 # test.)
 get_test_files()
+
+# If we're run as a script, just execute all of the tests.  Or, if a
+# command line argument is given, execute only the tests containing
+# that pattern.
+if __name__ == '__main__':  #pragma: no cover
+    try:
+        pattern = sys.argv[1]
+    except IndexError:
+        pattern = ""
+    for name, thing in list(globals().items()):
+        if 'test_' in name and pattern in name:
+            print('-'*80)
+            print(name)
+            print('-'*80)
+            thing()
+            print()
 
