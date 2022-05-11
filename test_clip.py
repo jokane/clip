@@ -51,11 +51,11 @@ def get_test_files():  # pragma: no cover
             zip_data = u.read()
         file_like_object = io.BytesIO(zip_data)
         with zipfile.ZipFile(file_like_object) as z:
-            with open("test_files/ethnocentric_rg.ttf", 'wb') as f, \
-              z.open("ethnocentric rg.ttf") as ttf:
+            with open("test_files/ethnocentric_rg.otf", 'wb') as f, \
+              z.open("ethnocentric rg.otf") as ttf:
                 f.write(ttf.read())
-            with open("test_files/ethnocentric_rg_it.ttf", 'wb') as f, \
-              z.open("ethnocentric rg_it.ttf") as ttf:
+            with open("test_files/ethnocentric_rg_it.otf", 'wb') as f, \
+              z.open("ethnocentric rg it.otf") as ttf:
                 f.write(ttf.read())
 
 def test_is_int():
@@ -131,4 +131,123 @@ def test_require_callable():
     require_callable(print, 'print function')
     with pytest.raises(TypeError):
         require_callable('not a function', 'some string')
+
+def test_ffmpeg():
+    with pytest.raises(FFMPEGException), temporary_current_directory():
+        ffmpeg('-i /dev/zero', '/dev/null')
+
+    with pytest.raises(FFMPEGException), temporary_current_directory():
+        ffmpeg('-i /dev/zero', '/dev/null', task="Testing", num_frames=100)
+
+def test_metrics():
+    m1 = Metrics(Clip.default_metrics)
+    m2 = Metrics(Clip.default_metrics, length=0.5)
+
+    with pytest.raises(ValueError):
+        m1.verify_compatible_with(m2, check_length=True)
+
+    with pytest.raises(TypeError):
+        Metrics(Clip.default_metrics, width=0.5)
+
+    with pytest.raises(ValueError):
+        Metrics(Clip.default_metrics, width=-1)
+
+    with pytest.raises(ValueError):
+        Metrics(Clip.default_metrics, length=-1)
+
+    with pytest.raises(ValueError):
+        Metrics(Clip.default_metrics, length=0)
+
+    with pytest.raises(TypeError):
+        Metrics(Clip.default_metrics, length="really long")
+
+def test_solid():
+    x = solid([0,0,0], 640, 480, 300)
+    x.verify(30)
+
+    samples = x.get_samples()
+    assert samples.shape == (x.num_samples(), x.num_channels())
+
+def test_clip_metrics():
+    secs = 30
+    x = solid([0,0,0], 640, 480, secs)
+    assert x.length() == secs
+    assert x.sample_rate() == Clip.default_metrics.sample_rate
+    assert x.num_samples() == secs*Clip.default_metrics.num_samples()
+    assert x.num_channels() == Clip.default_metrics.num_channels
+
+def test_verify1():
+    # Valid
+    x = solid([0,0,0], 640, 480, 10)
+    x.verify(30)
+    x.verify(0.1, verbose=True)
+
+def test_verify2():
+    # Return something that's not a frame.
+    x = solid([0,0,0], 640, 480, 10)
+    with pytest.raises(AssertionError):
+        x.get_frame = lambda x: None
+        x.verify(30)
+
+def test_verify3():
+    # Return the wrong size frame.
+    x = solid([0,0,0], 640, 480, 10)
+    with pytest.raises(ValueError):
+        x.get_frame = lambda x: np.zeros([10, 10, 4], dtype=np.uint8)
+        x.verify(30)
+
+def test_readable_length1():
+    x = solid([0,0,0], 640, 480, 30)
+    assert ":30" in x.readable_length()
+
+def test_readable_length2():
+    x = solid([0,0,0], 640, 480, 60*60+1)
+    assert x.readable_length()[:2] == '1:'
+
+def test_sine_wave():
+    x = sine_wave(880, 0.1, 5, 48000, 2)
+    x.verify(20)
+
+def test_mutator():
+    a = black(640, 480, 5)
+    b = MutatorClip(a)
+    b.verify(30)
+
+def test_scale_alpha():
+    a = black(640, 480, 5)
+    b = scale_alpha(a, 0.5)
+    b.verify(30)
+
+def test_black():
+    black(640, 480, 300).verify(30)
+
+def test_white():
+    white(640, 480, 300).verify(30)
+
+def test_read_image1():
+    img = read_image('test_files/water.png')
+    assert img.shape == (682, 1280, 4)
+    assert img.dtype == np.uint8
+
+def test_read_image2():
+    img = read_image('test_files/brian.jpg')
+    assert img.shape == (1067, 800, 4)
+    assert img.dtype == np.uint8
+
+def test_read_image3():
+    with pytest.raises(FileNotFoundError):
+        read_image("xyz.png")
+
+def test_flatten_args():
+    x = [[1, [2, 3]], 4]
+    y = flatten_args(x)
+    assert len(y) == 3
+
+def test_sha256sum_file():
+    h = sha256sum_file('test_files/brian.jpg')
+    assert h[:7] == 'e16d354'
+
+# Grab all of the test source files first.  (...instead of checking within each
+# test.)
+get_test_files()
 
