@@ -431,7 +431,7 @@ class ClipCache:
             for cached_frame in os.listdir(self.directory):
                 self.cache[os.path.join(self.directory, cached_frame)] = True
         except FileNotFoundError:
-            os.mkdir(self.directory)
+            os.makedirs(self.directory)
 
         counts = '; '.join(map(lambda x: f'{x[1]} {x[0]}',
           collections.Counter(map(lambda x: os.path.splitext(x)[1][1:],
@@ -695,10 +695,8 @@ class Clip(ABC):
         """Make sure the frame is in the cache given, computing it if
         necessary, and return its filename."""
         # Look for the frame we need in the cache.
-        cached_filename, success = cache.lookup(
-          self.frame_signature(t),
-          cache.frame_format
-        )
+        cached_filename, success = cache.lookup(self.frame_signature(t),
+                                                cache.frame_format)
 
         # If it wasn't there, generate it and save it there.
         if not success:
@@ -712,7 +710,7 @@ class Clip(ABC):
         # Get the frame.
         frame = self.get_frame(t)
 
-        assert frame is not None, ("A clip of type " + type(self) +
+        assert frame is not None, ("A clip of type " + str(type(self)) +
           " returned None instead of a real frame.")
 
         # Make sure we got a legit frame.
@@ -724,12 +722,26 @@ class Clip(ABC):
             f"I got a frame of height {frame.shape[0]} instead of {self.height()}."
 
         # Add to disk and to the cache.
-        print('hi!', os.getcwd(), cached_filename)
         cv2.imwrite(cached_filename, frame)
         cache.insert(cached_filename)
 
         # Done!
         return frame
+
+    def get_frame_cached(self, cache, t):
+        """Return a frame, from the cache if possible, computed from scratch
+        if needed."""
+        # Look for the frame we need in the cache.
+        cached_filename, success = cache.lookup(self.frame_signature(t), cache.frame_format)
+
+        # Did we find it?
+        if success:
+            # Yes.  Read from disk.
+            return read_image(cached_filename)
+        else:
+            # No. Generate and save to disk for next time.
+            return self.compute_and_cache_frame(t, cache, cached_filename)
+
 
 
 class VideoClip(Clip):
@@ -857,5 +869,322 @@ def black(width, height, length):
 def white(width, height, length):
     """ A silent white black clip. """
     return solid([255,255,255], width, height, length)
+
+
+def get_duration_from_ffprobe_stream(stream):
+    """ Given a dictionary of ffprobe-returned attributes of a stream, try to
+    figure out the duration of that stream. """
+
+    if 'duration' in stream and is_float(stream['duration']):
+        return float(stream['duration'])
+
+    if 'tag:DURATION' in stream:
+        if match := re.match(r"(\d\d):(\d\d):([0-9\.]+)", stream['tag:DURATION']):
+            hours = float(match.group(1))
+            mins = float(match.group(2))
+            secs = float(match.group(3))
+            return secs + 60*mins + 60*60*hours
+
+    raise ValueError(f"Could not find a duration in ffprobe stream. {stream}")
+
+def metrics_and_frame_rate_from_stream_dicts(video_stream, audio_stream, fname):
+    """ Given dicts representing the audio and video elements of a clip,
+    return the appropriate metrics object. """
+    # Some videos, especially from mobile phones, contain metadata asking for a
+    # rotation.  We'll generally not try to deal with that here ---better,
+    # perhaps, to let the user flip or rotate as needed later--- but
+    # landscape/portait differences are important because they affect the width
+    # and height, and are respected by ffmpeg when the frames are extracted.
+    # Thus, we need to apply that change here to prevent mismatched frame sizes
+    # down the line.
+    if (video_stream and 'tag:rotate' in video_stream
+          and video_stream['tag:rotate'] in ['-90','90']):
+        video_stream['width'],video_stream['height'] = video_stream['height'],video_stream['width']
+
+    if video_stream and audio_stream:
+        vlen = get_duration_from_ffprobe_stream(video_stream)
+        alen = get_duration_from_ffprobe_stream(audio_stream)
+        if abs(vlen - alen) > 0.5:
+            raise ValueError(f"In {fname}, video length ({vlen}) and audio length ({alen}) "
+              "do not match. Perhaps load video and audio separately?")
+
+        return Metrics(width = eval(video_stream['width']),
+                       height = eval(video_stream['height']),
+                       sample_rate = eval(audio_stream['sample_rate']),
+                       num_channels = eval(audio_stream['channels']),
+                       length = min(vlen, alen)), \
+               eval(video_stream['avg_frame_rate']), \
+               True, True
+    elif video_stream:
+        vlen = get_duration_from_ffprobe_stream(video_stream)
+        return Metrics(src = Clip.default_metrics,
+                       width = eval(video_stream['width']),
+                       height = eval(video_stream['height']),
+                       length = vlen), \
+               eval(video_stream['avg_frame_rate']), \
+               True, False
+    elif audio_stream:
+        alen = get_duration_from_ffprobe_stream(audio_stream)
+        return Metrics(src = Clip.default_metrics,
+                       sample_rate = eval(audio_stream['sample_rate']),
+                       num_channels = eval(audio_stream['channels']),
+                       length = alen), None, False, True
+    else:
+        # Should be impossible to get here, but just in case...
+        raise ValueError(f"File {fname} contains neither audio nor video.") # pragma: no cover
+
+def metrics_from_ffprobe_output(ffprobe_output, fname, suppress_video=False, suppress_audio=False):
+    """ Given the output of a run of ffprobe -of compact -show_entries
+    stream, return a Metrics object based on that data, or complain if
+    something strange is in there. """
+
+    video_stream = None
+    audio_stream = None
+
+    for line in ffprobe_output.strip().split('\n'):
+        stream = {}
+        fields = line.split('|')
+        if fields[0] != 'stream': continue
+        for pair in fields[1:]:
+            key, val = pair.split('=')
+            assert key not in stream
+            stream[key] = val
+
+        if stream['codec_type'] == 'video' and not suppress_video:
+            if video_stream is not None:
+                raise ValueError(f"Don't know what to do with {fname},"
+                  "which has multiple video streams.")
+            video_stream = stream
+        elif stream['codec_type'] == 'video' and suppress_video:
+            pass
+        elif stream['codec_type'] == 'audio' and not suppress_audio:
+            if audio_stream is not None:
+                raise ValueError(f"Don't know what to do with {fname},"
+                  "which has multiple audio streams.")
+            audio_stream = stream
+        elif stream['codec_type'] == 'audio' and suppress_audio:
+            pass
+        elif stream['codec_type'] == 'data':
+            pass
+        else:
+            raise ValueError(f"Don't know what to do with {fname}, "
+              f"which has an unknown stream of type {stream['codec_type']}.")
+
+    return metrics_and_frame_rate_from_stream_dicts(video_stream, audio_stream, fname)
+
+def audio_samples_from_file(fname, cache, expected_sample_rate, expected_num_channels,
+  expected_num_samples):
+    """ Extract audio data from a file, which may be either a pure audio
+    format or a video file containing an audio stream."""
+
+    # Grab the file's extension.
+    ext = os.path.splitext(fname)[1].lower()
+
+    # Is it in a format we know how to read directly?  If so, read it and
+    # declare victory.
+    direct_formats = list(map(lambda x: "." + x.lower(),
+      soundfile.available_formats().keys()))
+    if ext in direct_formats:
+        print("Reading audio from", fname)
+
+        # Acquire the data from the file.
+        data, sample_rate = soundfile.read(fname, always_2d=True)
+
+        # Complain if the sample rates or numbers of channels don't match.
+        if sample_rate != expected_sample_rate:
+            raise ValueError(f"From {fname}, expected sample rate {expected_sample_rate},"
+                f" but found {sample_rate} instead.")
+        if data.shape[1] != expected_num_channels:
+            raise ValueError(f"From {fname}, expected {expected_num_channels} channels,"
+                f" but found {data.shape[1]} instead.")
+
+        # Complain if there's a length mismatch longer than about half a
+        # second.
+        if abs(data.shape[0] - expected_num_samples) > expected_sample_rate:
+            raise ValueError(f"From {fname}, got {data.shape[0]}"
+              f" samples instead of {expected_num_samples}.")
+
+        # If there's a small mismatch, just patch it.
+        # - Too short?
+        if data.shape[0] < expected_num_samples:
+            new_data = np.zeros([expected_num_samples, expected_num_channels], dtype=np.float64)
+            new_data[0:data.shape[0],:] = data
+            data = new_data
+        # - Too long?
+        if data.shape[0] > expected_num_samples:
+            data = data[:expected_num_samples,:]
+
+        return data
+
+    # Not a format we can read directly.  Instead, let's use ffmpeg to get it
+    # indirectly.  (...or simply pull it from the cache, if it happens to be
+    # there.)
+    cached_filename, success = cache.lookup(fname, 'flac')
+    if not success:
+        print(f'Extracting audio from {fname}')
+        assert '.flac' in direct_formats
+        full_fname = os.path.join(os.getcwd(), fname)
+        with temporary_current_directory():
+            audio_fname = 'audio.flac'
+            ffmpeg(
+                f'-i {full_fname}',
+                '-vn',
+                f'{audio_fname}',
+            )
+            os.rename(audio_fname, cached_filename)
+            cache.insert(cached_filename)
+
+    return audio_samples_from_file(cached_filename,
+                                   cache,
+                                   expected_sample_rate,
+                                   expected_num_channels,
+                                   expected_num_samples)
+
+class from_file(Clip):
+    """ A clip read from a file such as an mp4, flac, or other format readable
+    by ffmpeg. """
+
+    def __init__(self, fname, suppress_video=False, suppress_audio=False):
+        """ Video decoding happens in batches.  Use decode_chunk_length to
+        specify the number of seconds of frames decoded in each batch.
+        Larger values reduce the overhead of starting the decode process,
+        but may waste time decoding frames that are never used.  Use None to
+        decode the entire video at once. """
+        super().__init__()
+
+        if not os.path.isfile(fname):
+            raise FileNotFoundError(f"Could not open file {fname}.")
+        self.fname = os.path.abspath(fname)
+
+        cache_dir = os.path.join('/tmp/clipcache', re.sub('/', '_', self.fname))
+        self.cache = ClipCache(cache_dir)
+
+        self.acquire_metrics(suppress_video, suppress_audio)
+        self.samples = None
+
+        self.exploded = False
+
+    def acquire_metrics(self, suppress_video, suppress_audio):
+        """ Set the metrics attribute, either by grabbing the metrics from the
+        cache, or by getting them the hard way via ffprobe."""
+
+        # Do we have the metrics in the cache?
+        digest = hashlib.md5(self.fname.encode()).hexdigest()
+        cached_filename, exists = self.cache.lookup(digest, 'dim')
+
+        if exists:
+            # Yes. Grab it.
+            print(f"Using cached dimensions for {self.fname}")
+            with open(cached_filename, 'r') as f:
+                deets = f.read()
+        else:
+            # No.  Get the metrics, then store in the cache for next time.
+            print(f"Probing dimensions for {self.fname}")
+            with subprocess.Popen(f'ffprobe -hide_banner -v error {self.fname} '
+                                  '-of compact -show_entries stream', shell=True,
+                                  stdout=subprocess.PIPE) as proc:
+                deets = proc.stdout.read().decode('utf-8')
+
+            with open(cached_filename, 'w') as f:
+                print(deets, file=f)
+            self.cache.insert(cached_filename)
+
+        # Parse the (very detailed) ffprobe response to get the metrics we
+        # need.
+        response = metrics_from_ffprobe_output(deets, self.fname, suppress_video, suppress_audio)
+        self.metrics, self.frame_rate, self.has_video, self.has_audio = response
+
+    def frame_signature(self, t):
+        require_positive(t, "timestamp")
+
+        index = int(t * self.frame_rate)
+
+        if self.has_video:
+            return [self.fname, index]
+        else:
+            return ['solid', {
+                'width': self.metrics.width,
+                'height': self.metrics.height,
+                'color': [0,0,0,255]
+            }]
+
+    def request_frame(self, t):
+        require_positive(t, "timestamp")
+        self.exploded = False
+
+    def get_frame(self, t):
+        require_positive(t, "timestamp")
+
+        if self.has_video:
+            # Make sure we've extracted all of the frames we'll need into the
+            # cache.
+            if not self.exploded:
+                self.explode()
+
+            # Return the frame from the cache.
+            frame = self.get_frame_cached(self.cache, t)
+            assert frame is not None
+            return frame
+        else:
+            return np.zeros([self.metrics.height, self.metrics.width, 4], np.uint8)
+
+    def explode(self):
+        """Expand the requested frames into our cache for later."""
+        assert self.has_video
+
+        with temporary_current_directory():
+            start_index = 0
+            num_frames = int(self.length() * self.frame_rate)
+            end_index = start_index + num_frames
+
+            # Extract the frames into the current temporary directory.
+            ffmpeg(
+                f'-ss {start_index/self.frame_rate}',
+                f'-t {self.length()}',
+                f'-i {self.fname}',
+                f'-r {self.frame_rate}',
+                f'%06d.{self.cache.frame_format}',
+                task=f'Exploding {os.path.basename(self.fname)}',
+                num_frames=num_frames
+            )
+
+            # Add each frame to the cache.
+            rng = range(start_index, end_index)
+            for index in rng:
+                seq_fname = os.path.abspath(f'{index-start_index+1:06d}.{self.cache.frame_format}')
+                t = (index+0.5)/self.frame_rate
+                cached_fname, exists = self.cache.lookup(self.frame_signature(t),
+                                                         self.cache.frame_format)
+                if not exists:
+                    try:
+                        os.rename(seq_fname, cached_fname)
+                    except FileNotFoundError: #pragma: no cover
+                        # If we get here, that means ffmpeg thought a frame
+                        # should exist, that ultimately was not extracted.
+                        # This seems to happen from mis-estimations of the
+                        # video length, or sometimes from simply missing
+                        # frames.  To keep things rolling, let's fill in a
+                        # black frame instead.
+                        print(f"[Exploding {self.fname} did not produce frame index={index},t={t}. "
+                          "Using black instead.]")
+                        fr = np.zeros([self.height(), self.width(), 3], np.uint8)
+                        cv2.imwrite(cached_fname, fr)
+
+                    self.cache.insert(cached_fname)
+
+        self.exploded = True
+
+    def get_samples(self):
+        if self.samples is None:
+            if self.has_audio:
+                self.samples = audio_samples_from_file(self.fname,
+                                                       self.cache,
+                                                       self.sample_rate(),
+                                                       self.num_channels(),
+                                                       self.num_samples())
+            else:
+                self.samples = np.zeros([self.metrics.num_samples(), self.metrics.num_channels])
+        return self.samples
+
 
 

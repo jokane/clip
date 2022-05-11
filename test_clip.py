@@ -46,19 +46,19 @@ def get_test_files():  # pragma: no cover
         with temporarily_changed_directory("test_files"):
             os.system("zip bunny.zip bunny_frames/*.png")
 
-    exists = os.path.exists("test_files/ethnocentric_rg.ttf")
-    exists = exists and os.path.exists("test_files/ethnocentric_rg_it.ttf")
+    exists = os.path.exists("test_files/ethnocentric_rg.otf")
+    exists = exists and os.path.exists("test_files/ethnocentric_rg_it.otf")
     if not exists:
         with urllib.request.urlopen("https://dl.dafont.com/dl/?f=ethnocentric") as u:
             zip_data = u.read()
         file_like_object = io.BytesIO(zip_data)
         with zipfile.ZipFile(file_like_object) as z:
             with open("test_files/ethnocentric_rg.otf", 'wb') as f, \
-              z.open("ethnocentric rg.otf") as ttf:
-                f.write(ttf.read())
+              z.open("ethnocentric rg.otf") as otf:
+                f.write(otf.read())
             with open("test_files/ethnocentric_rg_it.otf", 'wb') as f, \
-              z.open("ethnocentric rg it.otf") as ttf:
-                f.write(ttf.read())
+              z.open("ethnocentric rg it.otf") as otf:
+                f.write(otf.read())
 
 def test_is_int():
     assert not is_int(0.3)
@@ -286,6 +286,22 @@ def test_save2():
         x.save('foo.flac', frame_rate=30)
         assert os.path.exists('foo.flac')
 
+def test_save3():
+    # With a target filesize.
+    a = from_file("test_files/bunny.webm")
+    for ts in [5, 10]:
+        with temporary_current_directory():
+            a.save('small_bunny.mp4',
+                   frame_rate=30,
+                   target_size=ts,
+                   two_pass=True)
+            actual_bytes = os.path.getsize("small_bunny.mp4")
+            target_bytes = 2**20*ts
+            difference = abs(actual_bytes - target_bytes)
+            margin = 0.02 * target_bytes
+            assert difference < margin, f'{difference} {margin}'
+
+
 def test_save4():
     # With a target bitrate.
     x = solid([0,0,0], 640, 480, 2)
@@ -309,6 +325,90 @@ def test_cache1():
         assert os.path.isdir(directory)
         cache.clear()
         assert not os.path.isdir(directory)
+
+def test_cache2():
+    with temporary_current_directory():
+        c = ClipCache(directory=os.getcwd())
+        c.clear()
+
+        x = solid([0,0,0], 640, 480, 300)
+        sig1 = x.frame_signature(0)
+        sig2 = x.frame_signature(1)
+
+        fname1, exists1 = c.lookup(sig1, 'png')
+        fname2, exists2 = c.lookup(sig2, 'png')
+
+        assert fname1 == fname2
+        assert exists1 is False
+        assert exists2 is False
+
+        img = x.get_frame(0)
+        cv2.imwrite(fname1, img)
+        c.insert(fname1)
+
+        fname1, exists1 = c.lookup(sig1, 'png')
+        assert exists1 is True
+
+        c.scan_directory()
+
+
+def test_metrics_from_ffprobe_output1():
+    video_deets = "stream|index=0|codec_name=h264|codec_long_name=H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10|profile=High|codec_type=video|codec_time_base=1/60|codec_tag_string=avc1|codec_tag=0x31637661|width=1024|height=576|coded_width=1024|coded_height=576|has_b_frames=2|sample_aspect_ratio=N/A|display_aspect_ratio=N/A|pix_fmt=yuv420p|level=32|color_range=unknown|color_space=unknown|color_transfer=unknown|color_primaries=unknown|chroma_location=left|field_order=unknown|timecode=N/A|refs=1|is_avc=true|nal_length_size=4|id=N/A|r_frame_rate=30/1|avg_frame_rate=30/1|time_base=1/15360|start_pts=0|start_time=0.000000|duration_ts=1416192|duration=92.200000|bit_rate=1134131|max_bit_rate=N/A|bits_per_raw_sample=8|nb_frames=2766|nb_read_frames=N/A|nb_read_packets=N/A|disposition:default=1|disposition:dub=0|disposition:original=0|disposition:comment=0|disposition:lyrics=0|disposition:karaoke=0|disposition:forced=0|disposition:hearing_impaired=0|disposition:visual_impaired=0|disposition:clean_effects=0|disposition:attached_pic=0|disposition:timed_thumbnails=0|tag:language=und|tag:handler_name=VideoHandler" # pylint: disable=line-too-long
+    audio_deets = "stream|index=1|codec_name=aac|codec_long_name=AAC (Advanced Audio Coding)|profile=LC|codec_type=audio|codec_time_base=1/44100|codec_tag_string=mp4a|codec_tag=0x6134706d|sample_fmt=fltp|sample_rate=44100|channels=2|channel_layout=stereo|bits_per_sample=0|id=N/A|r_frame_rate=0/0|avg_frame_rate=0/0|time_base=1/44100|start_pts=0|start_time=0.000000|duration_ts=4066020|duration=92.200000|bit_rate=128751|max_bit_rate=128751|bits_per_raw_sample=N/A|nb_frames=3972|nb_read_frames=N/A|nb_read_packets=N/A|disposition:default=1|disposition:dub=0|disposition:original=0|disposition:comment=0|disposition:lyrics=0|disposition:karaoke=0|disposition:forced=0|disposition:hearing_impaired=0|disposition:visual_impaired=0|disposition:clean_effects=0|disposition:attached_pic=0|disposition:timed_thumbnails=0|tag:language=und|tag:handler_name=SoundHandler" # pylint: disable=line-too-long
+    short_audio_deets = "stream|index=1|codec_name=aac|codec_long_name=AAC (Advanced Audio Coding)|profile=LC|codec_type=audio|codec_time_base=1/44100|codec_tag_string=mp4a|codec_tag=0x6134706d|sample_fmt=fltp|sample_rate=44100|channels=2|channel_layout=stereo|bits_per_sample=0|id=N/A|r_frame_rate=0/0|avg_frame_rate=0/0|time_base=1/44100|start_pts=0|start_time=0.000000|duration_ts=4066020|duration=91.000000|bit_rate=128751|max_bit_rate=128751|bits_per_raw_sample=N/A|nb_frames=3972|nb_read_frames=N/A|nb_read_packets=N/A|disposition:default=1|disposition:dub=0|disposition:original=0|disposition:comment=0|disposition:lyrics=0|disposition:karaoke=0|disposition:forced=0|disposition:hearing_impaired=0|disposition:visual_impaired=0|disposition:clean_effects=0|disposition:attached_pic=0|disposition:timed_thumbnails=0|tag:language=und|tag:handler_name=SoundHandler" # pylint: disable=line-too-long
+    bogus_deets = "stream|index=1|codec_name=aac|profile=LC|codec_type=trash"
+
+    correct_metrics = Metrics(
+      width=1024,
+      height=576,
+      sample_rate=44100,
+      num_channels=2,
+      length=92.2
+    )
+    correct_frame_rate = 30.0
+
+    with pytest.raises(ValueError):
+        metrics_from_ffprobe_output(f'{video_deets}\n{video_deets}', 'test.mp4')
+    with pytest.raises(ValueError):
+        metrics_from_ffprobe_output(f'{audio_deets}\n{audio_deets}', 'test.mp4')
+    with pytest.raises(ValueError):
+        metrics_from_ffprobe_output(f'{audio_deets}\n{video_deets}\n{video_deets}', 'test.mp4')
+    with pytest.raises(ValueError):
+        metrics_from_ffprobe_output(f'{audio_deets}\n{video_deets}\n{bogus_deets}', 'test.mp4')
+    with pytest.raises(ValueError):
+        metrics_from_ffprobe_output(f'{short_audio_deets}\n{video_deets}', 'test.mp4')
+    with pytest.raises(ValueError):
+        metrics_from_ffprobe_output('', 'test.mp4')
+
+    with pytest.raises(ValueError):
+        bad_video_deets = re.sub("duration", "dooration", video_deets)
+        metrics_from_ffprobe_output(f'{bad_video_deets}\n{audio_deets}', 'test.mp4')
+
+    m, fr, _, _ = metrics_from_ffprobe_output(f'{audio_deets}\n{video_deets}', 'test.mp4')
+    assert m == correct_metrics
+    assert fr == correct_frame_rate
+
+    m, fr, _, _ = metrics_from_ffprobe_output(f'{video_deets}\n{audio_deets}', 'test.mp4')
+    assert m == correct_metrics
+    assert fr == correct_frame_rate
+
+    m, fr, _, _ = metrics_from_ffprobe_output(f'{video_deets}', 'test.mp4')
+    assert m == Metrics(src=correct_metrics,
+                        sample_rate=Clip.default_metrics.sample_rate,
+                        num_channels=Clip.default_metrics.num_channels)
+    assert fr == correct_frame_rate
+
+    m, fr, _, _ = metrics_from_ffprobe_output(f'{audio_deets}', 'test.mp4')
+    assert m == Metrics(src=correct_metrics,
+                        width=Clip.default_metrics.width,
+                        height=Clip.default_metrics.height)
+    assert fr is None
+
+def test_metrics_from_ffprobe_output2():
+    rotated_video_deets = "stream|index=0|codec_name=h264|codec_long_name=H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10|profile=Baseline|codec_type=video|codec_time_base=18821810/1129461271|codec_tag_string=avc1|codec_tag=0x31637661|width=1600|height=1200|coded_width=1600|coded_height=1200|has_b_frames=0|sample_aspect_ratio=1:1|display_aspect_ratio=4:3|pix_fmt=yuvj420p|level=10|color_range=pc|color_space=smpte170m|color_transfer=smpte170m|color_primaries=bt470bg|chroma_location=left|field_order=unknown|timecode=N/A|refs=1|is_avc=true|nal_length_size=4|id=N/A|r_frame_rate=30/1|avg_frame_rate=1129461271/37643620|time_base=1/90000|start_pts=0|start_time=0.000000|duration_ts=128477601|duration=1427.528900|bit_rate=18000964|max_bit_rate=N/A|bits_per_raw_sample=8|nb_frames=42832|nb_read_frames=N/A|nb_read_packets=N/A|disposition:default=1|disposition:dub=0|disposition:original=0|disposition:comment=0|disposition:lyrics=0|disposition:karaoke=0|disposition:forced=0|disposition:hearing_impaired=0|disposition:visual_impaired=0|disposition:clean_effects=0|disposition:attached_pic=0|disposition:timed_thumbnails=0|tag:rotate=90|tag:creation_time=2020-08-18T15:50:05.000000Z|tag:language=eng|tag:handler_name=VideoHandle" #pylint: disable=line-too-long
+    m, _, _, _ = metrics_from_ffprobe_output(f'{rotated_video_deets}', 'test.mp4')
+    print(m)
+
 
 # Grab all of the test source files first.  (...instead of checking within each
 # test.)

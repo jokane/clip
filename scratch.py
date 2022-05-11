@@ -2,6 +2,9 @@
 
 from clip import *
 
+x = from_file('test_files/bunny.webm')
+x.save('new_bunny.mp4', 30)
+
 # solid([0,0,0], 640, 480, 30, 300]).save('black.mp4')
 # solid([255,0,0], 640, 480, 30, 300).save('red.mp4')
 # solid([0,255,0], 640, 480, 30, 300).save('green.mp4')
