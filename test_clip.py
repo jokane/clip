@@ -270,13 +270,19 @@ def test_get_font():
     with pytest.raises(ValueError):
         get_font("test_files/asdasdasdsad.otf", 20)
 
+def test_preview():
+    x = solid([0,0,0], 640, 480, 5)
+    x.preview(30)
+
 def test_save1():
     # Basic case, with video.
     x = solid([0,0,0], 640, 480, 10)
     with temporary_current_directory():
-        print(os.getcwd())
+        # Once with an empty cache.
         x.save('test.mp4', frame_rate=30, cache_dir=os.getcwd())
         assert os.path.exists('test.mp4')
+
+        # Again with the cache filled in.
         x.save('test.mp4', frame_rate=30, cache_dir=os.getcwd())
 
 def test_save2():
@@ -289,12 +295,13 @@ def test_save2():
 def test_save3():
     # With a target filesize.
     a = from_file("test_files/bunny.webm")
-    for ts in [5, 10]:
-        with temporary_current_directory():
+    with temporary_current_directory():
+        for ts in [5, 10]:
             a.save('small_bunny.mp4',
-                   frame_rate=30,
+                   frame_rate=5,
                    target_size=ts,
-                   two_pass=True)
+                   two_pass=True,
+                   cache_dir=os.getcwd())
             actual_bytes = os.path.getsize("small_bunny.mp4")
             target_bytes = 2**20*ts
             difference = abs(actual_bytes - target_bytes)
@@ -329,7 +336,6 @@ def test_cache1():
 def test_cache2():
     with temporary_current_directory():
         c = ClipCache(directory=os.getcwd())
-        c.clear()
 
         x = solid([0,0,0], 640, 480, 300)
         sig1 = x.frame_signature(0)
@@ -350,6 +356,14 @@ def test_cache2():
         assert exists1 is True
 
         c.scan_directory()
+
+def test_get_frame_cached():
+    with temporary_current_directory():
+        x = solid([0,0,0], 640, 480, 300)
+        cache = ClipCache(directory=os.getcwd())
+        x.get_frame_cached(cache, 7.5)
+        cache.scan_directory()
+        x.get_frame_cached(cache, 7.5)
 
 
 def test_metrics_from_ffprobe_output1():
@@ -409,9 +423,509 @@ def test_metrics_from_ffprobe_output2():
     m, _, _, _ = metrics_from_ffprobe_output(f'{rotated_video_deets}', 'test.mp4')
     print(m)
 
+def test_from_file1():
+    with pytest.raises(FileNotFoundError):
+        from_file("test_files/books12312312.mp4")
 
-# Grab all of the test source files first.  (...instead of checking within each
-# test.)
+def test_from_file2():
+    a = from_file("test_files/bunny.webm")
+    a = slice_clip(a, 0, 1.1)
+    a.verify(30)
+
+def test_from_file3():
+    b = from_file("test_files/bunny.webm")
+    b.verify(30)
+
+    # Again to use the cached dimensions.
+    c = from_file("test_files/bunny.webm")
+    c.verify(30)
+
+def test_from_file4():
+    # For the case with no video.
+    d = from_file("test_files/music.mp3")
+    assert not d.has_video
+    d.verify(30)
+
+def test_from_file5():
+    # For the case with no audio.
+    e = from_file("test_files/books.mp4")
+    e = slice_clip(e, 1.5, 2.5)
+    e.verify(10)
+
+def test_from_file6():
+    # Suppress audio and suppress video.
+    a = from_file("test_files/bunny.webm", suppress_audio=True)
+    assert a.has_audio is False
+
+    b = from_file("test_files/bunny.webm", suppress_video=True)
+    assert b.has_audio is True
+
+def test_from_file7():
+    # Be sure to get boht cache hits and cache misses.
+    fname = os.path.join(os.getcwd(), 'test_files/bunny.webm')
+
+    with temporary_current_directory():
+        for _ in range(2):
+            x = from_file(fname, cache_dir=os.getcwd())
+            x.verify(x.frame_rate)
+
+def test_slice_clip():
+    a = join(
+      solid([0,0,0], 640, 480, 10),
+      sine_wave(880, 0.1, 10, 48000, 2)
+    )
+
+    with pytest.raises(ValueError):
+        slice_clip(a, -1, 1)
+
+    with pytest.raises(ValueError):
+        slice_clip(a, 3, 1)
+
+    d = slice_clip(a, 3, 4)
+    d.verify(30)
+
+    e = slice_clip(a, 3)
+    e.verify(30)
+
+    f = slice_clip(a, end=3)
+    f.verify(30)
+
+def asff_helper(fname,
+                expected_num_samples,
+                expected_num_channels,
+                expected_sample_rate):
+    """ Run audio_samples_from_file on the given input and sanity check the
+    result. """
+
+    cache = ClipCache('/tmp/clipcache/computed')
+
+    # Grab the audio samples.
+    s = audio_samples_from_file(fname,
+                                cache,
+                                expected_num_samples=expected_num_samples,
+                                expected_num_channels=expected_num_channels,
+                                expected_sample_rate=expected_sample_rate)
+
+    # Make sure we got the right sort of matrix back.
+    assert s.shape == (expected_num_samples, expected_num_channels)
+    assert s.dtype == np.float64
+
+    # If they're all 0, something is wrong.  This was
+    # failing for a while when we mistakenly tried to put
+    # float64 data into a uint numpy array.
+    assert s.any()
+
+def test_audio_samples_from_file1():
+    with pytest.raises(FFMPEGException):
+        # No audio track.
+        asff_helper(
+          "test_files/books.mp4",
+          expected_num_samples=0,
+          expected_num_channels=1,
+          expected_sample_rate=0
+        )
+
+def test_audio_samples_from_file2():
+    with pytest.raises(ValueError):
+        # Wrong sample rate.
+        asff_helper(
+          "test_files/music.mp3",
+          expected_num_samples=3335168,
+          expected_num_channels=2,
+          expected_sample_rate=48000
+        )
+
+def test_audio_samples_from_file3():
+    with pytest.raises(ValueError):
+        # Wrong number of channels
+        asff_helper(
+          "test_files/music.mp3",
+          expected_num_samples=3335168,
+          expected_num_channels=1,
+          expected_sample_rate=44100
+        )
+
+def test_audio_samples_from_file4():
+    with pytest.raises(ValueError):
+        # Wrong length.
+        asff_helper(
+          "test_files/music.mp3",
+          expected_num_samples=4335170,
+          expected_num_channels=2,
+          expected_sample_rate=44100
+        )
+
+def test_audio_samples_from_file5():
+    # Slightly too long.
+    asff_helper(
+      "test_files/music.mp3",
+      expected_num_samples=3337343,
+      expected_num_channels=2,
+      expected_sample_rate=44100
+    )
+
+def test_audio_samples_from_file6():
+    # Slightly too short.
+    asff_helper(
+      "test_files/music.mp3",
+      expected_num_samples=3337345,
+      expected_num_channels=2,
+      expected_sample_rate=44100
+    )
+
+def test_audio_samples_from_file7():
+    # All good.
+    asff_helper(
+      "test_files/music.mp3",
+      expected_num_samples=3337344,
+      expected_num_channels=2,
+      expected_sample_rate=44100
+    )
+
+def test_audio_samples_from_file8():
+    # Ensure a cache miss and a cache hit.
+    fname = os.path.join(os.getcwd(), 'test_files/music.mp3')
+
+    with temporary_current_directory():
+        cache = ClipCache(os.getcwd())
+        for _ in range(2):
+            audio_samples_from_file(fname,
+                                    cache,
+                                    expected_num_samples=3337344,
+                                    expected_num_channels=2,
+                                    expected_sample_rate=44100)
+
+def test_alpha_blend():
+    f0 = cv2.imread("test_files/flowers.png", cv2.IMREAD_UNCHANGED)
+    f1 = np.zeros(shape=f0.shape, dtype=np.uint8)
+    f2 = alpha_blend(f0, f1)
+    cv2.imwrite('test_files/blended.png', f2)
+
+    f0 = cv2.imread("test_files/water.png", cv2.IMREAD_UNCHANGED)
+    f0 = f0[0:439,:,:]
+    f1 = cv2.imread("test_files/flowers.png", cv2.IMREAD_UNCHANGED)
+    f2 = alpha_blend(f0, f1)
+
+def test_composite1():
+    # Automatically compute the height.
+    x = solid([0,0,0], 640, 480, 5)
+    y = solid([0,0,0], 640, 481, 5)
+    z = composite(
+      Element(x, 0, [0, 0]),
+      Element(y, 6, [0, 0])
+    )
+    z.verify(30)
+    assert z.height() == 481
+
+def test_composite2():
+    # Can't start before 0.
+    x = solid([0,0,0], 640, 480, 5)
+    y = solid([0,0,0], 640, 480, 5)
+
+    with pytest.raises(ValueError):
+        composite(
+          Element(x, -1, [0, 0]),
+          Element(y, 6, [0, 0])
+        )
+
+def test_composite4():
+    # Sample rates don't match.
+    x = sine_wave(880, 0.1, 5, 48000, 2)
+    y = sine_wave(880, 0.1, 5, 48001, 2)
+
+    with pytest.raises(ValueError):
+        composite(
+          Element(x, 0, [0, 0]),
+          Element(y, 5, [0, 0])
+        )
+
+def test_composite5():
+    # Automatically computed length.
+    x = solid([0,0,0], 640, 480, 5)
+    y = solid([0,0,0], 640, 480, 5)
+    z = composite(
+      Element(x, 0, [0, 0]),
+      Element(y, 6, [0, 0])
+    )
+    assert z.length() == 11
+    z.verify(30)
+
+def test_composite6():
+    # Clipping above, below, left, and right.
+    x = static_image("test_files/flowers.png", 10)
+    x = scale_by_factor(x, 0.4)
+
+    z = composite(
+      Element(x, 0, [-100, -100], VideoMode.REPLACE),
+      Element(x, 0, [540, 380], VideoMode.REPLACE),
+      width=640,
+      height=480,
+      length=5
+    )
+    z.verify(30)
+
+def test_composite7():
+    # Totally off-screen.
+    x = static_image("test_files/flowers.png", 10)
+    x = scale_by_factor(x, 0.4)
+
+    z = composite(
+      Element(x, 0, [-1000, -100], VideoMode.REPLACE),
+      Element(x, 0, [1540, 380], VideoMode.REPLACE),
+      width=640,
+      height=480,
+      length=5
+    )
+    z.verify(30)
+
+
+def test_composite8():
+    # Alpha blending.
+    x = static_image("test_files/flowers.png", 5000)
+    x = scale_by_factor(x, 0.4)
+
+    z = composite(
+      Element(x, 0, [50, 50], video_mode=VideoMode.BLEND),
+      Element(x, 0, [250, 150], video_mode=VideoMode.BLEND),
+      width=640,
+      height=480,
+      length=1
+    )
+    z.verify(30)
+
+def test_composite9():
+    # Bad inputs.
+    x = static_image("test_files/flowers.png", 5000)
+    with pytest.raises(ValueError):
+        # Bad position, iterable but wrong length.
+        composite(Element(x, 0, [0,0,0], video_mode=VideoMode.BLEND))
+
+    with pytest.raises(TypeError):
+        # Bad position, iterable but not ints.
+        composite(Element(x, 0, "ab", video_mode=VideoMode.BLEND))
+
+    with pytest.raises(TypeError):
+        # Bad position, not even iterable.
+        composite(Element(x, 0, 0, video_mode=VideoMode.BLEND))
+
+    with pytest.raises(TypeError):
+        # Bad video mode.
+        composite(Element(x, 0, [0, 0], video_mode=AudioMode.REPLACE))
+
+    with pytest.raises(TypeError):
+        # Bad audio mode.
+        composite(Element(x, 0, [0, 0], audio_mode=VideoMode.REPLACE))
+
+def test_composite10():
+    # Callable position.
+    x = static_image("test_files/flowers.png", 5)
+    x = scale_by_factor(x, 0.4)
+
+    def pos1(t):
+        return [t-100,2*t-100]
+    def pos2(t):
+        return [480-t,2*t-100]
+
+    z = composite(
+      Element(x, 0, pos1, video_mode=VideoMode.BLEND),
+      Element(x, 0, pos2, video_mode=VideoMode.BLEND),
+      length=5
+    )
+    z.verify(30)
+
+def test_composite11():
+    # Ignored video should not impact the frame signatures.
+    a = static_image("test_files/flowers.png", 5)
+
+    b = composite(
+      Element(a, 0, [0,0], video_mode=VideoMode.BLEND),
+    )
+
+    c = composite(
+      Element(a, 0, [0,0], video_mode=VideoMode.BLEND),
+      Element(a, 0, [10,10], video_mode=VideoMode.IGNORE),
+    )
+
+    assert b.frame_signature(0) == c.frame_signature(0)
+
+def test_join1():
+    # Normal case.
+    x = sine_wave(440, 0.25, 3, 48000, 2)
+    y = solid([0,255,0], 640, 480, 5)
+    z = join(y, x)
+    z.verify(30)
+    assert y.length() == 5
+
+def test_join2():
+    # Detect that audio and video are swapped.
+    x = sine_wave(440, 0.25, 3, 48000, 2)
+    y = solid([0,255,0], 640, 480, 5)
+    with pytest.raises(AssertionError):
+        join(x, y)
+
+def test_filter_frames1():
+    a = black(640, 480, 3)
+
+    b = filter_frames(a, lambda x: x)
+    assert not b.depends_on_time
+    b.verify(30)
+
+    c = filter_frames(a, lambda x: x, name='identity')
+    c.verify(30)
+
+    d = filter_frames(a, lambda x: x, size='same')
+    d.verify(30)
+
+    e = filter_frames(a, lambda x: x, size=(a.width(), a.height()))
+    e.verify(30)
+
+    # Nonsense size
+    with pytest.raises(ValueError):
+        filter_frames(a, lambda x: x, size='sooom')
+
+    # Wrong size
+    f = filter_frames(a, lambda x: x, size=(10, 10))
+    with pytest.raises(ValueError):
+        f.verify(30)
+
+    # Signatures match?
+    g = filter_frames(a, lambda x: x)
+    h = filter_frames(a, lambda x: x)
+    i = filter_frames(a, lambda x: x+1)
+    assert g.sig == h.sig
+    assert h.sig != i.sig
+
+def test_filter_frames2():
+    # Two-parameter filter version.
+    a = black(640, 480, 3)
+    b = filter_frames(a, lambda x, i: x)
+    b.verify(30)
+
+def test_filter_frames3():
+    # A bogus filter.
+    a = black(640, 480, 3)
+    with pytest.raises(TypeError):
+        filter_frames(a, lambda x, y, z: None)
+
+def test_scale_to_size():
+    a = black(640, 480, 3)
+    b = scale_to_size(a, 100, 200)
+    b.verify(30)
+    assert b.width() == 100
+    assert b.height() == 200
+
+def test_scale_by_factor():
+    a = black(100, 200, 3)
+    b = scale_by_factor(a, 0.1)
+    b.verify(30)
+    assert b.width() == 10
+    assert b.height() == 20
+
+def test_scale_to_fit():
+    a = black(100, 100, 3)
+    b = scale_to_fit(a, 50, 100)
+    b.verify(30)
+    assert abs(b.width()/b.height() - 1.0)  < 1e-10
+
+    c = scale_to_fit(a, 100, 50)
+    c.verify(30)
+    assert abs(b.width()/b.height() - 1.0)  < 1e-10
+
+def test_static_frame1():
+    # Legit usage: An RGBA image.
+    a = static_image("test_files/water.png", 10)
+    a.verify(30)
+
+def test_static_frame2():
+    # Legit usage: An RGB image.
+    b = static_image("test_files/brian.jpg", 10)
+    b.verify(30)
+
+
+def test_static_frame3():
+    # Wrong type
+    with pytest.raises(TypeError):
+        static_frame("not a frame", "name", 10)
+
+def test_static_frame4():
+    # Wrong shape
+    with pytest.raises(ValueError):
+        static_frame(np.zeros([100, 100]), "name", 10)
+
+def test_static_frame5():
+    # Wrong number of channels
+    with pytest.raises(ValueError):
+        static_frame(np.zeros([100, 100, 3]), "name", 10)
+
+def test_static_frame6():
+    # Frame signatures should depend (only) on the contents; same contents give
+    # same frame signature.
+    black_frame = np.zeros([100, 200, 4], np.uint8)
+    black_frame[:] = [0, 0, 0, 255]
+
+    black_frame2 = np.zeros([100, 200, 4], np.uint8)
+    black_frame2[:] = [0, 0, 0, 255]
+
+    mostly_black_frame = np.zeros([100, 200, 4], np.uint8)
+    mostly_black_frame[:] = [0, 0, 0, 255]
+    mostly_black_frame[50,50,1] = 6
+
+    white_frame = np.zeros([100, 200, 4], np.uint8)
+    white_frame[:] = [255, 255, 255, 255]
+
+    a = static_frame(black_frame, "blackness", 3)
+    b = static_frame(black_frame2, "blackness", 3)
+    c = static_frame(white_frame, "whiteness", 3)
+    d = static_frame(mostly_black_frame, "mostly black", 3)
+
+    assert a.sig == b.sig
+    assert a.sig != c.sig
+    assert a.sig != d.sig
+
+def test_chain():
+    a = black(640, 480, 3)
+    b = white(640, 480, 3)
+    c = solid([255,0,0], 640, 480, 3)
+
+    d = chain(a, [b, c])
+    assert d.length() == a.length() + b.length() + c.length()
+    d.verify(30)
+
+    e = chain(a, [b, c], fade_time=2)
+    assert e.length() == a.length() + b.length() + c.length() - 4
+    e.verify(30)
+
+    with pytest.raises(ValueError):
+        chain()
+
+    with pytest.raises(ValueError):
+        chain(fade_time=3)
+
+def test_fades():
+    a = white(640, 480, 3)
+
+    for cls in [fade_in, fade_out]:
+        for transparent in [True, False]:
+            # Normal usage.  Very high frame rate, to cover the case where
+            # some frames are unchanged.
+            b = cls(a, 1.5,transparent=transparent)
+            b.verify(300)
+
+            # Negative fade time.
+            with pytest.raises(ValueError):
+                cls(a, -1)
+
+            # Bogus types as input.
+            with pytest.raises(TypeError):
+                cls(-1, a)
+
+            # Fade time longer than clip.
+            with pytest.raises(ValueError):
+                cls(a, 10)
+
+
+# Grab all of the test source files first.  (...instead of checking within
+# each test.)
 get_test_files()
 
 # If we're run as a script, just execute all of the tests.  Or, if a

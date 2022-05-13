@@ -48,18 +48,24 @@ from abc import ABC, abstractmethod
 import collections
 import contextlib
 from dataclasses import dataclass
+import dis
+from enum import Enum
+import glob
 import hashlib
+import inspect
 import math
 import os
 import pprint
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 import threading
 import time
 
 import cv2
+import numba
 import numpy as np
 import progressbar
 from PIL import ImageFont
@@ -428,8 +434,8 @@ class ClipCache:
         """Examine the cache directory and remember what we see there."""
         self.cache = {}
         try:
-            for cached_frame in os.listdir(self.directory):
-                self.cache[os.path.join(self.directory, cached_frame)] = True
+            for cached_file in os.listdir(self.directory):
+                self.cache[os.path.join(self.directory, cached_file)] = True
         except FileNotFoundError:
             os.makedirs(self.directory)
 
@@ -444,18 +450,21 @@ class ClipCache:
             shutil.rmtree(self.directory)
         self.cache = None
 
-    def sig_to_fname(self, sig, ext):
+    def sig_to_fname(self, sig, ext, use_hash=True):
         """Compute the filename where something with the given signature and
         extension should live."""
-        blob = hashlib.md5(str(sig).encode()).hexdigest()
+        if use_hash:
+            blob = hashlib.md5(str(sig).encode()).hexdigest()
+        else:
+            blob = str(sig)
         return os.path.join(self.directory, f'{blob}.{ext}')
 
-    def lookup(self, sig, ext):
+    def lookup(self, sig, ext, use_hash=True):
         """Determine the appropriate filename for something with the given
         signature and extension.  Return a tuple with that filename followed
         by True or False, indicating whether that file exists or not."""
         if self.cache is None: self.scan_directory()
-        cached_filename = self.sig_to_fname(sig, ext)
+        cached_filename = self.sig_to_fname(sig, ext, use_hash)
         return (cached_filename, cached_filename in self.cache)
 
     def insert(self, fname):
@@ -528,6 +537,19 @@ class Clip(ABC):
         """A human-readable description of the length."""
         return self.metrics.readable_length()
 
+    def preview(self, frame_rate, cache_dir='/tmp/clipcache/computed'):
+        """Render the video part and display it in a window on screen."""
+        cache = ClipCache(cache_dir)
+
+        with custom_progressbar("Previewing", self.length()*frame_rate) as pb:
+            for i, t in enumerate(frame_times(self.length(), frame_rate)):
+                frame = self.get_frame_cached(cache, t)
+                pb.update(i)
+                cv2.imshow("", frame)
+                cv2.waitKey(1)
+
+        cv2.destroyWindow("")
+
     def verify(self, frame_rate, verbose=False):
         """ Fully realize this clip, ensuring that no exceptions occur and
         that the right sizes of video frames and audio samples are returned.
@@ -592,7 +614,7 @@ class Clip(ABC):
 
 
     def save(self, fname, frame_rate, bitrate=None, target_size=None, two_pass=False,
-             preset='slow', cache_dir='/tmp/clipcache/computed_frames'):
+             preset='slow', cache_dir='/tmp/clipcache/computed'):
         """ Save to a file.
 
         Bitrate controls the target bitrate.  Handles the tradeoff between
@@ -604,7 +626,7 @@ class Clip(ABC):
         omitted, the default is to target a bitrate of 1024k.
 
         Preset controls how quickly ffmpeg encodes.  Handles the tradeoff
-        between encoding speed and output quality.  Choose from:
+         encoding speed and output quality.  Choose from:
             ultrafast superfast veryfast faster fast medium slow slower veryslow
         The documentation for these says to "use the slowest preset you have
         patience for."
@@ -732,7 +754,8 @@ class Clip(ABC):
         """Return a frame, from the cache if possible, computed from scratch
         if needed."""
         # Look for the frame we need in the cache.
-        cached_filename, success = cache.lookup(self.frame_signature(t), cache.frame_format)
+        cached_filename, success = cache.lookup(self.frame_signature(t),
+                                                cache.frame_format)
 
         # Did we find it?
         if success:
@@ -741,6 +764,16 @@ class Clip(ABC):
         else:
             # No. Generate and save to disk for next time.
             return self.compute_and_cache_frame(t, cache, cached_filename)
+
+    def save_play_quit(self, frame_rate, filename="spq.mp4"): # pragma: no cover
+        """ Save the video, play it, and then end the process.  Useful
+        sometimes when debugging, to see a particular clip without running the
+        entire program. """
+        self.save(filename, frame_rate)
+        os.system("mplayer " + filename)
+        sys.exit(0)
+
+    spq = save_play_quit
 
 
 
@@ -785,6 +818,9 @@ class MutatorClip(Clip):
 
     def frame_signature(self, t):
         return self.clip.frame_signature(t)
+
+    def request_frame(self, t):
+        self.clip.request_frame(t)
 
     def get_frame(self, t):
         return self.clip.get_frame(t)
@@ -965,7 +1001,7 @@ def metrics_from_ffprobe_output(ffprobe_output, fname, suppress_video=False, sup
         elif stream['codec_type'] == 'audio' and suppress_audio:
             pass
         elif stream['codec_type'] == 'data':
-            pass
+            pass # pragma: no cover
         else:
             raise ValueError(f"Don't know what to do with {fname}, "
               f"which has an unknown stream of type {stream['codec_type']}.")
@@ -998,8 +1034,7 @@ def audio_samples_from_file(fname, cache, expected_sample_rate, expected_num_cha
             raise ValueError(f"From {fname}, expected {expected_num_channels} channels,"
                 f" but found {data.shape[1]} instead.")
 
-        # Complain if there's a length mismatch longer than about half a
-        # second.
+        # Complain if there's a length mismatch longer than about a second.
         if abs(data.shape[0] - expected_num_samples) > expected_sample_rate:
             raise ValueError(f"From {fname}, got {data.shape[0]}"
               f" samples instead of {expected_num_samples}.")
@@ -1016,7 +1051,7 @@ def audio_samples_from_file(fname, cache, expected_sample_rate, expected_num_cha
 
         return data
 
-    # Not a format we can read directly.  Instead, let's use ffmpeg to get it
+    # Not a format we can read directly.  Instead, use ffmpeg to get it
     # indirectly.  (...or simply pull it from the cache, if it happens to be
     # there.)
     cached_filename, success = cache.lookup(fname, 'flac')
@@ -1026,11 +1061,9 @@ def audio_samples_from_file(fname, cache, expected_sample_rate, expected_num_cha
         full_fname = os.path.join(os.getcwd(), fname)
         with temporary_current_directory():
             audio_fname = 'audio.flac'
-            ffmpeg(
-                f'-i {full_fname}',
-                '-vn',
-                f'{audio_fname}',
-            )
+            ffmpeg( f'-i {full_fname}',
+                    '-vn',
+                    f'{audio_fname}')
             os.rename(audio_fname, cached_filename)
             cache.insert(cached_filename)
 
@@ -1044,38 +1077,37 @@ class from_file(Clip):
     """ A clip read from a file such as an mp4, flac, or other format readable
     by ffmpeg. """
 
-    def __init__(self, fname, suppress_video=False, suppress_audio=False):
-        """ Video decoding happens in batches.  Use decode_chunk_length to
-        specify the number of seconds of frames decoded in each batch.
-        Larger values reduce the overhead of starting the decode process,
-        but may waste time decoding frames that are never used.  Use None to
-        decode the entire video at once. """
+    def __init__(self, fname, suppress_video=False, suppress_audio=False, cache_dir=None):
         super().__init__()
 
         if not os.path.isfile(fname):
             raise FileNotFoundError(f"Could not open file {fname}.")
         self.fname = os.path.abspath(fname)
 
-        cache_dir = os.path.join('/tmp/clipcache', re.sub('/', '_', self.fname))
-        self.cache = ClipCache(cache_dir)
+        if cache_dir is None:
+            cache_dir = os.path.join('/tmp/clipcache', re.sub('/', '_', self.fname))
+        else:
+            require_string(cache_dir, 'cache directory')
+
+        self.cache = ClipCache(directory=cache_dir)
 
         self.acquire_metrics(suppress_video, suppress_audio)
-        self.samples = None
 
-        self.exploded = False
+        self.samples = None
 
     def acquire_metrics(self, suppress_video, suppress_audio):
         """ Set the metrics attribute, either by grabbing the metrics from the
         cache, or by getting them the hard way via ffprobe."""
 
         # Do we have the metrics in the cache?
-        digest = hashlib.md5(self.fname.encode()).hexdigest()
-        cached_filename, exists = self.cache.lookup(digest, 'dim')
+        dimensions_filename, exists = self.cache.lookup('dimensions',
+                                                        'dim',
+                                                        use_hash=False)
 
         if exists:
             # Yes. Grab it.
             print(f"Using cached dimensions for {self.fname}")
-            with open(cached_filename, 'r') as f:
+            with open(dimensions_filename, 'r') as f:
                 deets = f.read()
         else:
             # No.  Get the metrics, then store in the cache for next time.
@@ -1085,21 +1117,30 @@ class from_file(Clip):
                                   stdout=subprocess.PIPE) as proc:
                 deets = proc.stdout.read().decode('utf-8')
 
-            with open(cached_filename, 'w') as f:
+            with open(dimensions_filename, 'w') as f:
                 print(deets, file=f)
-            self.cache.insert(cached_filename)
+            self.cache.insert(dimensions_filename)
 
         # Parse the (very detailed) ffprobe response to get the metrics we
         # need.
-        response = metrics_from_ffprobe_output(deets, self.fname, suppress_video, suppress_audio)
+        response = metrics_from_ffprobe_output(deets,
+                                               self.fname,
+                                               suppress_video,
+                                               suppress_audio)
+
         self.metrics, self.frame_rate, self.has_video, self.has_audio = response
+
+        self.requested_indices = set()
+
+    def time_to_frame_index(self, t):
+        """Which frame would be visible at the given time?"""
+        return int(t*self.frame_rate)
 
     def frame_signature(self, t):
         require_positive(t, "timestamp")
 
-        index = int(t * self.frame_rate)
-
         if self.has_video:
+            index = self.time_to_frame_index(t)
             return [self.fname, index]
         else:
             return ['solid', {
@@ -1110,69 +1151,75 @@ class from_file(Clip):
 
     def request_frame(self, t):
         require_positive(t, "timestamp")
-        self.exploded = False
+        if self.has_video:
+            index = self.time_to_frame_index(t)
+            self.requested_indices.add(index)
 
     def get_frame(self, t):
         require_positive(t, "timestamp")
 
-        if self.has_video:
-            # Make sure we've extracted all of the frames we'll need into the
-            # cache.
-            if not self.exploded:
+        if not self.has_video:
+            return np.zeros([self.metrics.height, self.metrics.width, 4], np.uint8)
+        else:
+            index = self.time_to_frame_index(t)
+            fname, exists = self.cache.lookup(f'{index:06d}',
+                                              self.cache.frame_format,
+                                              use_hash=False)
+            if not exists:
                 self.explode()
 
-            # Return the frame from the cache.
-            frame = self.get_frame_cached(self.cache, t)
-            assert frame is not None
-            return frame
-        else:
-            return np.zeros([self.metrics.height, self.metrics.width, 4], np.uint8)
+            return read_image(fname)
 
     def explode(self):
         """Expand the requested frames into our cache for later."""
         assert self.has_video
 
         with temporary_current_directory():
-            start_index = 0
-            num_frames = int(self.length() * self.frame_rate)
-            end_index = start_index + num_frames
+            start_index = min(self.requested_indices)
+            end_index = max(self.requested_indices)+1
+
+            start_time = start_index / self.frame_rate
+            length = (end_index - start_index) / self.frame_rate
+            num_frames_expected = end_index - start_index
 
             # Extract the frames into the current temporary directory.
             ffmpeg(
-                f'-ss {start_index/self.frame_rate}',
-                f'-t {self.length()}',
+                f'-ss {start_time}',
+                f'-t {length}',
                 f'-i {self.fname}',
                 f'-r {self.frame_rate}',
-                f'%06d.{self.cache.frame_format}',
+                '%06d.png',
                 task=f'Exploding {os.path.basename(self.fname)}',
-                num_frames=num_frames
+                num_frames=num_frames_expected
             )
 
-            # Add each frame to the cache.
-            rng = range(start_index, end_index)
-            for index in rng:
-                seq_fname = os.path.abspath(f'{index-start_index+1:06d}.{self.cache.frame_format}')
-                t = (index+0.5)/self.frame_rate
-                cached_fname, exists = self.cache.lookup(self.frame_signature(t),
-                                                         self.cache.frame_format)
+            # Add each frame that was extracted to the cache.
+            for fname in sorted(glob.glob('*.png')):
+                file_index = int(re.search(r'\d*', fname).group(0)) - 1
+                shifted_index = start_index + file_index
+                new_fname, exists = self.cache.lookup(f'{shifted_index:06d}',
+                                                      self.cache.frame_format,
+                                                      use_hash=False)
                 if not exists:
-                    try:
-                        os.rename(seq_fname, cached_fname)
-                    except FileNotFoundError: #pragma: no cover
-                        # If we get here, that means ffmpeg thought a frame
-                        # should exist, that ultimately was not extracted.
-                        # This seems to happen from mis-estimations of the
-                        # video length, or sometimes from simply missing
-                        # frames.  To keep things rolling, let's fill in a
-                        # black frame instead.
-                        print(f"[Exploding {self.fname} did not produce frame index={index},t={t}. "
+                    os.rename(fname, new_fname)
+                    self.cache.insert(new_fname)
+
+            # Make sure we got all of the frames we expected to get.
+            for index in sorted(self.requested_indices):
+                # If we get here, it means ffmpeg thought a frame should exist,
+                # but that frame was ultimately not extracted.  This seems to
+                # happen from mis-estimations of the video length, or sometimes
+                # from simply missing frames.  To keep things rolling, let's
+                # fill in a black frame instead.
+                fname, exists = self.cache.lookup(f'{shifted_index:06d}',
+                                                  self.cache.frame_format,
+                                                  use_hash=False)
+                if not exists: # pragma: no cover
+                    print(f"[Exploding {self.fname} did not produce frame index={index}. "
                           "Using black instead.]")
-                        fr = np.zeros([self.height(), self.width(), 3], np.uint8)
-                        cv2.imwrite(cached_fname, fr)
-
-                    self.cache.insert(cached_fname)
-
-        self.exploded = True
+                    fr = np.zeros([self.height(), self.width(), 3], np.uint8)
+                    cv2.imwrite(fname, fr)
+                    self.cache.insert(fname)
 
     def get_samples(self):
         if self.samples is None:
@@ -1186,5 +1233,598 @@ class from_file(Clip):
                 self.samples = np.zeros([self.metrics.num_samples(), self.metrics.num_channels])
         return self.samples
 
+class slice_clip(MutatorClip):
+    """ Extract the portion of a clip between the given times. Endpoints
+    default to the start and end of the clip."""
+    def __init__(self, clip, start=0, end=None):
+        super().__init__(clip)
+        if end is None:
+            end = self.clip.length()
 
+        require_float(start, "start time")
+        require_non_negative(start, "start time")
+        require_float(end, "end time")
+        require_non_negative(end, "end time")
+        require_less_equal(start, end, "start time", "end time")
+        require_less_equal(end, clip.length(), "start time", "end time")
+
+        self.start_time = start
+        self.end_time = end
+        self.start_sample = int(start * self.sample_rate())
+        self.metrics = Metrics(self.metrics, length=end-start)
+
+    def frame_signature(self, t):
+        return self.clip.frame_signature(self.start_time + t)
+
+    def request_frame(self, t):
+        self.clip.request_frame(self.start_time + t)
+
+    def get_frame(self, t):
+        return self.clip.get_frame(self.start_time + t)
+
+    def get_samples(self):
+        original_samples = self.clip.get_samples()
+        return original_samples[self.start_sample:self.start_sample+self.num_samples()]
+
+def join(video_clip, audio_clip):
+    """ Create a new clip that combines the video of one clip with the audio of
+    another.  The length will be the length of the longer of the two."""
+    require_clip(video_clip, "video clip")
+    require_clip(audio_clip, "audio clip")
+
+    assert not isinstance(video_clip, AudioClip)
+    assert not isinstance(audio_clip, VideoClip)
+    assert not isinstance(audio_clip, solid)
+
+    return composite(Element(video_clip, 0, [0,0],
+                             video_mode=VideoMode.REPLACE,
+                             audio_mode=AudioMode.IGNORE),
+                     Element(audio_clip, 0, [0,0],
+                             video_mode=VideoMode.IGNORE,
+                             audio_mode=AudioMode.REPLACE))
+
+class VideoMode(Enum):
+    """ When defining an element of a composite, how should the video for this
+    element be composited into the final clip?"""
+    REPLACE = 1
+    BLEND = 2
+    ADD = 3
+    IGNORE = 4
+
+class AudioMode(Enum):
+    """ When defining and element of a composite, how should the video for this
+    element be composited into the final clip?"""
+    REPLACE = 5
+    ADD = 6
+    IGNORE = 7
+
+class Element:
+    """An element to be included in a composite."""
+
+    def __init__(self, clip, start_time, position, video_mode=VideoMode.REPLACE,
+                 audio_mode=AudioMode.REPLACE):
+        require_clip(clip, "clip")
+        require_float(start_time, "start_time")
+        require_non_negative(start_time, "start_time")
+
+        if is_iterable(position):
+            if len(position) != 2:
+                raise ValueError(f'Position should be tuple (x,y) or callable.  '
+                                 f'Got {type(position)} {position} instead.')
+            require_int(position[0], "position x")
+            require_int(position[1], "position y")
+
+        elif not callable(position):
+            raise TypeError(f'Position should be tuple (x,y) or callable,'
+                            f'not {type(position)} {position}')
+
+        if not isinstance(video_mode, VideoMode):
+            raise TypeError(f'Video mode cannot be {video_mode}.')
+
+        if not isinstance(audio_mode, AudioMode):
+            raise TypeError(f'Audio mode cannot be {audio_mode}.')
+
+        self.clip = clip
+        self.start_time = start_time
+        self.position = position
+        self.video_mode = video_mode
+        self.audio_mode = audio_mode
+
+    def required_dimensions(self):
+        """ Return the (width, height) needed to show this element as fully as
+        possible.  (May not be all of the clip, because the top left is always
+        (0,0), so things at negative coordinates will still be hidden.) """
+        if callable(self.position):
+            nw, nh = 0, 0
+            for t in frame_times(self.clip.length(), 100):
+                pos = self.position(t)
+                nw = max(nw, pos[0] + self.clip.width())
+                nh = max(nh, pos[1] + self.clip.height())
+            return (int(nw), int(nh))
+        else:
+            return (self.position[0] + self.clip.width(),
+                    self.position[1] + self.clip.height())
+
+    def signature(self, t):
+        """ A signature for this element, to be used to create the overall
+        frame signature.  Returns None if this element does not contribute at
+        the given time."""
+        if self.video_mode==VideoMode.IGNORE:
+            return None
+        if t < self.start_time or t >= self.start_time + self.clip.length():
+            return None
+        clip_t = t - self.start_time
+        assert clip_t >= 0
+        if callable(self.position):
+            pos = self.position(t - self.start_time)
+        else:
+            pos = self.position
+        return [self.video_mode, pos, self.clip.frame_signature(clip_t)]
+
+    def get_coordinates(self, index, shape):
+        """ Compute the coordinates at which this element should appear at the
+        given index. """
+        if callable(self.position):
+            pos = self.position(index)
+        else:
+            pos = self.position
+        x = int(pos[0])
+        y = int(pos[1])
+        x0 = x
+        x1 = x + shape[1]
+        y0 = y
+        y1 = y + shape[0]
+        return x0, x1, y0, y1
+
+    def apply_to_frame(self, under, t):
+        """ Modify the given frame as described by this element. """
+        # If this element does not apply at this index, make no change.
+        clip_t = t - self.start_time
+        if t < self.start_time or t >= self.start_time + self.clip.length():
+            return
+
+        # Get the frame that we're compositing in and figure out where it goes.
+        over_patch = self.clip.get_frame(clip_t)
+        x0, x1, y0, y1 = self.get_coordinates(clip_t, over_patch.shape)
+
+        # If it's totally off-screen, make no change.
+        if x1 < 0 or x0 > under.shape[1] or y1 < 0 or y0 > under.shape[0]:
+            return
+
+        # Clip the frame itself if needed to fit.
+        if x0 < 0:
+            over_patch = over_patch[:,-x0:,:]
+            x0 = 0
+        if x1 >= under.shape[1]:
+            over_patch = over_patch[:,0:under.shape[1]-x0,:]
+            x1 = under.shape[1]
+
+        if y0 < 0:
+            over_patch = over_patch[-y0:,:,:]
+            y0 = 0
+        if y1 >= under.shape[0]:
+            over_patch = over_patch[0:under.shape[0]-y0,:,:]
+            y1 = under.shape[0]
+
+        # Actually do the compositing, based on the video mode.
+        if self.video_mode == VideoMode.REPLACE:
+            under[y0:y1, x0:x1, :] = over_patch
+        elif self.video_mode == VideoMode.BLEND:
+            under_patch = under[y0:y1, x0:x1, :]
+            blended = alpha_blend(over_patch, under_patch)
+            under[y0:y1, x0:x1, :] = blended
+        elif self.video_mode == VideoMode.ADD:
+            under[y0:y1, x0:x1, :] += over_patch
+        elif self.video_mode == VideoMode.IGNORE:
+            pass
+        else:
+            raise NotImplementedError(self.video_mode) # pragma: no cover
+
+@numba.jit(nopython=True) # pragma: no cover
+def alpha_blend(f0, f1):
+    """ Blend two equally-sized RGBA images and return the result. """
+    # https://stackoverflow.com/questions/28900598/how-to-combine-two-colors-with-varying-alpha-values
+    # assert f0.shape == f1.shape, f'{f0.shape}!={f1.shape}'
+    # assert f0.dtype == np.uint8
+    # assert f1.dtype == np.uint8
+
+    f0 = f0.astype(np.float64) / 255.0
+    f1 = f1.astype(np.float64) / 255.0
+
+    b0 = f0[:,:,0]
+    g0 = f0[:,:,1]
+    r0 = f0[:,:,2]
+    a0 = f0[:,:,3]
+
+    b1 = f1[:,:,0]
+    g1 = f1[:,:,1]
+    r1 = f1[:,:,2]
+    a1 = f1[:,:,3]
+
+    a01 = (1 - a0)*a1 + a0
+    b01 = (1 - a0)*b1 + a0*b0
+    g01 = (1 - a0)*g1 + a0*g0
+    r01 = (1 - a0)*r1 + a0*r0
+
+    f01 = np.zeros(shape=f0.shape, dtype=np.float64)
+
+    f01[:,:,0] = b01
+    f01[:,:,1] = g01
+    f01[:,:,2] = r01
+    f01[:,:,3] = a01
+    f01 = (f01*255.0).astype(np.uint8)
+
+    return f01
+
+
+class composite(Clip):
+    """ Given a collection of elements, form a composite clip."""
+    def __init__(self, *args, width=None, height=None, length=None):
+        super().__init__()
+
+        self.elements = flatten_args(args)
+
+        # Sanity check on the inputs.
+        for (i, e) in enumerate(self.elements):
+            assert isinstance(e, Element)
+            require_non_negative(e.start_time, f'start time {i}')
+        if width is not None:
+            require_int(width, "width")
+            require_positive(width, "width")
+        if height is not None:
+            require_int(height, "height")
+            require_positive(height, "height")
+        if length is not None:
+            require_float(length, "length")
+            require_positive(length, "length")
+
+        # Check for mismatches in the rates.
+        e0 = self.elements[0]
+        for (i, e) in enumerate(self.elements[1:]):
+            require_equal(e0.clip.sample_rate(), e.clip.sample_rate(), "sample rates")
+
+        # Compute the width, height, and length of the result.  If we're
+        # given any of these, use that.  Otherwise, make it big enough for
+        # every element to fit.
+        if width is None or height is None:
+            nw, nh = 0, 0
+            for e in self.elements:
+                if e.video_mode != VideoMode.IGNORE:
+                    dim = e.required_dimensions()
+                    nw = max(nw, dim[0])
+                    nh = max(nh, dim[1])
+            if width is None:
+                width = nw
+            if height is None:
+                height = nh
+
+        if length is None:
+            length = max(map(lambda e: e.start_time + e.clip.length(), self.elements))
+
+        self.metrics = Metrics(
+          src=e0.clip.metrics,
+          width=width,
+          height=height,
+          length=length
+        )
+
+
+    def frame_signature(self, t):
+        sig = ['composite']
+        for e in self.elements:
+            esig = e.signature(t)
+            if esig is not None:
+                sig.append(esig)
+        return sig
+
+    def get_frame(self, t):
+        frame = np.zeros([self.metrics.height, self.metrics.width, 4], np.uint8)
+        for e in self.elements:
+            e.apply_to_frame(frame, t)
+        return frame
+
+    def get_samples(self):
+        samples = np.zeros([self.metrics.num_samples(), self.metrics.num_channels])
+        for e in self.elements:
+            clip_samples = e.clip.get_samples()
+            start_sample = int(e.start_time*e.clip.sample_rate())
+            end_sample = start_sample + e.clip.num_samples()
+            if end_sample > self.num_samples():
+                end_sample = self.num_samples()
+                clip_samples = clip_samples[0:self.num_samples()-start_sample]
+
+            if e.audio_mode == AudioMode.REPLACE:
+                samples[start_sample:end_sample] = clip_samples
+            elif e.audio_mode == AudioMode.ADD:
+                samples[start_sample:end_sample] += clip_samples
+            elif e.audio_mode == AudioMode.IGNORE:
+                pass
+            else:
+                raise NotImplementedError(e.audio_mode) # pragma: no cover
+
+        return samples
+
+class static_frame(VideoClip):
+    """ Show a single image over and over, silently. """
+    def __init__(self, the_frame, frame_name, length):
+        super().__init__()
+        try:
+            height, width, depth = the_frame.shape
+        except AttributeError as e:
+            raise TypeError(f"Cannot not get shape of {the_frame}.") from e
+        except ValueError as e:
+            raise ValueError(f"Could not get width, height, and depth of {the_frame}."
+              f" Shape is {the_frame.shape}.") from e
+        if depth != 4:
+            raise ValueError(f"Frame {the_frame} does not have 4 channels."
+              f" Shape is {the_frame.shape}.")
+
+        self.metrics = Metrics(src=Clip.default_metrics,
+                               width=width,
+                               height=height,
+                               length=length)
+
+        self.the_frame = the_frame.copy()
+        hash_source = self.the_frame.tobytes()
+        self.sig = hashlib.sha1(hash_source).hexdigest()[:7]
+
+        self.frame_name = frame_name
+
+    def frame_signature(self, t):
+        return [ 'static_frame', {
+          'name': self.frame_name,
+          'sig': self.sig
+        }]
+
+    def get_frame(self, t):
+        return self.the_frame
+
+
+def static_image(filename, length):
+    """ Show a single image loaded from a file over and over, silently. """
+    the_frame = read_image(filename)
+    assert the_frame is not None
+    return static_frame(the_frame, filename, length)
+
+def scale_by_factor(clip, factor):
+    """Scale the frames of a clip by a given factor."""
+    require_clip(clip, "clip")
+    require_float(factor, "scaling factor")
+    require_positive(factor, "scaling factor")
+
+    new_width = int(factor * clip.width())
+    new_height = int(factor * clip.height())
+    return scale_to_size(clip, new_width, new_height)
+
+def scale_to_fit(clip, max_width, max_height):
+    """Scale the frames of a clip to fit within the given constraints,
+    maintaining the aspect ratio."""
+
+    aspect1 = clip.width() / clip.height()
+    aspect2 = max_width / max_height
+
+    if aspect1 > aspect2:
+        # Fill width.
+        new_width = max_width
+        new_height = clip.height() * max_width / clip.width()
+    else:
+        # Fill height.
+        new_height = max_height
+        new_width = clip.width() * max_height / clip.height()
+
+    return scale_to_size(clip, int(new_width), int(new_height))
+
+def scale_to_size(clip, width, height):
+    """Scale the frames of a clip to a given size, possibly distorting them."""
+    require_clip(clip, "clip")
+    require_int(width, "new width")
+    require_positive(width, "new width")
+    require_int(height, "new height")
+    require_positive(height, "new height")
+
+    def scale_filter(frame):
+        return cv2.resize(frame, (width, height))
+
+    return filter_frames(clip=clip,
+                         func=scale_filter,
+                         name=f'scale to {width}x{height}',
+                         size=(width,height))
+
+class filter_frames(MutatorClip):
+    """ A clip formed by passing the frames of another clip through some
+    function.  The function can take either one or two arguments.  If it's one
+    argument, that will be the frame itself.  If it's two arguments, it wil lbe
+    the frame and its index.  In either case, it should return the output
+    frame.  Output frames may have a different size from the input ones, but
+    must all be the same size across the whole clip.  Audio remains unchanged.
+
+    Optionally, provide an optional name to make the frame signatures more readable.
+
+    Set size to None to infer the width and height of the result by executing
+    the filter function.  Set size to a tuple (width, height) if you know them,
+    to avoid generating a sample frame (which can be slow, for example, if that
+    frame relies on a from_file clip).  Set size to "same" to assume the size
+    is the same as the source clip.
+    """
+
+    def __init__(self, clip, func, name=None, size=None):
+        super().__init__(clip)
+
+        require_callable(func, "filter function")
+        self.func = func
+
+        # Use the details of the function's bytecode to generate a "signature",
+        # which we'll use in the frame signatures.  This should help to prevent
+        # the need to clear cache if the implementation of a filter function is
+        # changed.
+        bytecode = dis.Bytecode(func, first_line=0)
+        description = bytecode.dis()
+        self.sig = hashlib.sha1(description.encode('UTF-8')).hexdigest()[:7]
+
+
+        # Acquire a name for the filter.
+        if name is None:
+            name = self.func.__name__
+        self.name = name
+
+        # Figure out if the function expects the index or not.  If not, wrap it
+        # in a lambda to ignore the index.  But remember that we've done this,
+        # so we can leave the index out of our frame signatures.
+        parameters = list(inspect.signature(self.func).parameters)
+        if len(parameters) == 1:
+            self.depends_on_time = False
+            def new_func(frame, t, func=self.func): #pylint: disable=unused-argument
+                return func(frame)
+            self.func = new_func
+        elif len(parameters) == 2:
+            self.depends_on_time = True
+        else:
+            raise TypeError(f"Filter function should accept either (frame) or "
+                            f"(frame, t), not {parameters}.)")
+
+        # Figure out the size.
+        if size is None:
+            sample_frame = self.func(clip.get_frame(0), 0)
+            height, width, _ = sample_frame.shape
+        else:
+            try:
+                width, height = size
+                require_int(width, 'width')
+                require_positive(width, 'width')
+                require_int(height, 'height')
+                require_positive(height, 'height')
+            except ValueError as e:
+                if size == "same":
+                    width = clip.width()
+                    height = clip.height()
+                else:
+                    raise ValueError(f'In filter_frames, did not understand size={size}.') from e
+
+        self.metrics = Metrics(src = clip.metrics,
+                               width = width,
+                               height = height)
+
+    def frame_signature(self, t):
+        assert t < self.length()
+        return [f"{self.name} (filter:{self.sig})", {
+          't' : t if self.depends_on_time else None,
+          'width' : self.width(),
+          'height' : self.height(),
+          'frame' : self.clip.frame_signature(t)
+        }]
+
+    def get_frame(self, t):
+        return self.func(self.clip.get_frame(t), t)
+
+def chain(*args, length=None, fade_time = 0):
+    """ Concatenate a series of clips.  The clips may be given individually, in
+    lists or other iterables, or a mixture of both.  Optionally overlap them a
+    little and fade between them."""
+    # Construct our list of clips.  Flatten each list; keep each individual
+    # clip.
+    clips = flatten_args(args)
+
+    # Sanity checks.
+    require_float(fade_time, "fade time")
+    require_non_negative(fade_time, "fade time")
+
+    for clip in clips:
+        require_clip(clip, "clip")
+
+    if len(clips) == 0:
+        raise ValueError("Need at least one clip to form a chain.")
+
+    # Figure out when each clip should start and make a list of elements for
+    # composite.
+    start_time = 0
+    elements = []
+    for i, clip in enumerate(clips):
+        if fade_time>0:
+            if i>0:
+                clip = fade_in(clip, fade_time)
+            if i<len(clips)-1:
+                clip = fade_out(clip, fade_time)
+            vmode = VideoMode.ADD
+        else:
+            vmode = VideoMode.REPLACE
+
+        elements.append(Element(clip=clip,
+                                start_time=start_time,
+                                position=(0,0),
+                                video_mode=vmode,
+                                audio_mode=AudioMode.ADD))
+
+        start_time += clip.length() - fade_time
+
+    # Let composite do all the work.
+    return composite(*elements, length=length)
+
+class fade_base(MutatorClip, ABC):
+    """Fade in from or out to silent black or silent transparency."""
+
+    def __init__(self, clip, fade_length, transparent=False):
+        super().__init__(clip)
+        require_float(fade_length, "fade length")
+        require_non_negative(fade_length, "fade length")
+        require_less_equal(fade_length, clip.length(), "fade length", "clip length")
+        self.fade_length = fade_length
+        self.transparent = transparent
+
+    @abstractmethod
+    def alpha(self, t):
+        """ At the given time, what scaling factor should we apply?"""
+
+    def frame_signature(self, t):
+        sig = self.clip.frame_signature(t)
+        alpha = self.alpha(t)
+        print(alpha)
+        if alpha > 254/255:
+            # In this case, the scaling is too small to make any difference in
+            # the output frame, given the 8-bit representation we're using.
+            return sig
+        elif self.transparent:
+            return [f'faded to transparent by {alpha}', sig]
+        else:
+            return [f'faded to black by {alpha}', sig]
+
+    def get_frame(self, t):
+        alpha = self.alpha(t)
+        assert alpha >= 0.0
+        assert alpha <= 1.0
+        frame = self.clip.get_frame(t).copy()
+        if alpha > 254/255:
+            return frame
+        elif self.transparent:
+            frame[:,:,3] = (frame[:,:,3]*alpha).astype(np.uint8)
+            return frame.astype(np.uint8)
+        else:
+            return (alpha * frame).astype(np.uint8)
+
+    @abstractmethod
+    def get_samples(self):
+        """ Return samples; implemented in fade_in and fade_out below."""
+
+class fade_in(fade_base):
+    """ Fade in from silent black or silent transparency. """
+    def alpha(self, t):
+        return t/self.length()
+    def get_samples(self):
+        a = self.clip.get_samples().copy()
+        length = int(self.fade_length * self.sample_rate())
+        num_channels = self.num_channels()
+        a[0:length] *= np.linspace([0.0]*num_channels, [1.0]*num_channels, length)
+        return a
+
+class fade_out(fade_base):
+    """ Fade out to silent black or silent transparency. """
+    def alpha(self, t):
+        return (self.length()-t)/self.length()
+
+    def get_samples(self):
+        a = self.clip.get_samples().copy()
+        length = int(self.fade_length * self.sample_rate())
+        num_channels = self.num_channels()
+        a[a.shape[0]-length:a.shape[0]] *= np.linspace([1.0]*num_channels,
+                                                       [0.0]*num_channels, length)
+        return a
 
