@@ -68,7 +68,7 @@ import cv2
 import numba
 import numpy as np
 import progressbar
-from PIL import ImageFont
+from PIL import ImageFont, ImageDraw, Image
 import soundfile
 
 def is_float(x):
@@ -1901,3 +1901,61 @@ class crop(MutatorClip):
         ll = self.lower_left
         ur = self.upper_right
         return frame[ll[1]:ur[1], ll[0]:ur[0], :]
+
+class draw_text(VideoClip):
+    """ A clip consisting of just a bit of text. """
+    def __init__(self, text, font_filename, font_size, color, length):
+        super().__init__()
+
+        require_string(font_filename, "font filename")
+        require_float(font_size, "font size")
+        require_positive(font_size, "font size")
+        require_color(color, "color")
+
+        # Determine the size of the image we need.  Make sure the width and
+        # height are odd, because Pillow won't create an image with an
+        # odd-dimensioned size.
+        draw = ImageDraw.Draw(Image.new("RGBA", (1,1)))
+        font = get_font(font_filename, font_size)
+        size = draw.textsize(text, font=font)
+
+        self.metrics = Metrics(src=Clip.default_metrics,
+                               width=size[0],
+                               height=size[1],
+                               length=length)
+
+        self.text = text
+        self.font_filename = font_filename
+        self.font_size = font_size
+        self.color = color
+        self.frame = None
+
+    def frame_signature(self, t):
+        return ['text', self.text, self.font_filename, self.font_size,
+          self.length()]
+
+    def get_frame(self, t):
+        if self.frame is None:
+            # Use Pillow to draw the text.
+            image = Image.new("RGBA", (self.width(), self.height()), (0,0,0,0))
+            draw = ImageDraw.Draw(image)
+            color = self.color
+            draw.text((0,0,),
+                      self.text,
+                      font=get_font(self.font_filename, self.font_size),
+                      fill=(color[2],color[1],color[0],255))
+            frame = np.array(image)
+
+            # Pillow seems not to handle transparency quite how one might
+            # expect -- as far as I can tell, it seems to fill the entire text
+            # rectangle with the target color, and then use the alpha channel
+            # to "draw" the text.  These seemed to be resulting in rectangular
+            # blobs, instead of readable text in some cases.  (Hypothesis:
+            # Sometimes the alpha channel is discarded at some point?)  Below,
+            # we fix this by blending into a black background.
+            bg = np.zeros(frame.shape, dtype=np.uint8)
+            frame = alpha_blend(frame, bg)
+            self.frame = frame
+
+        return self.frame
+

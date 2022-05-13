@@ -3,11 +3,6 @@ import cv2
 
 
 
-def test_draw_text():
-    font = "test_files/ethnocentric_rg_it.ttf"
-    x = draw_text("Hello!", font, font_size=200, color=[255,0,255], frame_rate=30, length=5)
-    x.verify()
-
 
 def test_to_monochrome():
     a = black(640, 480, 30, 3)

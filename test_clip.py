@@ -1004,6 +1004,10 @@ def test_crop():
     with pytest.raises(ValueError):
         crop(a, [10, 10], [100, 10000])
 
+def test_draw_text():
+    font = "test_files/ethnocentric_rg_it.otf"
+    x = draw_text("Hello!", font, font_size=200, color=[255,0,255], length=5)
+    x.verify(10)
 
 # Grab all of the test source files first.  (...instead of checking within
 # each test.)
