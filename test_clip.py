@@ -923,6 +923,87 @@ def test_fades():
             with pytest.raises(ValueError):
                 cls(a, 10)
 
+def test_mono_to_stereo():
+    a = sine_wave(880, 0.1, 10, 48000, 1)
+    b = mono_to_stereo(a)
+    b.verify(30)
+    assert b.num_channels() == 2
+
+    a = sine_wave(880, 0.1, 10, 48000, 2)
+    with pytest.raises(ValueError):
+        # Not a mono source.
+        b = mono_to_stereo(a)
+
+def test_stereo_to_mono():
+    a = sine_wave(880, 0.1, 10, 48000, 2)
+    b = stereo_to_mono(a)
+    b.verify(30)
+    assert b.num_channels() == 1
+
+    a = sine_wave(880, 0.1, 10, 48000, 1)
+    with pytest.raises(ValueError):
+        # Not a stereo source.
+        b = stereo_to_mono(a)
+
+def test_reverse():
+    a = join(
+      solid([0,0,0], 640, 480, 1),
+      sine_wave(880, 0.1, 1, 48000, 2)
+    )
+    b = join(
+      solid([255,0,0], 640, 480, 1),
+      sine_wave(440, 0.1, 1, 48000, 2)
+    )
+    c = chain(a,b)
+    d = reverse(c)
+    d.verify(30)
+
+    f1 = c.get_frame(5)
+    f2 = d.get_frame(d.length()-5)
+    assert np.array_equal(f1, f2)
+
+    s1 = c.get_samples()
+    s2 = d.get_samples()
+
+    assert np.array_equal(s1[5], s2[s2.shape[0]-6])
+
+def test_volume():
+    a = sine_wave(880, 0.1, 10, 48000, 2)
+    b = scale_volume(a, 0.1)
+    b.verify(30)
+
+    with pytest.raises(ValueError):
+        scale_volume(a, -10)
+
+    with pytest.raises(TypeError):
+        scale_volume(a, "tim")
+
+def test_crop():
+    a = join(
+      solid([0,0,0], 640, 480, 10),
+      sine_wave(880, 0.1, 10, 48000, 2)
+    )
+
+    # Typical usage.
+    b = crop(a, [10, 10], [100, 100])
+    b.verify(30)
+    assert b.width() == 90
+    assert b.height() == 90
+
+
+    # Zero is okay.
+    c = crop(a, [0, 0], [100, 100])
+    c.verify(30)
+
+    with pytest.raises(ValueError):
+        crop(a, [-1, 10], [100, 100])
+
+    with pytest.raises(ValueError):
+        crop(a, [100, 100], [10, 10])
+
+    with pytest.raises(ValueError):
+        crop(a, [10, 10], [100, 10000])
+
 
 # Grab all of the test source files first.  (...instead of checking within
 # each test.)

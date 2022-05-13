@@ -1828,3 +1828,76 @@ class fade_out(fade_base):
                                                        [0.0]*num_channels, length)
         return a
 
+class mono_to_stereo(MutatorClip):
+    """ Change the number of channels from one to two. """
+    def __init__(self, clip):
+        super().__init__(clip)
+        if self.clip.metrics.num_channels != 1:
+            raise ValueError(f"Expected 1 audio channel, not {self.clip.num_channels()}.")
+        self.metrics = Metrics(self.metrics, num_channels=2)
+    def get_samples(self):
+        data = self.clip.get_samples()
+        return np.concatenate((data, data), axis=1)
+
+class stereo_to_mono(MutatorClip):
+    """ Change the number of channels from two to one. """
+    def __init__(self, clip):
+        super().__init__(clip)
+        if self.clip.metrics.num_channels != 2:
+            raise ValueError(f"Expected 2 audio channels, not {self.clip.num_channels()}.")
+        self.metrics = Metrics(self.metrics, num_channels=1)
+    def get_samples(self):
+        data = self.clip.get_samples()
+        return (0.5*data[:,0] + 0.5*data[:,1]).reshape(self.num_samples(), 1)
+
+class scale_volume(MutatorClip):
+    """ Scale the volume of audio in a clip.  """
+    def __init__(self, clip, factor):
+        super().__init__(clip)
+        require_float(factor, "scaling factor")
+        require_positive(factor, "scaling factor")
+        self.factor = factor
+
+    def get_samples(self):
+        return self.factor * self.clip.get_samples()
+
+class reverse(MutatorClip):
+    """ Reverse both the video and audio in a clip. """
+    def frame_signature(self, t):
+        return self.clip.frame_signature(self.length() - t)
+    def get_frame(self, t):
+        return self.clip.get_frame(self.length() - t)
+    def get_samples(self):
+        return np.flip(self.clip.get_samples(), axis=0)
+
+class crop(MutatorClip):
+    """Trim the frames of a clip to show only the rectangle between
+    lower_left and upper_right."""
+    def __init__(self, clip, lower_left, upper_right):
+        super().__init__(clip)
+        require_int(lower_left[0], "lower left")
+        require_non_negative(lower_left[0], "lower left")
+        require_int(lower_left[1], "lower left")
+        require_non_negative(lower_left[1], "lower left")
+        require_int(upper_right[0], "upper right")
+        require_less_equal(upper_right[0], clip.width(), "upper right", "width")
+        require_int(upper_right[1], "upper right")
+        require_less_equal(upper_right[1], clip.height(), "upper right", "width")
+        require_less(lower_left[0], upper_right[0], "lower left", "upper right")
+        require_less(lower_left[1], upper_right[1], "lower left", "upper right")
+
+        self.lower_left = lower_left
+        self.upper_right = upper_right
+
+        self.metrics = Metrics(self.metrics,
+                               width=upper_right[0]-lower_left[0],
+                               height=upper_right[1]-lower_left[1])
+
+    def frame_signature(self, t):
+        return ['crop', self.lower_left, self.upper_right, self.clip.frame_signature(t)]
+
+    def get_frame(self, t):
+        frame = self.clip.get_frame(t)
+        ll = self.lower_left
+        ur = self.upper_right
+        return frame[ll[1]:ur[1], ll[0]:ur[0], :]

@@ -2,87 +2,6 @@ import cv2
 
 
 
-def test_mono_to_stereo():
-    a = sine_wave(880, 0.1, 10, 48000, 1)
-    b = mono_to_stereo(a)
-    b.verify()
-    assert b.num_channels() == 2
-
-    a = sine_wave(880, 0.1, 10, 48000, 2)
-    with pytest.raises(ValueError):
-        # Not a mono source.
-        b = mono_to_stereo(a)
-
-def test_stereo_to_mono():
-    a = sine_wave(880, 0.1, 10, 48000, 2)
-    b = stereo_to_mono(a)
-    b.verify()
-    assert b.num_channels() == 1
-
-    a = sine_wave(880, 0.1, 10, 48000, 1)
-    with pytest.raises(ValueError):
-        # Not a stereo source.
-        b = stereo_to_mono(a)
-
-def test_reverse():
-    a = join(
-      solid([0,0,0], 640, 480, 30, 1),
-      sine_wave(880, 0.1, 1, 48000, 2)
-    )
-    b = join(
-      solid([255,0,0], 640, 480, 30, 1),
-      sine_wave(440, 0.1, 1, 48000, 2)
-    )
-    c = chain(a,b)
-    d = reverse(c)
-    d.verify()
-
-    f1 = c.get_frame(5)
-    f2 = d.get_frame(d.num_frames()-6)
-    assert np.array_equal(f1, f2)
-
-    s1 = c.get_samples()
-    s2 = d.get_samples()
-
-    assert np.array_equal(s1[5], s2[s2.shape[0]-6])
-
-def test_volume():
-    a = sine_wave(880, 0.1, 10, 48000, 2)
-    b = scale_volume(a, 0.1)
-    b.verify()
-
-    with pytest.raises(ValueError):
-        scale_volume(a, -10)
-
-    with pytest.raises(TypeError):
-        scale_volume(a, "tim")
-
-def test_crop():
-    a = join(
-      solid([0,0,0], 640, 480, 30, 10),
-      sine_wave(880, 0.1, 10, 48000, 2)
-    )
-
-    # Typical usage.
-    b = crop(a, [10, 10], [100, 100])
-    b.verify()
-    assert b.width() == 90
-    assert b.height() == 90
-
-
-    # Zero is okay.
-    c = crop(a, [0, 0], [100, 100])
-    c.verify()
-
-    with pytest.raises(ValueError):
-        crop(a, [-1, 10], [100, 100])
-
-    with pytest.raises(ValueError):
-        crop(a, [100, 100], [10, 10])
-
-    with pytest.raises(ValueError):
-        crop(a, [10, 10], [100, 10000])
-
 
 def test_draw_text():
     font = "test_files/ethnocentric_rg_it.ttf"
@@ -132,27 +51,6 @@ def test_resample3():
     assert b.frame_rate() == a.frame_rate()/2
     assert b.new_index(0) == 0
 
-def test_fades():
-    cache.clear()
-    a = white(640, 480, 30, 3)
-
-    for cls in [fade_in, fade_out]:
-        for transparent in [True, False]:
-            # Normal usage.
-            b = cls(a, 1.5,transparent=transparent)
-            b.verify()
-
-            # Negative fade time.
-            with pytest.raises(ValueError):
-                cls(a, -1)
-
-            # Bogus types as input.
-            with pytest.raises(TypeError):
-                cls(-1, a)
-
-            # Fade time longer than clip.
-            with pytest.raises(ValueError):
-                cls(a, 10)
 
 def test_slice_out1():
     # Bad times.
