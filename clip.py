@@ -1959,3 +1959,15 @@ class draw_text(VideoClip):
 
         return self.frame
 
+def to_monochrome(clip):
+    """ Convert a clip's video to monochrome. """
+    def mono(frame):
+        return cv2.cvtColor(cv2.cvtColor(frame, cv2.COLOR_BGRA2GRAY), cv2.COLOR_GRAY2BGRA)
+
+    return filter_frames(
+      clip=clip,
+      func=mono,
+      name='to_monochrome',
+      size='same'
+    )
+

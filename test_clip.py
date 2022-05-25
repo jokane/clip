@@ -1009,6 +1009,12 @@ def test_draw_text():
     x = draw_text("Hello!", font, font_size=200, color=[255,0,255], length=5)
     x.verify(10)
 
+def test_to_monochrome():
+    a = black(640, 480, 3)
+    b = to_monochrome(a)
+    b.verify(30)
+
+
 # Grab all of the test source files first.  (...instead of checking within
 # each test.)
 get_test_files()
