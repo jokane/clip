@@ -4,42 +4,6 @@ import zipfile
 
 import pdf2image
 
-def slice_out(clip, start, end):
-    """ Remove the part between the given endponts. """
-    require_clip(clip, "clip")
-    require_float(start, "start time")
-    require_non_negative(start, "start time")
-    require_float(end, "end time")
-    require_positive(end, "end time")
-    require_less(start, end, "start time", "end time")
-    require_less_equal(end, clip.length(), "end time", "clip length")
-
-    return chain(slice_clip(clip, 0, start),
-                 slice_clip(clip, end, clip.length()))
-
-
-def letterbox(clip, width, height):
-    """ Fix the clip within given dimensions, adding black bands on the
-    top/bottom or left/right if needed. """
-    require_clip(clip, "clip")
-    require_int(width, "width")
-    require_positive(width, "width")
-    require_int(height, "height")
-    require_positive(height, "height")
-
-    scaled = scale_to_fit(clip, width, height)
-
-    position=[int((width-scaled.width())/2),
-              int((height-scaled.height())/2)]
-
-    return composite(Element(clip=scaled,
-                             start_time=0,
-                             position=position,
-                             video_mode=VideoMode.REPLACE,
-                             audio_mode=AudioMode.REPLACE),
-                      width=width,
-                      height=height)
-
 
 class repeat_frame(VideoClip):
     """Shows the same frame, from another clip, over and over."""

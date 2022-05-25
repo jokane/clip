@@ -1036,6 +1036,30 @@ def test_resample2():
     b = resample(a)
     b.verify(30)
 
+def test_slice_out1():
+    # Bad times.
+    a = black(640, 480, 3)
+    with pytest.raises(TypeError):
+        slice_out(0,0,0)
+    with pytest.raises(TypeError):
+        slice_out(a, a, a)
+    with pytest.raises(ValueError):
+        slice_out(a, 2, 1)
+    with pytest.raises(ValueError):
+        slice_out(a, -1, 1)
+
+def test_slice_out2():
+    # Bad times.
+    a = black(640, 480, 3)
+    b = slice_out(a, 1.5, 2.5)
+    b.verify(30)
+    assert b.length() == 2
+
+def test_letterbox():
+    a = white(640, 480, 3)
+    b = letterbox(a, 1000, 1000)
+    b.verify(30)
+
 
 # Grab all of the test source files first.  (...instead of checking within
 # each test.)
