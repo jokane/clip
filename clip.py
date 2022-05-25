@@ -68,6 +68,7 @@ import cv2
 import numba
 import numpy as np
 import progressbar
+import scipy.signal
 from PIL import ImageFont, ImageDraw, Image
 import soundfile
 
@@ -1970,4 +1971,47 @@ def to_monochrome(clip):
       name='to_monochrome',
       size='same'
     )
+
+class resample(MutatorClip):
+    """ Change the sample rate and/or length. """
+    def __init__(self, clip, sample_rate=None, length=None):
+
+        super().__init__(clip)
+
+        if sample_rate is not None:
+            require_float(sample_rate, "sample rate")
+            require_positive(sample_rate, "sample rate")
+        else:
+            sample_rate = self.clip.sample_rate()
+
+        if length is not None:
+            require_float(length, "length")
+            require_positive(length, "length")
+        else:
+            length = self.clip.length()
+
+        self.metrics = Metrics(src=self.clip.metrics,
+                               sample_rate=sample_rate,
+                               length=length)
+
+    def new_time(self, t):
+        """ Return the time in the original clip to be used at the given
+        time of the present clip. """
+        assert t <= self.length()
+        seconds_here = t
+        seconds_there = seconds_here * self.clip.length() / self.length()
+        assert seconds_there <= self.clip.length()
+        return seconds_there
+
+    def frame_signature(self, t):
+        return self.clip.frame_signature(self.new_time(t))
+
+    def get_frame(self, t):
+        return self.clip.get_frame(self.new_time(t))
+
+    def get_samples(self):
+        data = self.clip.get_samples()
+        if self.clip.sample_rate() != self.sample_rate() or self.clip.length() != self.length():
+            data = scipy.signal.resample(data, self.num_samples())
+        return data
 

@@ -1014,6 +1014,28 @@ def test_to_monochrome():
     b = to_monochrome(a)
     b.verify(30)
 
+def test_resample1():
+    # Basic case.
+    length = 5
+    a = from_file("test_files/bunny.webm")
+    a = slice_clip(a, 0, length)
+
+    sr = 48000
+    l = 2*length
+    b = resample(a, sample_rate=sr, length=l)
+    assert b.sample_rate() == sr
+    assert b.length() == l
+    b.verify(29)
+
+def test_resample2():
+    # Cover all of the default-parameter branches.
+    length = 5
+    a = from_file("test_files/bunny.webm")
+    a = slice_clip(a, 0, length)
+
+    b = resample(a)
+    b.verify(30)
+
 
 # Grab all of the test source files first.  (...instead of checking within
 # each test.)
