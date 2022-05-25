@@ -2087,3 +2087,57 @@ def hold_at_end(clip, target_length):
                  repeat_frame(clip, clip.length(), target_length),
                  length=target_length)
 
+class image_glob(VideoClip):
+    """Video from a collection of identically-sized image files that match a
+    unix-style pattern, at a given frame rate or timed to a given length."""
+    def __init__(self, pattern, frame_rate=None, length=None):
+        super().__init__()
+
+        require_string(pattern, "pattern")
+
+        if frame_rate is not None:
+            require_float(frame_rate, "frame rate")
+            require_positive(frame_rate, "frame rate")
+        if length is not None:
+            require_float(length, "length")
+            require_positive(length, "length")
+
+        if not frame_rate and not length:
+            raise ValueError('Need either frame rate or length.')
+
+        if frame_rate and length:
+            raise ValueError('Need either frame rate or length, not both.')
+
+        self.pattern = pattern
+
+        self.filenames = sorted(glob.glob(pattern))
+        if len(self.filenames) == 0:
+            raise FileNotFoundError(f'No files matched pattern: {pattern}')
+
+        # Get full pathnames, in case the current directory changes.
+        self.filenames = list(map(lambda x: os.path.join(os.getcwd(), x), self.filenames))
+
+        if length:
+            frame_rate = len(self.filenames)/length
+        else:
+            length = len(self.filenames)/frame_rate
+
+        self.frame_rate = frame_rate
+
+        sample_frame = cv2.imread(self.filenames[0])
+        assert sample_frame is not None
+
+        self.metrics = Metrics(src=Clip.default_metrics,
+                               width=sample_frame.shape[1],
+                               height=sample_frame.shape[0],
+                               length = len(self.filenames)/frame_rate)
+
+    def time_to_frame_index(self, t):
+        """Which frame would be visible at the given time?"""
+        return int(t*self.frame_rate)
+
+    def frame_signature(self, t):
+        return self.filenames[self.time_to_frame_index(t)]
+
+    def get_frame(self, t):
+        return read_image(self.filenames[self.time_to_frame_index(t)])

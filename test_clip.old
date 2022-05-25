@@ -2,48 +2,6 @@ import cv2
 
 
 
-def test_repeat_frame():
-    a = from_file("test_files/bunny.webm", decode_chunk_length=1.0)
-    a = slice_clip(a, 0, 1)
-
-    b = repeat_frame(a, 0.2, 5)
-    b.verify()
-    assert b.length() == 5
-    assert b.frame_signature(0) == a.frame_signature(int(0.2*a.frame_rate()))
-
-def test_hold_at_end1():
-    # Normal usage.
-    a = from_file("test_files/bunny.webm", decode_chunk_length=1.0)
-    a = slice_clip(a, 0, 1)
-
-    b = hold_at_end(a, 5)
-    b.verify()
-    assert b.length() == 5
-
-def test_hold_at_end2():
-    # When length is not an exact number of frames.
-    a = from_file("test_files/bunny.webm", decode_chunk_length=1.0)
-    a = slice_clip(a, 0, 0.98)
-    b = hold_at_end(a, 5)
-    b.verify(verbose=True)
-    assert b.length() == 5
-
-def test_image_glob1():
-    a = image_glob("test_files/bunny_frames/*.png", frame_rate=24)
-    a.verify()
-
-def test_image_glob2():
-    with pytest.raises(FileNotFoundError):
-        image_glob("test_files/bunny_frames/*.poo", frame_rate=24)
-
-def test_image_glob3():
-    # Make sure we can still find the files if the current directory changes.
-    a = image_glob("test_files/bunny_frames/*.png", frame_rate=24)
-    a.verify()
-
-    with temporary_current_directory():
-        a.verify()
-
 def test_zip_file1():
     a = zip_file("test_files/bunny.zip", frame_rate=15)
     a.verify()

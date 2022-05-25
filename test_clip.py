@@ -1088,6 +1088,38 @@ def test_hold_at_end2():
     b.verify(x.frame_rate, verbose=True)
     assert b.length() == 5
 
+def test_image_glob1():
+    # Normal usage.
+    a = image_glob("test_files/bunny_frames/*.png", frame_rate=24)
+    a.verify(24)
+
+def test_image_glob2():
+    # Bad pattern.
+    with pytest.raises(FileNotFoundError):
+        image_glob("test_files/bunny_frames/*.poo", frame_rate=24)
+
+def test_image_glob3():
+    # Make sure we can still find the files if the current directory changes.
+    a = image_glob("test_files/bunny_frames/*.png", frame_rate=24)
+    a.verify(24)
+
+    with temporary_current_directory():
+        a.verify(24)
+
+def test_image_glob4():
+    # Provide length instead of frame rate.
+    a = image_glob("test_files/bunny_frames/*.png", length=315)
+    assert a.frame_rate == 10
+
+def test_image_glob5():
+    # Bad args.
+
+    with pytest.raises(ValueError):
+        image_glob("test_files/bunny_frames/*.png", length=1, frame_rate=1)
+    with pytest.raises(ValueError):
+        image_glob("test_files/bunny_frames/*.png")
+
+
 # Grab all of the test source files first.  (...instead of checking within
 # each test.)
 get_test_files()

@@ -5,41 +5,6 @@ import zipfile
 import pdf2image
 
 
-class image_glob(VideoClip):
-    """Video from a collection of identically-sized image files that match
-    a unix-style pattern, at a given frame rate."""
-    def __init__(self, pattern, frame_rate):
-        super().__init__()
-
-        require_string(pattern, "pattern")
-        require_float(frame_rate, "frame rate")
-        require_positive(frame_rate, "frame rate")
-
-        self.pattern = pattern
-
-        self.filenames = sorted(glob.glob(pattern))
-        if len(self.filenames) == 0:
-            raise FileNotFoundError(f'No files matched pattern: {pattern}')
-
-        # Get full pathnames, in case the current directory changes.
-        self.filenames = list(map(lambda x: os.path.join(os.getcwd(), x), self.filenames))
-
-        sample_frame = cv2.imread(self.filenames[0])
-        assert sample_frame is not None
-
-        self.metrics = Metrics(src=Clip.default_metrics,
-                               width=sample_frame.shape[1],
-                               height=sample_frame.shape[0],
-                               frame_rate = frame_rate,
-                               length = len(self.filenames)/frame_rate)
-
-    def frame_signature(self, index):
-        assert index<self.num_frames()
-        return self.filenames[index]
-
-    def get_frame(self, index):
-        return read_image(self.filenames[index])
-
 class zip_file(VideoClip):
     """ A video clip from images stored in a zip file."""
 
