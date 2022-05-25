@@ -5,51 +5,6 @@ import zipfile
 import pdf2image
 
 
-class repeat_frame(VideoClip):
-    """Shows the same frame, from another clip, over and over."""
-    def __init__(self, clip, when, length):
-        super().__init__()
-        require_clip(clip, "clip")
-        require_float(when, "time")
-        require_non_negative(when, "time")
-        require_less_equal(when, clip.length(), "time", "clip length")
-        require_float(length, "length")
-        require_positive(length, "length")
-
-        self.metrics = Metrics(src=clip.metrics,
-                               length=length)
-        self.clip = clip
-        self.frame_index = int(when * self.frame_rate())
-
-        # Special case for repeating at/near the end of the clip: Because of
-        # how time is scaled, we might end up asking for one frame beyond the
-        # end.
-        if self.frame_index == self.clip.num_frames():
-            self.frame_index -= 1
-
-        assert self.frame_index < self.clip.num_frames()
-
-    def frame_signature(self, index):
-        assert index < self.num_frames()
-        return self.clip.frame_signature(self.frame_index)
-
-    def get_frame(self, index):
-        return self.clip.get_frame(self.frame_index)
-
-def hold_at_end(clip, target_length):
-    """Extend a clip by repeating its last frame, to fill a target length."""
-    require_clip(clip, "clip")
-    require_float(target_length, "target length")
-    require_positive(target_length, "target length")
-
-    # Here the repeat_frame almost certainly goes beyond target length, and
-    # we force the final product to have the right length directly.  This
-    # prevents getting a blank frame at end in some cases.
-    return chain(clip,
-                 repeat_frame(clip, clip.length(), target_length),
-                 length=target_length)
-
-
 class image_glob(VideoClip):
     """Video from a collection of identically-sized image files that match
     a unix-style pattern, at a given frame rate."""

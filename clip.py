@@ -567,7 +567,7 @@ class Clip(ABC):
             sig = self.frame_signature(t)
             if verbose:
                 pprint.pprint(sig)
-                print(t, end=" ")
+                print(f'{t:0.2f}', end=" ")
             assert sig is not None
 
             frame = self.get_frame(t)
@@ -2050,4 +2050,40 @@ def letterbox(clip, width, height):
                              audio_mode=AudioMode.REPLACE),
                       width=width,
                       height=height)
+
+class repeat_frame(VideoClip):
+    """Show the same frame, from another clip, over and over."""
+
+    def __init__(self, clip, when, length):
+        super().__init__()
+        require_clip(clip, "clip")
+        require_float(when, "time")
+        require_non_negative(when, "time")
+        require_less_equal(when, clip.length(), "time", "clip length")
+        require_float(length, "length")
+        require_positive(length, "length")
+
+        self.metrics = Metrics(src=clip.metrics,
+                               length=length)
+        self.clip = clip
+        self.when = when
+
+    def frame_signature(self, t):
+        return self.clip.frame_signature(self.when)
+
+    def get_frame(self, t):
+        return self.clip.get_frame(self.when)
+
+def hold_at_end(clip, target_length):
+    """Extend a clip by repeating its last frame, to fill a target length."""
+    require_clip(clip, "clip")
+    require_float(target_length, "target length")
+    require_positive(target_length, "target length")
+
+    # Here the repeat_frame almost certainly goes beyond target length, and
+    # we force the final product to have the right length directly.  This
+    # prevents getting a blank frame at end in some cases.
+    return chain(clip,
+                 repeat_frame(clip, clip.length(), target_length),
+                 length=target_length)
 

@@ -1060,6 +1060,33 @@ def test_letterbox():
     b = letterbox(a, 1000, 1000)
     b.verify(30)
 
+def test_repeat_frame():
+    x = from_file("test_files/bunny.webm")
+    a = slice_clip(x, 0, 1)
+
+    when = 0.2
+
+    b = repeat_frame(a, when, 5)
+    b.verify(x.frame_rate, verbose=False)
+    assert b.length() == 5
+    assert b.frame_signature(0) == a.frame_signature(when)
+
+def test_hold_at_end1():
+    # Normal usage.
+    x = from_file("test_files/bunny.webm")
+    a = slice_clip(x, 0, 1)
+
+    b = hold_at_end(a, 5)
+    b.verify(x.frame_rate)
+    assert b.length() == 5
+
+def test_hold_at_end2():
+    # When length is not an exact number of frames.
+    x = from_file("test_files/bunny.webm")
+    a = slice_clip(x, 0, 0.98)
+    b = hold_at_end(a, 5)
+    b.verify(x.frame_rate, verbose=True)
+    assert b.length() == 5
 
 # Grab all of the test source files first.  (...instead of checking within
 # each test.)
