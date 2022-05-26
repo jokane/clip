@@ -1113,11 +1113,19 @@ def test_image_glob4():
 
 def test_image_glob5():
     # Bad args.
-
     with pytest.raises(ValueError):
         image_glob("test_files/bunny_frames/*.png", length=1, frame_rate=1)
     with pytest.raises(ValueError):
         image_glob("test_files/bunny_frames/*.png")
+
+def test_zip_file1():
+    a = zip_file("test_files/bunny.zip", frame_rate=15)
+    a.verify(30)
+
+def test_zip_file2():
+    with pytest.raises(FileNotFoundError):
+        zip_file("test_files/bunny.zap", frame_rate=15)
+
 
 
 # Grab all of the test source files first.  (...instead of checking within

@@ -53,6 +53,7 @@ from enum import Enum
 import glob
 import hashlib
 import inspect
+import io
 import math
 import os
 import pprint
@@ -63,6 +64,7 @@ import sys
 import tempfile
 import threading
 import time
+import zipfile
 
 import cv2
 import numba
@@ -829,6 +831,32 @@ class MutatorClip(Clip):
     def get_samples(self):
         return self.clip.get_samples()
 
+class FiniteIndexed:
+    """Mixin for clips that a derived from a finite, ordered sequence of frames."""
+    def __init__(self, num_frames, frame_rate=None, length=None):
+
+        if frame_rate is not None:
+            require_float(frame_rate, "frame rate")
+            require_positive(frame_rate, "frame rate")
+        if length is not None:
+            require_float(length, "length")
+            require_positive(length, "length")
+
+        if not frame_rate and not length:
+            raise ValueError('Need either frame rate or length.')
+
+        if frame_rate and length:
+            raise ValueError('Need either frame rate or length, not both.')
+
+        if length:
+            frame_rate = num_frames/length
+
+        self.frame_rate = frame_rate
+
+    def time_to_frame_index(self, t):
+        """Which frame would be visible at the given time?"""
+        return int(t*self.frame_rate)
+
 class solid(Clip):
     """A video clip in which each frame has the same solid color."""
     def __init__(self, color, width, height, length):
@@ -926,7 +954,7 @@ def get_duration_from_ffprobe_stream(stream):
 
 def metrics_and_frame_rate_from_stream_dicts(video_stream, audio_stream, fname):
     """ Given dicts representing the audio and video elements of a clip,
-    return the appropriate metrics object. """
+    return the appropriate metrics object and the float framerate. """
     # Some videos, especially from mobile phones, contain metadata asking for a
     # rotation.  We'll generally not try to deal with that here ---better,
     # perhaps, to let the user flip or rotate as needed later--- but
@@ -1074,12 +1102,12 @@ def audio_samples_from_file(fname, cache, expected_sample_rate, expected_num_cha
                                    expected_num_channels,
                                    expected_num_samples)
 
-class from_file(Clip):
+class from_file(Clip,FiniteIndexed):
     """ A clip read from a file such as an mp4, flac, or other format readable
     by ffmpeg. """
 
     def __init__(self, fname, suppress_video=False, suppress_audio=False, cache_dir=None):
-        super().__init__()
+        Clip.__init__(self)
 
         if not os.path.isfile(fname):
             raise FileNotFoundError(f"Could not open file {fname}.")
@@ -1093,6 +1121,10 @@ class from_file(Clip):
         self.cache = ClipCache(directory=cache_dir)
 
         self.acquire_metrics(suppress_video, suppress_audio)
+        if self.frame_rate:
+            FiniteIndexed.__init__(self,
+                                   num_frames=self.metrics.length*self.frame_rate,
+                                   length=self.metrics.length)
 
         self.samples = None
 
@@ -1132,10 +1164,6 @@ class from_file(Clip):
         self.metrics, self.frame_rate, self.has_video, self.has_audio = response
 
         self.requested_indices = set()
-
-    def time_to_frame_index(self, t):
-        """Which frame would be visible at the given time?"""
-        return int(t*self.frame_rate)
 
     def frame_signature(self, t):
         require_positive(t, "timestamp")
@@ -2087,26 +2115,13 @@ def hold_at_end(clip, target_length):
                  repeat_frame(clip, clip.length(), target_length),
                  length=target_length)
 
-class image_glob(VideoClip):
+class image_glob(VideoClip,FiniteIndexed):
     """Video from a collection of identically-sized image files that match a
     unix-style pattern, at a given frame rate or timed to a given length."""
     def __init__(self, pattern, frame_rate=None, length=None):
-        super().__init__()
+        VideoClip.__init__(self)
 
         require_string(pattern, "pattern")
-
-        if frame_rate is not None:
-            require_float(frame_rate, "frame rate")
-            require_positive(frame_rate, "frame rate")
-        if length is not None:
-            require_float(length, "length")
-            require_positive(length, "length")
-
-        if not frame_rate and not length:
-            raise ValueError('Need either frame rate or length.')
-
-        if frame_rate and length:
-            raise ValueError('Need either frame rate or length, not both.')
 
         self.pattern = pattern
 
@@ -2116,13 +2131,7 @@ class image_glob(VideoClip):
 
         # Get full pathnames, in case the current directory changes.
         self.filenames = list(map(lambda x: os.path.join(os.getcwd(), x), self.filenames))
-
-        if length:
-            frame_rate = len(self.filenames)/length
-        else:
-            length = len(self.filenames)/frame_rate
-
-        self.frame_rate = frame_rate
+        FiniteIndexed.__init__(self, len(self.filenames), frame_rate, length)
 
         sample_frame = cv2.imread(self.filenames[0])
         assert sample_frame is not None
@@ -2130,14 +2139,52 @@ class image_glob(VideoClip):
         self.metrics = Metrics(src=Clip.default_metrics,
                                width=sample_frame.shape[1],
                                height=sample_frame.shape[0],
-                               length = len(self.filenames)/frame_rate)
-
-    def time_to_frame_index(self, t):
-        """Which frame would be visible at the given time?"""
-        return int(t*self.frame_rate)
+                               length = len(self.filenames)/self.frame_rate)
 
     def frame_signature(self, t):
         return self.filenames[self.time_to_frame_index(t)]
 
     def get_frame(self, t):
         return read_image(self.filenames[self.time_to_frame_index(t)])
+
+class zip_file(VideoClip, FiniteIndexed):
+    """ A video clip from images stored in a zip file."""
+
+    def __init__(self, fname, frame_rate):
+        VideoClip.__init__(self)
+
+        require_string(fname, "file name")
+
+        if not os.path.isfile(fname):
+            raise FileNotFoundError(f'Trying to open {fname}, which does not exist.')
+
+        self.fname = fname
+        self.zf = zipfile.ZipFile(fname, 'r') #pylint: disable=consider-using-with
+
+        image_formats = ['tga', 'jpg', 'jpeg', 'png'] # (Note: Many others could be added here.)
+        pattern = ".(" + "|".join(image_formats) + ")$"
+
+        info_list = self.zf.infolist()
+        info_list = filter(lambda x: re.search(pattern, x.filename), info_list)
+        info_list = sorted(info_list, key=lambda x: x.filename)
+        self.info_list = info_list
+        FiniteIndexed.__init__(self, len(self.info_list), frame_rate)
+
+        sample_frame = self.get_frame(0)
+
+        self.metrics = Metrics(src = Clip.default_metrics,
+                               width=sample_frame.shape[1],
+                               height=sample_frame.shape[0],
+                               length = len(self.info_list)/frame_rate)
+
+    def frame_signature(self, t):
+        index = self.time_to_frame_index(t)
+        return ['zip file member', self.fname, self.info_list[index].filename]
+
+    def get_frame(self, t):
+        index = self.time_to_frame_index(t)
+        data = self.zf.read(self.info_list[index])
+        pil_image = Image.open(io.BytesIO(data)).convert('RGBA')
+        frame = np.array(pil_image)
+        frame = cv2.cvtColor(frame, cv2.COLOR_RGBA2BGRA)
+        return frame

@@ -2,15 +2,6 @@ import cv2
 
 
 
-def test_zip_file1():
-    a = zip_file("test_files/bunny.zip", frame_rate=15)
-    a.verify()
-
-def test_zip_file2():
-    with pytest.raises(FileNotFoundError):
-        zip_file("test_files/bunny.zap", frame_rate=15)
-
-
 def test_to_default_metrics():
     a = from_file("test_files/bunny.webm", decode_chunk_length=None)
     a = slice_clip(a, 0, 1.0)
@@ -201,21 +192,21 @@ def test_ken_burns4():
     b.verify()
 
 def test_fade_between():
-    a = black(640, 480, 30, 3)
-    b = white(640, 480, 30, 3)
+    a = black(640, 480, 3)
+    b = white(640, 480, 3)
 
     # Normal use.
     c = fade_between(a, b)
-    c.verify()
+    c.verify(30)
 
     # Must have same length.
-    d = white(640, 480, 30, 4)
+    d = white(640, 480, 4)
     with pytest.raises(ValueError):
         fade_between(a, d)
 
 def test_silence_audio():
-    a = from_file("test_files/bunny.webm", decode_chunk_length=5)
+    a = from_file("test_files/bunny.webm")
     a = slice_clip(a, 0, 5)
     b = silence_audio(a)
-    b.verify()
+    b.verify(30)
 
