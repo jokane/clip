@@ -2,41 +2,6 @@ import pdf2image
 
 
 
-def to_default_metrics(clip):
-    """Adjust a clip so that its metrics match the default metrics: Scale video
-    and resample to match frame rate and sample rate.  Useful if assorted clips
-    from various sources will be chained together."""
-
-    require_clip(clip, "clip")
-
-    dm = Clip.default_metrics
-
-    # Video dimensions.
-    if clip.width() != dm.width or clip.height() != dm.height:
-        clip = letterbox(clip, dm.width, dm.height)
-
-    # Frame rate and sample rate.
-    if (clip.frame_rate() != dm.frame_rate
-          or clip.sample_rate() != dm.sample_rate):
-        clip = resample(clip,
-                        frame_rate=dm.frame_rate,
-                        sample_rate=dm.sample_rate)
-
-    # Number of audio channels.
-    nc_before = clip.num_channels()
-    nc_after = dm.num_channels
-    if nc_before == nc_after:
-        pass
-    elif nc_before == 2 and nc_after == 1:
-        clip = stereo_to_mono(clip)
-    elif nc_before == 1 and nc_after == 2:
-        clip = mono_to_stereo(clip)
-    else:
-        raise NotImplementedError(f"Don't know how to convert from {nc_before}"
-                                  f"channels to {nc_after}.")
-
-    return clip
-
 def timewarp(clip, factor):
     """ Speed up a clip by the given factor. """
     require_clip(clip, "clip")

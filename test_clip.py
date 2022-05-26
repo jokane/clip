@@ -1126,6 +1126,35 @@ def test_zip_file2():
     with pytest.raises(FileNotFoundError):
         zip_file("test_files/bunny.zap", frame_rate=15)
 
+def test_to_default_metrics():
+    a = from_file("test_files/bunny.webm")
+    a = slice_clip(a, 0, 1.0)
+
+    with pytest.raises(ValueError):
+        a.metrics.verify_compatible_with(Clip.default_metrics)
+
+    b = to_default_metrics(a)
+    b.verify(30)
+    b.metrics.verify_compatible_with(Clip.default_metrics)
+
+    # Stereo to mono.
+    Clip.default_metrics.num_channels = 1
+    c = to_default_metrics(a)
+    c.verify(30)
+    c.metrics.verify_compatible_with(Clip.default_metrics)
+
+    # Mono to stereo.
+    Clip.default_metrics.num_channels = 2
+    d = to_default_metrics(c)
+    d.verify(30)
+    d.metrics.verify_compatible_with(Clip.default_metrics)
+
+    # Don't know how to deal with 3 channels.
+    Clip.default_metrics.num_channels = 3
+    with pytest.raises(NotImplementedError):
+        to_default_metrics(a)
+    Clip.default_metrics.num_channels = 2
+
 
 
 # Grab all of the test source files first.  (...instead of checking within
