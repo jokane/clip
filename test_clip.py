@@ -1181,6 +1181,50 @@ def test_spin():
     b = spin(a, 2)
     b.verify(30)
 
+def test_vstack():
+    a = static_image("test_files/flowers.png", 3)
+    b = static_image("test_files/water.png", 5)
+
+    c = vstack(a, b, align=Align.LEFT)
+    c.verify(30)
+
+    d = vstack(a, b, align=Align.RIGHT)
+    d.verify(30)
+
+    e = vstack(a, b, align=Align.CENTER)
+    e.verify(30)
+
+    with pytest.raises(NotImplementedError):
+        vstack(a, b, align=Align.TOP)
+
+def test_hstack():
+    a = static_image("test_files/flowers.png", 3)
+    b = static_image("test_files/water.png", 5)
+
+    c = hstack(a, b, align=Align.TOP)
+    c.verify(30)
+
+    d = hstack(a, b, align=Align.BOTTOM)
+    d.verify(30)
+
+    e = hstack(a, b, align=Align.CENTER)
+    e.verify(30)
+
+    with pytest.raises(NotImplementedError):
+        hstack(a, b, align=Align.LEFT)
+
+def test_stack_clips():
+    a = static_image("test_files/flowers.png", 3)
+    b = static_image("test_files/water.png", 5)
+
+    # Integer for spacing in the list
+    c = stack_clips(a, 10, b, align=Align.LEFT, vert=True, name='vstack')
+    c.verify(30)
+
+    # Junk in the list
+    with pytest.raises(TypeError):
+        stack_clips(a, 1.2, b, align=Align.LEFT, vert=True, name='vstack')
+
 
 
 
