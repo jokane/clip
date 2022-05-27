@@ -2537,3 +2537,16 @@ class ken_burns(MutatorClip):
         sized_fragment = cv2.resize(fragment, (self.width(), self.height()))
         return sized_fragment
 
+def fade_between(clip1, clip2):
+    """ Fade from one clip to another.  Both must have the same length. """
+    require_clip(clip1, "first clip")
+    require_clip(clip2, "second clip")
+    require_equal(clip1.length(), clip2.length(), "clip lengths")
+
+    return chain(clip1, clip2, fade_time=clip1.length())
+
+class silence_audio(MutatorClip):
+    """ Replace whatever audio we have with silence. """
+    def get_samples(self):
+        return np.zeros([self.metrics.num_samples(), self.metrics.num_channels])
+

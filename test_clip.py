@@ -1300,7 +1300,7 @@ def test_ken_burns3():
                   start_top_left=[0,0],
                   start_bottom_right=[100,100],
                   end_top_left=[2000,2000],
-                  end_bottom_right=[3000,3000]).verify()
+                  end_bottom_right=[3000,3000]).verify(30)
 
 
 def test_ken_burns4():
@@ -1314,6 +1314,25 @@ def test_ken_burns4():
                   start_bottom_right=(100,100),
                   end_top_left=(10,10),
                   end_bottom_right=(100,100))
+    b.verify(30)
+
+def test_fade_between():
+    a = black(640, 480, 3)
+    b = white(640, 480, 3)
+
+    # Normal use.
+    c = fade_between(a, b)
+    c.verify(30)
+
+    # Must have same length.
+    d = white(640, 480, 4)
+    with pytest.raises(ValueError):
+        fade_between(a, d)
+
+def test_silence_audio():
+    a = from_file("test_files/bunny.webm")
+    a = slice_clip(a, 0, 5)
+    b = silence_audio(a)
     b.verify(30)
 
 
