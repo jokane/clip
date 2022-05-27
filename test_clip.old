@@ -1,65 +1,48 @@
-import cv2
-
-
-
-def test_pdf_page1():
-    a = pdf_page("test_files/snowman.pdf", page_num=1, frame_rate=10, length=3)
-    a.verify()
-
-def test_pdf_page2():
-    a = pdf_page("test_files/snowman.pdf",
-                 page_num=1,
-                 frame_rate=10,
-                 length=3,
-                 size=(101,120))
-    a.verify()
-    assert a.width() == 101
-    assert a.height() == 120
 
 def test_spin():
-    a = static_image("test_files/flowers.png", 30, 5)
+    a = static_image("test_files/flowers.png", 5)
     b = spin(a, 2)
-    b.verify()
+    b.verify(30)
 
 def test_vstack():
-    a = static_image("test_files/flowers.png", 30, 3)
-    b = static_image("test_files/water.png", 30, 5)
+    a = static_image("test_files/flowers.png", 3)
+    b = static_image("test_files/water.png", 5)
 
     c = vstack(a, b, align=Align.LEFT)
-    c.verify()
+    c.verify(30)
 
     d = vstack(a, b, align=Align.RIGHT)
-    d.verify()
+    d.verify(30)
 
     e = vstack(a, b, align=Align.CENTER)
-    e.verify()
+    e.verify(30)
 
     with pytest.raises(NotImplementedError):
         vstack(a, b, align=Align.TOP)
 
 def test_hstack():
-    a = static_image("test_files/flowers.png", 30, 3)
-    b = static_image("test_files/water.png", 30, 5)
+    a = static_image("test_files/flowers.png", 3)
+    b = static_image("test_files/water.png", 5)
 
     c = hstack(a, b, align=Align.TOP)
-    c.verify()
+    c.verify(30)
 
     d = hstack(a, b, align=Align.BOTTOM)
-    d.verify()
+    d.verify(30)
 
     e = hstack(a, b, align=Align.CENTER)
-    e.verify()
+    e.verify(30)
 
     with pytest.raises(NotImplementedError):
         hstack(a, b, align=Align.LEFT)
 
 def test_stack_clips():
-    a = static_image("test_files/flowers.png", 30, 3)
-    b = static_image("test_files/water.png", 30, 5)
+    a = static_image("test_files/flowers.png", 3)
+    b = static_image("test_files/water.png", 5)
 
     # Integer for spacing in the list
     c = stack_clips(a, 10, b, align=Align.LEFT, vert=True, name='vstack')
-    c.verify()
+    c.verify(30)
 
     # Junk in the list
     with pytest.raises(TypeError):

@@ -1161,6 +1161,21 @@ def test_timewarp():
     b.verify(30)
     assert 2*b.length() == a.length()
 
+def test_pdf_page1():
+    a = pdf_page("test_files/snowman.pdf",
+                 page_num=1,
+                 length=3)
+    a.verify(30)
+
+def test_pdf_page2():
+    a = pdf_page("test_files/snowman.pdf",
+                 page_num=1,
+                 length=3,
+                 size=(101,120))
+    a.verify(10)
+    assert a.width() == 101
+    assert a.height() == 120
+
 
 
 # Grab all of the test source files first.  (...instead of checking within
