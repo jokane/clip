@@ -1225,6 +1225,25 @@ def test_stack_clips():
     with pytest.raises(TypeError):
         stack_clips(a, 1.2, b, align=Align.LEFT, vert=True, name='vstack')
 
+def test_background():
+    font = "test_files/ethnocentric_rg_it.otf"
+    a = draw_text("Hello!", font, font_size=200, color=[255,0,255], length=5)
+    b = background(a, (255,0,0))
+    b.verify(30 )
+
+def test_superimpose_center():
+    a = static_image("test_files/flowers.png", 3)
+    b = static_image("test_files/water.png", 5)
+
+    c = superimpose_center(a, b, 0)
+    c.verify(30)
+
+def test_loop():
+    a = static_image("test_files/flowers.png", 1.2)
+    b = spin(a, 1)
+    c = loop(b, 10)
+    c.verify(30)
+    assert c.length() == 10
 
 
 
