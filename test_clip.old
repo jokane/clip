@@ -2,12 +2,6 @@ import cv2
 
 
 
-def test_timewarp():
-    a = white(640, 480, 30, 3)
-    b = timewarp(a, 2)
-    b.verify()
-    assert 2*b.length() == a.length()
-
 def test_pdf_page1():
     a = pdf_page("test_files/snowman.pdf", page_num=1, frame_rate=10, length=3)
     a.verify()

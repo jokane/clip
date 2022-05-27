@@ -1155,6 +1155,12 @@ def test_to_default_metrics():
         to_default_metrics(a)
     Clip.default_metrics.num_channels = 2
 
+def test_timewarp():
+    a = white(640, 480, 3)
+    b = timewarp(a, 2)
+    b.verify(30)
+    assert 2*b.length() == a.length()
+
 
 
 # Grab all of the test source files first.  (...instead of checking within
