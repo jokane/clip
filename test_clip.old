@@ -1,9 +1,4 @@
 
-def test_spin():
-    a = static_image("test_files/flowers.png", 5)
-    b = spin(a, 2)
-    b.verify(30)
-
 def test_vstack():
     a = static_image("test_files/flowers.png", 3)
     b = static_image("test_files/water.png", 5)

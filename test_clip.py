@@ -1176,6 +1176,12 @@ def test_pdf_page2():
     assert a.width() == 101
     assert a.height() == 120
 
+def test_spin():
+    a = static_image("test_files/flowers.png", 5)
+    b = spin(a, 2)
+    b.verify(30)
+
+
 
 
 # Grab all of the test source files first.  (...instead of checking within
