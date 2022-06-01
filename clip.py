@@ -569,8 +569,8 @@ class Clip(ABC):
         for t in frame_times(self.length(), frame_rate):
             sig = self.frame_signature(t)
             if verbose:
-                pprint.pprint(sig)
                 print(f'{t:0.2f}', end=" ")
+                pprint.pprint(sig)
             assert sig is not None
 
             frame = self.get_frame(t)
@@ -1807,7 +1807,6 @@ class fade_base(MutatorClip, ABC):
     def frame_signature(self, t):
         sig = self.clip.frame_signature(t)
         alpha = self.alpha(t)
-        print(alpha)
         if alpha > 254/255:
             # In this case, the scaling is too small to make any difference in
             # the output frame, given the 8-bit representation we're using.
@@ -1837,7 +1836,8 @@ class fade_base(MutatorClip, ABC):
 class fade_in(fade_base):
     """ Fade in from silent black or silent transparency. """
     def alpha(self, t):
-        return t/self.length()
+        return min(1, t/self.fade_length)
+
     def get_samples(self):
         a = self.clip.get_samples().copy()
         length = int(self.fade_length * self.sample_rate())
@@ -1848,7 +1848,7 @@ class fade_in(fade_base):
 class fade_out(fade_base):
     """ Fade out to silent black or silent transparency. """
     def alpha(self, t):
-        return (self.length()-t)/self.length()
+        return min(1, (self.length()-t)/self.fade_length)
 
     def get_samples(self):
         a = self.clip.get_samples().copy()

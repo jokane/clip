@@ -882,7 +882,8 @@ def test_static_frame6():
     assert a.sig != c.sig
     assert a.sig != d.sig
 
-def test_chain():
+def test_chain1():
+    # Normal use.
     a = black(640, 480, 3)
     b = white(640, 480, 3)
     c = solid([255,0,0], 640, 480, 3)
@@ -895,13 +896,57 @@ def test_chain():
     assert e.length() == a.length() + b.length() + c.length() - 4
     e.verify(30)
 
+
+def test_chain2():
+    # Bad inputs.
     with pytest.raises(ValueError):
         chain()
 
     with pytest.raises(ValueError):
         chain(fade_time=3)
 
-def test_fades():
+def test_chain3():
+    # Fade from white to white should stay white.  (This case caused problems
+    # in an older version where everything is based on indices instead of
+    # times, leading to overflow when the fade time is not an integer number of
+    # frames.
+
+    y = solid([255,255,255], 640, 480, 10)
+
+    z = chain(y, y, fade_time=0.1)
+    z.verify(10, verbose=True)
+
+    # for t in frame_times(z.length(), 10):
+    #     computed_frame = z.get_frame(t)
+    #     print(t, computed_frame)
+    #     assert np.all(computed_frame > 200)
+
+def test_fade_out():
+    # Ensure that the alpha function is computing properly.
+    a = white(640, 480, 2)
+    b = fade_out(a, 0.5)
+
+    b.verify(100)
+
+    assert b.alpha(0) == 1
+    assert b.alpha(1.5) == 1, b.alpha(1.5)
+    assert b.alpha(1.75) == 0.5, b.alpha(1.75)
+    assert b.alpha(2) == 0, b.alpha(2)
+
+def test_fade_in():
+    # Ensure that the alpha function is computing properly.
+    a = white(640, 480, 2)
+    b = fade_in(a, 0.5)
+
+    b.verify(100)
+
+    assert b.alpha(0) == 0, b.alpha(0)
+    assert b.alpha(0.25) == 0.5
+    assert b.alpha(0.5) == 1
+    assert b.alpha(1.5) == 1
+    assert b.alpha(2) == 1
+
+def test_fades2():
     a = white(640, 480, 3)
 
     for cls in [fade_in, fade_out]:
