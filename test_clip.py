@@ -916,10 +916,10 @@ def test_chain3():
     z = chain(y, y, fade_time=0.1)
     z.verify(10, verbose=True)
 
-    # for t in frame_times(z.length(), 10):
-    #     computed_frame = z.get_frame(t)
-    #     print(t, computed_frame)
-    #     assert np.all(computed_frame > 200)
+    for t in frame_times(z.length(), 10):
+        computed_frame = z.get_frame(t)
+        print(t, computed_frame)
+        assert np.all(computed_frame >= 254)
 
 def test_fade_out():
     # Ensure that the alpha function is computing properly.
