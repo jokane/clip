@@ -1,6 +1,6 @@
 #!/bin/bash
 set -e
-# pip install -q -r requirements.txt
+pip install -q -r requirements.txt
 pylint clip.py test_clip.py || true
 NUMBA_DISABLE_JIT=1 coverage run --omit=.venv* -m pytest --durations=5
 coverage report -m
