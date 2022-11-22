@@ -143,7 +143,7 @@ def test_ffmpeg():
 
 def test_temporary_current_directory():
     with temporary_current_directory():
-        assert glob.glob('*') == []
+        assert not glob.glob('*')
 
 def test_customprogressbar():
     with custom_progressbar("Testing", 100) as pb:
@@ -1052,6 +1052,7 @@ def test_crop():
 def test_draw_text():
     font = "test_files/ethnocentric_rg_it.otf"
     x = draw_text("Hello!", font, font_size=200, color=[255,0,255], length=5)
+    x.save('hi.mp4', 10)
     x.verify(10)
 
 def test_to_monochrome():
