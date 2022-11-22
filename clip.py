@@ -1942,16 +1942,17 @@ class draw_text(VideoClip):
         require_positive(font_size, "font size")
         require_color(color, "color")
 
-        # Determine the size of the image we need.  Make sure the width and
-        # height are odd, because Pillow won't create an image with an
-        # odd-dimensioned size.
+        # Determine the bounding box for the text that we want.  This is
+        # relevant both for sizing and for using the right position later when
+        # we actually draw the text.
         draw = ImageDraw.Draw(Image.new("RGBA", (1,1)))
         font = get_font(font_filename, font_size)
-        size = draw.textsize(text, font=font)
+
+        self.bbox = draw.textbbox((0,0), text=text, font=font)
 
         self.metrics = Metrics(src=Clip.default_metrics,
-                               width=size[0],
-                               height=size[1],
+                               width=self.bbox[2]-self.bbox[0],
+                               height=self.bbox[3]-self.bbox[1],
                                length=length)
 
         self.text = text
@@ -1970,7 +1971,7 @@ class draw_text(VideoClip):
             image = Image.new("RGBA", (self.width(), self.height()), (0,0,0,0))
             draw = ImageDraw.Draw(image)
             color = self.color
-            draw.text((0,0,),
+            draw.text((-self.bbox[0],-self.bbox[1]),
                       self.text,
                       font=get_font(self.font_filename, self.font_size),
                       fill=(color[2],color[1],color[0],255))
