@@ -2158,7 +2158,7 @@ class zip_file(VideoClip, FiniteIndexed):
         require_string(fname, "file name")
 
         if not os.path.isfile(fname):
-            raise FileNotFoundError(f'Trying to open {fname}, which does not exist.')
+            raise FileNotFoundError(f'Trying to open {fname}, which does not exist (or is not a file).')
 
         self.fname = fname
         self.zf = zipfile.ZipFile(fname, 'r') #pylint: disable=consider-using-with
