@@ -833,7 +833,7 @@ class MutatorClip(Clip):
         return self.clip.get_samples()
 
 class FiniteIndexed:
-    """Mixin for clips that a derived from a finite, ordered sequence of frames."""
+    """Mixin for clips derived from a finite, ordered sequence of frames."""
     def __init__(self, num_frames, frame_rate=None, length=None):
 
         if frame_rate is not None:
