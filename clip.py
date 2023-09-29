@@ -1406,6 +1406,12 @@ class Element:
         y1 = y + shape[0]
         return x0, x1, y0, y1
 
+    def request(self, t):
+        clip_t = t - self.start_time
+        if t < self.start_time or t >= self.start_time + self.clip.length():
+            return
+        self.clip.request_frame(clip_t)
+
     def apply_to_frame(self, under, t):
         """ Modify the given frame as described by this element. """
         # If this element does not apply at this index, make no change.
@@ -1546,6 +1552,10 @@ class composite(Clip):
             if esig is not None:
                 sig.append(esig)
         return sig
+
+    def request_frame(self, t):
+        for e in self.elements:
+            e.request(t)
 
     def get_frame(self, t):
         frame = np.zeros([self.metrics.height, self.metrics.width, 4], np.uint8)
@@ -2158,7 +2168,7 @@ class zip_file(VideoClip, FiniteIndexed):
         require_string(fname, "file name")
 
         if not os.path.isfile(fname):
-            raise FileNotFoundError(f'Trying to open {fname}, which does not exist (or is not a file).')
+            raise FileNotFoundError(f"Cannot open {fname}, which does not exist or is not a file.")
 
         self.fname = fname
         self.zf = zipfile.ZipFile(fname, 'r') #pylint: disable=consider-using-with
