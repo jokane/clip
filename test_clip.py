@@ -134,6 +134,12 @@ def test_require_callable():
     with pytest.raises(TypeError):
         require_callable('not a function', 'some string')
 
+def test_require_iterable():
+    require_iterable([], 'some list')
+    with pytest.raises(TypeError):
+        require_iterable(1, 'some list')
+
+
 def test_ffmpeg():
     with pytest.raises(FFMPEGException), temporary_current_directory():
         ffmpeg('-i /dev/zero', '/dev/null')

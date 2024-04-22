@@ -133,6 +133,10 @@ def require(x, func, condition, name, exception_class):
         raise exception_class(f'Expected {name} to be a {condition}, '
                               f'but got a {type(x)} with value {x} instead.')
 
+def require_iterable(x, name):
+    """ Raise an informative exception if x is not iterable. """
+    require(x, is_iterable, "iterable", name, TypeError)
+
 def require_int(x, name):
     """ Raise an informative exception if x is not an integer. """
     require(x, is_int, "integer", name, TypeError)
