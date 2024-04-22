@@ -1212,6 +1212,9 @@ class from_file(Clip,FiniteIndexed):
         """Expand the requested frames into our cache for later."""
         assert self.has_video
 
+        if len(self.requested_indices) == 0:
+            return
+
         with temporary_current_directory():
             start_index = min(self.requested_indices)
             end_index = max(self.requested_indices)+1
