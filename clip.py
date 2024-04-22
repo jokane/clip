@@ -545,7 +545,11 @@ class Clip(ABC):
         """Render the video part and display it in a window on screen."""
         cache = ClipCache(cache_dir)
 
-        with custom_progressbar("Previewing", self.length()*frame_rate) as pb:
+        fts = list(frame_times(self.length(), frame_rate))
+        with custom_progressbar("Previewing", len(fts)) as pb:
+            for t in fts:
+                self.request_frame(t)
+
             for i, t in enumerate(frame_times(self.length(), frame_rate)):
                 frame = self.get_frame_cached(cache, t)
                 pb.update(i)
