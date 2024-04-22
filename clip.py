@@ -1033,9 +1033,9 @@ def metrics_from_ffprobe_output(ffprobe_output, fname, suppress_video=False, sup
             pass
         elif stream['codec_type'] == 'audio' and not suppress_audio:
             if audio_stream is not None:
-                raise ValueError(f"Don't know what to do with {fname},"
-                  "which has multiple audio streams.")
-            audio_stream = stream
+                print(f'Ignoring an extra audio stream in {fname}')
+            else:
+                audio_stream = stream
         elif stream['codec_type'] == 'audio' and suppress_audio:
             pass
         elif stream['codec_type'] == 'data':

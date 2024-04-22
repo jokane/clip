@@ -384,8 +384,6 @@ def test_metrics_from_ffprobe_output1():
     with pytest.raises(ValueError):
         metrics_from_ffprobe_output(f'{video_deets}\n{video_deets}', 'test.mp4')
     with pytest.raises(ValueError):
-        metrics_from_ffprobe_output(f'{audio_deets}\n{audio_deets}', 'test.mp4')
-    with pytest.raises(ValueError):
         metrics_from_ffprobe_output(f'{audio_deets}\n{video_deets}\n{video_deets}', 'test.mp4')
     with pytest.raises(ValueError):
         metrics_from_ffprobe_output(f'{audio_deets}\n{video_deets}\n{bogus_deets}', 'test.mp4')
@@ -397,6 +395,9 @@ def test_metrics_from_ffprobe_output1():
     with pytest.raises(ValueError):
         bad_video_deets = re.sub("duration", "dooration", video_deets)
         metrics_from_ffprobe_output(f'{bad_video_deets}\n{audio_deets}', 'test.mp4')
+
+    # Cover the case with multiple audio streams.
+    metrics_from_ffprobe_output(f'{audio_deets}\n{audio_deets}', 'test.mp4')
 
     m, fr, _, _ = metrics_from_ffprobe_output(f'{audio_deets}\n{video_deets}', 'test.mp4')
     assert m == correct_metrics
