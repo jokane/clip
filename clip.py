@@ -1407,6 +1407,7 @@ class Element:
         return x0, x1, y0, y1
 
     def request(self, t):
+        """ Note that the given clip will be displayed at the given time."""
         clip_t = t - self.start_time
         if t < self.start_time or t >= self.start_time + self.clip.length():
             return
