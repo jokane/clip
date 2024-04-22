@@ -490,11 +490,11 @@ class Clip(ABC):
         """A string that uniquely describes the appearance of this clip at the
         given time."""
 
+    @abstractmethod
     def request_frame(self, t):
         """Called during the rendering process, before any get_frame calls, to
         indicate that a frame at the given t will be needed in the future.  Can
-        help if frames are generated in batches, such as in from_file.  Default
-        is to do nothing. """
+        help if frames are generated in batches, such as in from_file."""
 
     @abstractmethod
     def get_frame(self, t):
@@ -809,6 +809,9 @@ class AudioClip(Clip):
             'color': self.color
         }]
 
+    def request_frame(self, t):
+        pass
+
     def get_frame(self, t):
         if self.frame is None:
             self.frame = np.zeros([self.metrics.height, self.metrics.width, 4], np.uint8)
@@ -877,6 +880,7 @@ class solid(Clip):
 
     # Avoiding both code duplication and multiple inheritance here...
     frame_signature = AudioClip.frame_signature
+    request_frame = AudioClip.request_frame
     get_frame = AudioClip.get_frame
     get_samples = VideoClip.get_samples
 
@@ -1620,6 +1624,9 @@ class static_frame(VideoClip):
           'name': self.frame_name,
           'sig': self.sig
         }]
+    
+    def request_frame(self, t):
+        pass
 
     def get_frame(self, t):
         return self.the_frame
@@ -1980,6 +1987,9 @@ class draw_text(VideoClip):
         return ['text', self.text, self.font_filename, self.font_size,
           self.length()]
 
+    def request_frame(self, t):
+        pass
+
     def get_frame(self, t):
         if self.frame is None:
             # Use Pillow to draw the text.
@@ -2115,6 +2125,9 @@ class repeat_frame(VideoClip):
 
     def frame_signature(self, t):
         return self.clip.frame_signature(self.when)
+    
+    def request_frame(self, t):
+        self.clip.request_frame(self.when)
 
     def get_frame(self, t):
         return self.clip.get_frame(self.when)
@@ -2161,6 +2174,9 @@ class image_glob(VideoClip,FiniteIndexed):
     def frame_signature(self, t):
         return self.filenames[self.time_to_frame_index(t)]
 
+    def request_frame(self, t):
+        pass
+
     def get_frame(self, t):
         return read_image(self.filenames[self.time_to_frame_index(t)])
 
@@ -2197,6 +2213,9 @@ class zip_file(VideoClip, FiniteIndexed):
     def frame_signature(self, t):
         index = self.time_to_frame_index(t)
         return ['zip file member', self.fname, self.info_list[index].filename]
+    
+    def request_frame(self, t):
+        pass
 
     def get_frame(self, t):
         index = self.time_to_frame_index(t)
