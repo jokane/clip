@@ -2548,12 +2548,12 @@ class ken_burns(MutatorClip):
 
         output_ratio = width/height
 
-        if not math.isclose(start_ratio, output_ratio, abs_tol=0.01):
+        if not math.isclose(start_ratio, output_ratio, abs_tol=0.1):
             raise ValueError("This ken_burns effect will distort the image at the start. "
                              f'Starting aspect ratio is {start_ratio}. '
                              f'Output aspect ratio is {output_ratio}. ')
 
-        if not math.isclose(end_ratio, output_ratio, abs_tol=0.01):
+        if not math.isclose(end_ratio, output_ratio, abs_tol=0.1):
             raise ValueError("This ken_burns effect will distort the image at the end. "
                              f'Ending aspect ratio is {end_ratio}. '
                              f'Output aspect ratio is {output_ratio}. ')
