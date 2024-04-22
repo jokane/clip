@@ -2137,6 +2137,19 @@ class repeat_frame(VideoClip):
     def get_frame(self, t):
         return self.clip.get_frame(self.when)
 
+def hold_at_start(clip, target_length):
+    """Extend a clip by repeating its first frame, to fill a target length."""
+    require_clip(clip, "clip")
+    require_float(target_length, "target length")
+    require_positive(target_length, "target length")
+
+    # Here the repeat_frame almost certainly goes beyond target length, and
+    # we force the final product to have the right length directly.  This
+    # prevents getting a blank frame at end in some cases.
+    return chain(repeat_frame(clip, clip.length(), target_length),
+                 clip,
+                 length=target_length)
+
 def hold_at_end(clip, target_length):
     """Extend a clip by repeating its last frame, to fill a target length."""
     require_clip(clip, "clip")

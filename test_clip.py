@@ -1124,6 +1124,23 @@ def test_repeat_frame():
     assert b.length() == 5
     assert b.frame_signature(0) == a.frame_signature(when)
 
+def test_hold_at_start1():
+    # Normal usage.
+    x = from_file("test_files/bunny.webm")
+    a = slice_clip(x, 0, 1)
+
+    b = hold_at_start(a, 5)
+    b.verify(x.frame_rate)
+    assert b.length() == 5
+
+def test_hold_at_start2():
+    # When length is not an exact number of frames.
+    x = from_file("test_files/bunny.webm")
+    a = slice_clip(x, 0, 0.98)
+    b = hold_at_start(a, 5)
+    b.verify(x.frame_rate, verbose=True)
+    assert b.length() == 5
+
 def test_hold_at_end1():
     # Normal usage.
     x = from_file("test_files/bunny.webm")
