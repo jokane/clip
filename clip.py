@@ -1188,13 +1188,13 @@ class from_file(Clip,FiniteIndexed):
             }]
 
     def request_frame(self, t):
-        require_positive(t, "timestamp")
+        require_non_negative(t, "timestamp")
         if self.has_video:
             index = self.time_to_frame_index(t)
             self.requested_indices.add(index)
 
     def get_frame(self, t):
-        require_positive(t, "timestamp")
+        require_non_negative(t, "timestamp")
 
         if not self.has_video:
             return np.zeros([self.metrics.height, self.metrics.width, 4], np.uint8)
