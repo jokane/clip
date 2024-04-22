@@ -1416,7 +1416,7 @@ class Element:
         y1 = y + shape[0]
         return x0, x1, y0, y1
 
-    def request(self, t):
+    def request_frame(self, t):
         """ Note that the given clip will be displayed at the given time."""
         clip_t = t - self.start_time
         if t < self.start_time or t >= self.start_time + self.clip.length():
@@ -1566,7 +1566,7 @@ class composite(Clip):
 
     def request_frame(self, t):
         for e in self.elements:
-            e.request(t)
+            e.request_frame(t)
 
     def get_frame(self, t):
         frame = np.zeros([self.metrics.height, self.metrics.width, 4], np.uint8)
@@ -1677,7 +1677,7 @@ def scale_to_size(clip, width, height):
     require_positive(height, "new height")
 
     def scale_filter(frame):
-        return cv2.resize(frame, (width, height))
+        return cv2.resize(frame, (width, height), cv2.INTER_CUBIC)
 
     return filter_frames(clip=clip,
                          func=scale_filter,
