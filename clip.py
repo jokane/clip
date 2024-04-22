@@ -2061,6 +2061,9 @@ class resample(MutatorClip):
     def frame_signature(self, t):
         return self.clip.frame_signature(self.new_time(t))
 
+    def request_frame(self, t):
+        self.clip.request_frame(self.new_time(t))
+
     def get_frame(self, t):
         return self.clip.get_frame(self.new_time(t))
 
