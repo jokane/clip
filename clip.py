@@ -35,13 +35,6 @@ Possibly relevant implementation details:
 
 """
 
-# New in this version:
-# - Clips do not necessarily have frame rates.  Instead, we ask for a render at
-#   a given frame rate, and each get_frame() accepts a real number timestamp in
-#   seconds instead of a frame index.
-
-# - Separate caches for exploded frames and constructed frames.
-
 # pylint: disable=too-many-lines
 
 from abc import ABC, abstractmethod
