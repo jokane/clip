@@ -57,6 +57,7 @@ import sys
 import tempfile
 import threading
 import time
+import warnings
 import zipfile
 
 import cv2
@@ -328,11 +329,9 @@ def read_image(fname):
     return frame
 
 def get_font(font, size):
-    """
-    Return a TrueType font for use on Pillow images, with caching to
-    prevent loading the same font again and again.    (The performance
-    improvement seems to be small but non-zero.)
-    """
+    """Return a TrueType font for use on Pillow images, with caching to
+    prevent loading the same font again and again.  (The performance
+    improvement seems to be small but non-zero.)"""
     if (font, size) not in get_font.cache:
         try:
             get_font.cache[(font, size)] = ImageFont.truetype(font, size)
@@ -340,8 +339,6 @@ def get_font(font, size):
             raise ValueError(f"Failed to open font {font}.") from e
     return get_font.cache[(font, size)]
 get_font.cache = {}
-
-
 
 def frame_times(clip_length, frame_rate):
     """ Return the timestamps at which frames should occur for a clip of the
@@ -354,6 +351,19 @@ def frame_times(clip_length, frame_rate):
     while t <= clip_length:
         yield t
         t += frame_length
+
+def format_seconds_as_hms(seconds):
+    """Return a string representing the given time in 00:01:23,456 format.
+    This specific format is important for saving captions in the format that
+    ffmpeg likes to see."""
+    seconds, fraction = divmod(seconds, 1)
+    minutes, seconds = divmod(seconds, 60)
+    hours, minutes = divmod(minutes, 60)
+    millis = int(1000*fraction)
+    seconds = int(seconds)
+    minutes = int(minutes)
+    hours = int(hours)
+    return f'{hours:02}:{minutes:02}:{seconds:02},{millis:03}'
 
 @dataclass
 class Metrics:
@@ -501,6 +511,11 @@ class Clip(ABC):
     def get_samples(self):
         """Create and return the audio data for the clip."""
 
+    @abstractmethod
+    def get_captions(self):
+        """Return an iterable of captions, each a (start_time, end_time, text) triple."""
+
+
     # Default metrics to use when not otherwise specified.  These can make code
     # a little cleaner in a lot of places.  For example, many silent clips will
     # use the default sample rate for their dummy audio. """
@@ -586,8 +601,8 @@ class Clip(ABC):
         assert samples.shape == (self.num_samples(), self.num_channels())
 
     def stage(self, directory, cache, frame_rate, fname=""):
-        """ Get everything for this clip onto to disk in the specified
-        directory:  Symlinks to each frame and a flac file of the audio. """
+        """Get everything for this clip onto to disk in the specified
+        directory:  Symlinks to each frame and a flac file of the audio."""
 
         # Do things in the requested directory.
         with temporarily_changed_directory(directory):
@@ -597,9 +612,12 @@ class Clip(ABC):
             assert data is not None
             soundfile.write(audio_fname, data, self.sample_rate())
 
+            # Captions
+            captions_fname = 'captions.srt'
+            self.save_captions(captions_fname)
+
             # Video.
             task = f"Staging {fname}" if fname else "Staging"
-
             fts = list(frame_times(self.length(), frame_rate))
             for t in fts:
                 self.request_frame(t)
@@ -617,9 +635,8 @@ class Clip(ABC):
                     # Update the progress bar.
                     pb.update(index)
 
-
     def save(self, fname, frame_rate, bitrate=None, target_size=None, two_pass=False,
-             preset='slow', cache_dir='/tmp/clipcache/computed'):
+             preset='slow', cache_dir='/tmp/clipcache/computed', burn_captions=False):
         """ Save to a file.
 
         Bitrate controls the target bitrate.  Handles the tradeoff between
@@ -634,12 +651,12 @@ class Clip(ABC):
          encoding speed and output quality.  Choose from:
             ultrafast superfast veryfast faster fast medium slow slower veryslow
         The documentation for these says to "use the slowest preset you have
-        patience for."
-        """
+        patience for." """
 
         # First, a simple case: If we're saving to an audio-only format, it's
         # easy.
         if re.search('.(flac|wav)$', fname):
+            assert not burn_captions
             data = self.get_samples()
             assert data is not None
             soundfile.write(fname, data, self.sample_rate())
@@ -672,6 +689,7 @@ class Clip(ABC):
         else:
             raise ValueError("Specify either bitrate or target_size, not both.")
 
+        # Assemble all of the parts.
         with tempfile.TemporaryDirectory() as td:
             # Fill the temporary directory with the audio and a bunch of
             # (symlinks to) individual frames.
@@ -717,6 +735,17 @@ class Clip(ABC):
                            num_frames=num_frames)
 
             print(f'Wrote {self.readable_length()} to {fname}.')
+
+    def save_captions(self, filename):
+        """Save the captions for this clip to the given file."""
+        with open(filename, 'w') as f:
+            for number, caption in enumerate(self.get_captions()):
+                print(number+1, file=f)
+                hms0 = format_seconds_as_hms(caption[0])
+                hms1 = format_seconds_as_hms(caption[0])
+                print(hms0, '-->', hms1)
+                print(caption[2], file=f)
+                print(file=f)
 
     def get_cached_filename(self, cache, t):
         """Make sure the frame is in the cache given, computing it if
@@ -781,7 +810,6 @@ class Clip(ABC):
     spq = save_play_quit
 
 
-
 class VideoClip(Clip):
     """ Inherit from this for Clip classes that really only have video, to
     default to silent audio. """
@@ -789,6 +817,9 @@ class VideoClip(Clip):
         """Return audio samples appropriate to use as a default audio.  That
         is, silence with the appropriate metrics."""
         return np.zeros([self.metrics.num_samples(), self.metrics.num_channels])
+
+    def get_captions(self):
+        return []
 
 
 class AudioClip(Clip):
@@ -832,6 +863,9 @@ class MutatorClip(Clip):
 
     def get_frame(self, t):
         return self.clip.get_frame(t)
+
+    def get_captions(self):
+        return self.clip.get_captions()
 
     def get_samples(self):
         return self.clip.get_samples()
@@ -881,6 +915,9 @@ class solid(Clip):
     get_frame = AudioClip.get_frame
     get_samples = VideoClip.get_samples
 
+    def get_captions(self):
+        return []
+
 class sine_wave(AudioClip):
     """ A sine wave with the given frequency. """
     def __init__(self, frequency, volume, length, sample_rate, num_channels):
@@ -903,6 +940,9 @@ class sine_wave(AudioClip):
         samples = self.volume * np.sin(2 * np.pi * self.frequency * samples)
         samples = np.stack([samples]*self.num_channels(), axis=1)
         return samples
+
+    def get_captions(self):
+        return []
 
 class scale_alpha(MutatorClip):
     """ Scale the alpha channel of a given clip by the given factor, which may
@@ -1108,13 +1148,14 @@ def audio_samples_from_file(fname, cache, expected_sample_rate, expected_num_cha
                                    expected_num_channels,
                                    expected_num_samples)
 
-class from_file(Clip,FiniteIndexed):
-    """ A clip read from a file such as an mp4, flac, or other format readable
-    by ffmpeg. """
+class from_file(Clip, FiniteIndexed):
+    """A clip read from a file such as an mp4, flac, or other format readable
+    by ffmpeg."""
 
     def __init__(self, fname, suppress_video=False, suppress_audio=False, cache_dir=None):
         Clip.__init__(self)
 
+        # Make sure the file exists.
         if not os.path.isfile(fname):
             raise FileNotFoundError(f"Could not open file {fname}.")
         self.fname = os.path.abspath(fname)
@@ -1204,6 +1245,11 @@ class from_file(Clip,FiniteIndexed):
                 self.explode()
 
             return read_image(fname)
+
+    def get_captions(self):
+        warnings.warn('In from_file, reading of captions is not implemented yet.')
+        return []
+
 
     def explode(self):
         """Expand the requested frames into our cache for later."""
@@ -1592,6 +1638,11 @@ class composite(Clip):
 
         return samples
 
+    def get_captions(self):
+        for e in self.elements:
+            for caption_start_time, caption_end_time, text in e.clip.get_captions():
+                yield e.start_time+caption_start_time, e.start_time+caption_end_time, text
+
 class static_frame(VideoClip):
     """ Show a single image over and over, silently. """
     def __init__(self, the_frame, frame_name, length):
@@ -1629,6 +1680,9 @@ class static_frame(VideoClip):
 
     def get_frame(self, t):
         return self.the_frame
+
+    def get_captions(self):
+        return []
 
 
 def static_image(filename, length):
@@ -1810,6 +1864,7 @@ def chain(*args, length=None, fade_time = 0):
     # Let composite do all the work.
     return composite(*elements, length=length)
 
+
 class fade_base(MutatorClip, ABC):
     """Fade in from or out to silent black or silent transparency."""
 
@@ -1839,8 +1894,8 @@ class fade_base(MutatorClip, ABC):
 
     def get_frame(self, t):
         alpha = self.alpha(t)
-        assert alpha >= 0.0
-        assert alpha <= 1.0
+        assert alpha >= 0.0, f'Got alpha={alpha} at time {t}'
+        assert alpha <= 1.0, f'Got alpha={alpha} at time {t}'
         frame = self.clip.get_frame(t).copy()
         if alpha > 254/255:
             return frame
@@ -1878,6 +1933,7 @@ class fade_out(fade_base):
         a[a.shape[0]-length:a.shape[0]] *= np.linspace([1.0]*num_channels,
                                                        [0.0]*num_channels, length)
         return a
+
 
 class mono_to_stereo(MutatorClip):
     """ Change the number of channels from one to two. """
@@ -2018,13 +2074,11 @@ def to_monochrome(clip):
     """ Convert a clip's video to monochrome. """
     def mono(frame):
         return cv2.cvtColor(cv2.cvtColor(frame, cv2.COLOR_BGRA2GRAY), cv2.COLOR_GRAY2BGRA)
+    return filter_frames(clip=clip,
+                         func=mono,
+                         name='to_monochrome',
+                         size='same')
 
-    return filter_frames(
-      clip=clip,
-      func=mono,
-      name='to_monochrome',
-      size='same'
-    )
 
 class resample(MutatorClip):
     """ Change the sample rate and/or length. """
@@ -2072,6 +2126,7 @@ class resample(MutatorClip):
             data = scipy.signal.resample(data, self.num_samples())
         return data
 
+
 def slice_out(clip, start, end):
     """ Remove the part between the given endponts. """
     require_clip(clip, "clip")
@@ -2108,6 +2163,7 @@ def letterbox(clip, width, height):
                       width=width,
                       height=height)
 
+
 class repeat_frame(VideoClip):
     """Show the same frame, from another clip, over and over."""
 
@@ -2134,6 +2190,9 @@ class repeat_frame(VideoClip):
     def get_frame(self, t):
         return self.clip.get_frame(self.when)
 
+    def get_captions(self):
+        return []
+
 def hold_at_start(clip, target_length):
     """Extend a clip by repeating its first frame, to fill a target length."""
     require_clip(clip, "clip")
@@ -2159,6 +2218,7 @@ def hold_at_end(clip, target_length):
     return chain(clip,
                  repeat_frame(clip, clip.length(), target_length),
                  length=target_length)
+
 
 class image_glob(VideoClip,FiniteIndexed):
     """Video from a collection of identically-sized image files that match a
@@ -2202,7 +2262,6 @@ class zip_file(VideoClip, FiniteIndexed):
         VideoClip.__init__(self)
 
         require_string(fname, "file name")
-
         if not os.path.isfile(fname):
             raise FileNotFoundError(f"Cannot open {fname}, which does not exist or is not a file.")
 
@@ -2599,4 +2658,22 @@ class silence_audio(MutatorClip):
     """ Replace whatever audio we have with silence. """
     def get_samples(self):
         return np.zeros([self.metrics.num_samples(), self.metrics.num_channels])
+
+class add_captions(MutatorClip):
+    """ Add one or more captions to a clip. """
+    def __init__(self, clip, *args):
+        super().__init__(clip)
+        for i, caption in enumerate(args):
+            require_iterable(caption, f'caption {i}')
+            require_float(caption[0], f'caption {i} start time')
+            require_non_negative(caption[0], f'caption {i} start time')
+            require_less(caption[0], caption[1], f'caption {i} start time', f'caption {i} end time')
+            require_less_equal(caption[1], clip.length(), f'caption {i} start time', 'clip length')
+            require_string(caption[2], f'caption {i} text')
+
+        self.captions = args
+
+    def get_captions(self):
+        for caption in self.captions:
+            yield caption
 
