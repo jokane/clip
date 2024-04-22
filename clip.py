@@ -1315,7 +1315,6 @@ def join(video_clip, audio_clip):
 
     assert not isinstance(video_clip, AudioClip)
     assert not isinstance(audio_clip, VideoClip)
-    assert not isinstance(audio_clip, solid)
 
     return composite(Element(video_clip, 0, [0,0],
                              video_mode=VideoMode.REPLACE,
