@@ -462,13 +462,20 @@ def test_from_file6():
     assert b.has_audio is True
 
 def test_from_file7():
-    # Be sure to get boht cache hits and cache misses.
+    # Be sure to get both cache hits and cache misses.
     fname = os.path.join(os.getcwd(), 'test_files/bunny.webm')
 
     with temporary_current_directory():
         for _ in range(2):
             x = from_file(fname, cache_dir=os.getcwd())
             x.verify(x.frame_rate)
+
+def test_from_file8():
+    # No need to explode if there's no requested frames.
+    fname = os.path.join(os.getcwd(), 'test_files/bunny.webm')
+    with temporary_current_directory():
+        x = from_file(fname, cache_dir=os.getcwd())
+        x.explode()
 
 def test_slice_clip():
     a = join(
