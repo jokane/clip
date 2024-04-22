@@ -1052,7 +1052,6 @@ def test_crop():
 def test_draw_text():
     font = "test_files/ethnocentric_rg_it.otf"
     x = draw_text("Hello!", font, font_size=200, color=[255,0,255], length=5)
-    x.save('hi.mp4', 10)
     x.verify(10)
 
 def test_to_monochrome():

@@ -1624,7 +1624,7 @@ class static_frame(VideoClip):
           'name': self.frame_name,
           'sig': self.sig
         }]
-    
+
     def request_frame(self, t):
         pass
 
@@ -2125,7 +2125,7 @@ class repeat_frame(VideoClip):
 
     def frame_signature(self, t):
         return self.clip.frame_signature(self.when)
-    
+
     def request_frame(self, t):
         self.clip.request_frame(self.when)
 
@@ -2213,7 +2213,7 @@ class zip_file(VideoClip, FiniteIndexed):
     def frame_signature(self, t):
         index = self.time_to_frame_index(t)
         return ['zip file member', self.fname, self.info_list[index].filename]
-    
+
     def request_frame(self, t):
         pass
 
