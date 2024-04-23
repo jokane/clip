@@ -44,6 +44,7 @@ from dataclasses import dataclass
 import dis
 from enum import Enum
 import glob
+import heapq
 import hashlib
 import inspect
 import io
@@ -600,6 +601,14 @@ class Clip(ABC):
         samples = self.get_samples()
         assert samples.shape == (self.num_samples(), self.num_channels())
 
+        captions = self.get_captions()
+        for caption in captions:
+            assert len(caption) == 3
+            assert is_non_negative(caption[0])
+            assert is_non_negative(caption[1])
+            assert caption[0] < caption[1]
+            assert is_string(caption[2])
+
     def stage(self, directory, cache, frame_rate, fname=""):
         """Get everything for this clip onto to disk in the specified
         directory:  Symlinks to each frame and a flac file of the audio."""
@@ -708,6 +717,10 @@ class Clip(ABC):
                 # - Set the pixel format to yuv420p, which seems to be needed
                 #   to get outputs that play on Apple gadgets.
                 # - Set the output frame rate.
+                if burn_captions and os.stat('captions.srt').st_size > 0:
+                    captions_filter = ',subtitles=captions.srt'
+                else:
+                    captions_filter = ''
                 args = [
                     f'-framerate {frame_rate}',
                     f'-i %06d.{cache.frame_format}',
@@ -717,7 +730,7 @@ class Clip(ABC):
                     f'-vb {bitrate}' if bitrate else '',
                     f'-preset {preset}' if preset else '',
                     '-profile:v high',
-                    f'-filter_complex "format=yuv420p,pad=width=ceil(iw/2)*2:height=ceil(ih/2)*2,fps={frame_rate}"', #pylint: disable=line-too-long
+                    f'-filter_complex "format=yuv420p,pad=width=ceil(iw/2)*2:height=ceil(ih/2)*2,fps={frame_rate}{captions_filter}"', #pylint: disable=line-too-long
                 ]
 
                 num_frames = int(self.length() * frame_rate)
@@ -742,8 +755,8 @@ class Clip(ABC):
             for number, caption in enumerate(self.get_captions()):
                 print(number+1, file=f)
                 hms0 = format_seconds_as_hms(caption[0])
-                hms1 = format_seconds_as_hms(caption[0])
-                print(hms0, '-->', hms1)
+                hms1 = format_seconds_as_hms(caption[1])
+                print(hms0, '-->', hms1, file=f)
                 print(caption[2], file=f)
                 print(file=f)
 
@@ -871,7 +884,9 @@ class MutatorClip(Clip):
         return self.clip.get_samples()
 
 class FiniteIndexed:
-    """Mixin for clips derived from a finite, ordered sequence of frames."""
+    """Mixin for clips derived from a finite, ordered sequence of frames. Keeps
+    track of a frame rat and a number of frames, and provides a method for
+    converting times to frame indices."""
     def __init__(self, num_frames, frame_rate=None, length=None):
 
         if frame_rate is not None:
@@ -914,9 +929,7 @@ class solid(Clip):
     request_frame = AudioClip.request_frame
     get_frame = AudioClip.get_frame
     get_samples = VideoClip.get_samples
-
-    def get_captions(self):
-        return []
+    get_captions = VideoClip.get_captions
 
 class sine_wave(AudioClip):
     """ A sine wave with the given frequency. """
@@ -1350,6 +1363,13 @@ class slice_clip(MutatorClip):
         original_samples = self.clip.get_samples()
         return original_samples[self.start_sample:self.start_sample+self.num_samples()]
 
+    def get_captions(self):
+        for caption in self.clip.get_captions():
+            new_start = caption[0] - self.start_time
+            new_end = caption[1] - self.start_time
+            if new_start > 0:
+                yield (new_start, new_end, caption[2])
+
 def join(video_clip, audio_clip):
     """ Create a new clip that combines the video of one clip with the audio of
     another.  The length will be the length of the longer of the two."""
@@ -1465,6 +1485,11 @@ class Element:
         if t < self.start_time or t >= self.start_time + self.clip.length():
             return
         self.clip.request_frame(clip_t)
+
+    def get_captions(self):
+        """ Return the captions of the constituent clip, shifted appropriately. """
+        for caption_start_time, caption_end_time, text in self.clip.get_captions():
+            yield self.start_time+caption_start_time, self.start_time+caption_end_time, text
 
     def apply_to_frame(self, under, t):
         """ Modify the given frame as described by this element. """
@@ -1639,9 +1664,8 @@ class composite(Clip):
         return samples
 
     def get_captions(self):
-        for e in self.elements:
-            for caption_start_time, caption_end_time, text in e.clip.get_captions():
-                yield e.start_time+caption_start_time, e.start_time+caption_end_time, text
+        yield from heapq.merge(*[e.get_captions() for e in self.elements],
+                               key = lambda x: x[0])
 
 class static_frame(VideoClip):
     """ Show a single image over and over, silently. """
@@ -2671,9 +2695,11 @@ class add_captions(MutatorClip):
             require_less_equal(caption[1], clip.length(), f'caption {i} start time', 'clip length')
             require_string(caption[2], f'caption {i} text')
 
-        self.captions = args
+        self.new_captions = args
+        self.captions = None
 
     def get_captions(self):
-        for caption in self.captions:
-            yield caption
+        if self.captions is None:
+            self.captions = list(heapq.merge(self.new_captions, self.clip.get_captions()))
+        yield from self.captions
 

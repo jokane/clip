@@ -276,6 +276,10 @@ def test_get_font():
     with pytest.raises(ValueError):
         get_font("test_files/asdasdasdsad.otf", 20)
 
+def test_format_seconds_as_hms():
+    assert format_seconds_as_hms(3723.456) == '01:02:03,456'
+
+
 def test_preview():
     x = solid([0,0,0], 640, 480, 5)
     x.preview(30)
@@ -327,6 +331,48 @@ def test_save5():
     x = solid([0,0,0], 640, 480, 2)
     with pytest.raises(ValueError):
         x.save('test.mp4', frame_rate=30, bitrate='1024k', target_size=5)
+
+def test_captions1():
+    # There are various get_captions implementations in different classes.
+    # Make a clip that covers several of them.
+
+    # For VideoClip.get_captions:
+    x = solid([0,0,0], 640, 480, 5)
+
+    # For add_captions.get_captions:
+    x = add_captions(x, (2, 3, 'First caption'),
+                        (3, 4, 'Second caption'))
+
+    # For MutatorClip.get_captions:
+    x = filter_frames(x, lambda x: x)
+
+    # For slice_clip.get_captions:
+    x = slice_clip(x, 1, 4)
+
+    caps = list(x.get_captions())
+    assert len(caps) == 2
+    assert caps[0][0] == 1
+    print(caps)
+    x.verify(frame_rate=30)
+
+    x.save('hi.mp4', frame_rate=30, burn_captions=True)
+
+def test_captions2():
+    # Compositing merges the captions correctly.
+    x = solid([0,0,0], 640, 480, 5)
+    x = add_captions(x, (3, 4, 'cap2'))
+
+    y = solid([0,0,0], 640, 480, 5)
+    y = add_captions(y, (1, 2, 'cap1'))
+
+    z = composite(Element(x, 0, [0, 0]),
+                  Element(y, 0, [0, 0]))
+
+    caps = list(z.get_captions())
+    print(caps)
+    assert len(caps) == 2
+    assert caps[0][2] == 'cap1'
+
 
 def test_cache1():
     # Create a new directory when needed.  Remove it when we clear the cache.
@@ -854,7 +900,6 @@ def test_static_frame2():
     # Legit usage: An RGB image.
     b = static_image("test_files/brian.jpg", 10)
     b.verify(30)
-
 
 def test_static_frame3():
     # Wrong type
