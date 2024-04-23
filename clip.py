@@ -717,7 +717,13 @@ class Clip(ABC):
                 # - Set the pixel format to yuv420p, which seems to be needed
                 #   to get outputs that play on Apple gadgets.
                 # - Set the output frame rate.
-                if burn_captions and os.stat('captions.srt').st_size > 0:
+
+                captions_exist = os.stat('captions.srt').st_size > 0
+                if captions_exist:
+                    captions_input='-i captions.srt -c:s mov_text -metadata:s:s:0 language=eng'
+                else:
+                    captions_input=''
+                if captions_exist and burn_captions:
                     captions_filter = ',subtitles=captions.srt'
                 else:
                     captions_filter = ''
@@ -725,6 +731,7 @@ class Clip(ABC):
                     f'-framerate {frame_rate}',
                     f'-i %06d.{cache.frame_format}',
                     '-i audio.flac',
+                    captions_input,
                     '-vcodec libx264',
                     '-f mp4',
                     f'-vb {bitrate}' if bitrate else '',

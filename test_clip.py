@@ -355,7 +355,8 @@ def test_captions1():
     print(caps)
     x.verify(frame_rate=30)
 
-    x.save('hi.mp4', frame_rate=30, burn_captions=True)
+    x.save('burned.mp4', frame_rate=30, burn_captions=True)
+    x.save('not_burned.mp4', frame_rate=30, burn_captions=False)
 
 def test_captions2():
     # Compositing merges the captions correctly.
