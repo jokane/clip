@@ -566,18 +566,21 @@ class Clip(ABC):
         """A human-readable description of the length."""
         return self.metrics.readable_length()
 
+    def request_all_frames(self, frame_rate):
+        """Submit a request for every frame in this clip."""
+        fts = list(frame_times(self.length(), frame_rate))
+        for t in fts:
+            self.request_frame(t)
+
     def preview(self, frame_rate, cache_dir='/tmp/clipcache/computed'):
         """Render the video part and display it in a window on screen."""
         cache = ClipCache(cache_dir)
 
-        fts = list(frame_times(self.length(), frame_rate))
-        with custom_progressbar("Previewing", len(fts)) as pb:
-            for t in fts:
-                self.request_frame(t)
-
-            for i, t in enumerate(frame_times(self.length(), frame_rate)):
+        with custom_progressbar("Previewing", self.length()) as pb:
+            self.request_all_frames(frame_rate)
+            for t in frame_times(self.length(), frame_rate):
                 frame = self.get_frame_cached(cache, t)
-                pb.update(i)
+                pb.update(t)
                 cv2.imshow("", frame)
                 cv2.waitKey(1)
 
@@ -639,10 +642,9 @@ class Clip(ABC):
 
             # Video.
             task = f"Staging {fname}" if fname else "Staging"
-            fts = list(frame_times(self.length(), frame_rate))
-            for t in fts:
-                self.request_frame(t)
+            self.request_all_frames(frame_rate)
 
+            fts = list(frame_times(self.length(), frame_rate))
             with custom_progressbar(task, len(fts)) as pb:
                 for index, t in enumerate(fts):
                     # Make sure this frame is in the cache, and figure out
