@@ -279,6 +279,10 @@ def test_get_font():
 def test_format_seconds_as_hms():
     assert format_seconds_as_hms(3723.456) == '01:02:03,456'
 
+def test_parse_hms_to_seconds():
+    assert parse_hms_to_seconds('01:02:03,456') == 3723.456
+    with pytest.raises(ValueError):
+        parse_hms_to_seconds('0102:03,456')
 
 def test_preview():
     x = solid([0,0,0], 640, 480, 5)
@@ -434,10 +438,15 @@ def test_metrics_from_ffprobe_output1():
     )
     correct_frame_rate = 30.0
 
-    with pytest.raises(ValueError):
+    # Warnings if we are ignoring extra streams.
+    with pytest.warns():
         metrics_from_ffprobe_output(f'{video_deets}\n{video_deets}', 'test.mp4')
-    with pytest.raises(ValueError):
+    with pytest.warns():
+        metrics_from_ffprobe_output(f'{audio_deets}\n{audio_deets}', 'test.mp4')
+    with pytest.warns():
         metrics_from_ffprobe_output(f'{audio_deets}\n{video_deets}\n{video_deets}', 'test.mp4')
+
+    # Complaints if the streams are ill-formed.
     with pytest.raises(ValueError):
         metrics_from_ffprobe_output(f'{audio_deets}\n{video_deets}\n{bogus_deets}', 'test.mp4')
     with pytest.raises(ValueError):
@@ -449,24 +458,22 @@ def test_metrics_from_ffprobe_output1():
         bad_video_deets = re.sub("duration", "dooration", video_deets)
         metrics_from_ffprobe_output(f'{bad_video_deets}\n{audio_deets}', 'test.mp4')
 
-    # Cover the case with multiple audio streams.
-    metrics_from_ffprobe_output(f'{audio_deets}\n{audio_deets}', 'test.mp4')
-
-    m, fr, _, _ = metrics_from_ffprobe_output(f'{audio_deets}\n{video_deets}', 'test.mp4')
+    # Correct answers when the parsing goes through.
+    m, fr, _, _, _ = metrics_from_ffprobe_output(f'{audio_deets}\n{video_deets}', 'test.mp4')
     assert m == correct_metrics
     assert fr == correct_frame_rate
 
-    m, fr, _, _ = metrics_from_ffprobe_output(f'{video_deets}\n{audio_deets}', 'test.mp4')
+    m, fr, _, _, _ = metrics_from_ffprobe_output(f'{video_deets}\n{audio_deets}', 'test.mp4')
     assert m == correct_metrics
     assert fr == correct_frame_rate
 
-    m, fr, _, _ = metrics_from_ffprobe_output(f'{video_deets}', 'test.mp4')
+    m, fr, _, _, _ = metrics_from_ffprobe_output(f'{video_deets}', 'test.mp4')
     assert m == Metrics(src=correct_metrics,
                         sample_rate=Clip.default_metrics.sample_rate,
                         num_channels=Clip.default_metrics.num_channels)
     assert fr == correct_frame_rate
 
-    m, fr, _, _ = metrics_from_ffprobe_output(f'{audio_deets}', 'test.mp4')
+    m, fr, _, _, _ = metrics_from_ffprobe_output(f'{audio_deets}', 'test.mp4')
     assert m == Metrics(src=correct_metrics,
                         width=Clip.default_metrics.width,
                         height=Clip.default_metrics.height)
@@ -474,7 +481,7 @@ def test_metrics_from_ffprobe_output1():
 
 def test_metrics_from_ffprobe_output2():
     rotated_video_deets = "stream|index=0|codec_name=h264|codec_long_name=H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10|profile=Baseline|codec_type=video|codec_time_base=18821810/1129461271|codec_tag_string=avc1|codec_tag=0x31637661|width=1600|height=1200|coded_width=1600|coded_height=1200|has_b_frames=0|sample_aspect_ratio=1:1|display_aspect_ratio=4:3|pix_fmt=yuvj420p|level=10|color_range=pc|color_space=smpte170m|color_transfer=smpte170m|color_primaries=bt470bg|chroma_location=left|field_order=unknown|timecode=N/A|refs=1|is_avc=true|nal_length_size=4|id=N/A|r_frame_rate=30/1|avg_frame_rate=1129461271/37643620|time_base=1/90000|start_pts=0|start_time=0.000000|duration_ts=128477601|duration=1427.528900|bit_rate=18000964|max_bit_rate=N/A|bits_per_raw_sample=8|nb_frames=42832|nb_read_frames=N/A|nb_read_packets=N/A|disposition:default=1|disposition:dub=0|disposition:original=0|disposition:comment=0|disposition:lyrics=0|disposition:karaoke=0|disposition:forced=0|disposition:hearing_impaired=0|disposition:visual_impaired=0|disposition:clean_effects=0|disposition:attached_pic=0|disposition:timed_thumbnails=0|tag:rotate=90|tag:creation_time=2020-08-18T15:50:05.000000Z|tag:language=eng|tag:handler_name=VideoHandle" #pylint: disable=line-too-long
-    m, _, _, _ = metrics_from_ffprobe_output(f'{rotated_video_deets}', 'test.mp4')
+    m, _, _, _, _ = metrics_from_ffprobe_output(f'{rotated_video_deets}', 'test.mp4')
     print(m)
 
 def test_from_file1():
@@ -508,10 +515,10 @@ def test_from_file5():
 
 def test_from_file6():
     # Suppress audio and suppress video.
-    a = from_file("test_files/bunny.webm", suppress_audio=True)
+    a = from_file("test_files/bunny.webm", suppress=['audio'])
     assert a.has_audio is False
 
-    b = from_file("test_files/bunny.webm", suppress_video=True)
+    b = from_file("test_files/bunny.webm", suppress=['video'])
     assert b.has_audio is True
 
 def test_from_file7():
@@ -529,6 +536,22 @@ def test_from_file8():
     with temporary_current_directory():
         x = from_file(fname, cache_dir=os.getcwd())
         x.explode()
+
+def test_from_file9():
+    # If there are captions to read.
+    with temporary_current_directory():
+        x = solid([0,0,0], 640, 480, 5)
+        x = add_captions(x, (2, 3, 'First caption'),
+                            (3, 4, 'Second caption'))
+        x.save('hi.mp4', frame_rate=30)
+
+        x = from_file('hi.mp4')
+        assert len(x.get_captions()) == 2
+        x.verify(30)
+
+def test_parse_subtitles():
+    with pytest.raises(ValueError):
+        print(list(parse_subtitles('1\n00:00:00,001 -> A0:00:00,002')))
 
 def test_slice_clip():
     a = join(

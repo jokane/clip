@@ -366,6 +366,18 @@ def format_seconds_as_hms(seconds):
     hours = int(hours)
     return f'{hours:02}:{minutes:02}:{seconds:02},{millis:03}'
 
+def parse_hms_to_seconds(hms):
+    """Parse a string in 00:01:23,456 into a floating point number of
+    seconds."""
+    if match := re.match(r"(\d\d):(\d\d):(\d\d),(\d\d\d)", hms):
+        hours = float(match.group(1))
+        mins = float(match.group(2))
+        secs = float(match.group(3))
+        millis = float(match.group(4))
+        return millis/1000 + secs + 60*mins + 60*60*hours
+    else:
+        raise ValueError(f'Cannot parse {hms} as hours, minutes, seconds, and milliseconds.')
+
 @dataclass
 class Metrics:
     """ A object describing the dimensions of a Clip. """
@@ -1018,9 +1030,10 @@ def get_duration_from_ffprobe_stream(stream):
 
     raise ValueError(f"Could not find a duration in ffprobe stream. {stream}")
 
-def metrics_and_frame_rate_from_stream_dicts(video_stream, audio_stream, fname):
-    """ Given dicts representing the audio and video elements of a clip,
-    return the appropriate metrics object and the float framerate. """
+def metrics_and_frame_rate_from_stream_dicts(streams, fname):
+    """ Given a dicts representing the audio, video, and subtitles elements of
+    a clip, return the appropriate metrics object, the float framerate, and
+    booleans telling whether video, audio, and subtitles exist."""
     # Some videos, especially from mobile phones, contain metadata asking for a
     # rotation.  We'll generally not try to deal with that here ---better,
     # perhaps, to let the user flip or rotate as needed later--- but
@@ -1028,6 +1041,13 @@ def metrics_and_frame_rate_from_stream_dicts(video_stream, audio_stream, fname):
     # and height, and are respected by ffmpeg when the frames are extracted.
     # Thus, we need to apply that change here to prevent mismatched frame sizes
     # down the line.
+
+    video_stream = streams['video']
+    audio_stream = streams['audio']
+    subtitle_stream = streams['subtitle']
+
+    has_subtitles = subtitle_stream is not None
+
     if (video_stream and 'tag:rotate' in video_stream
           and video_stream['tag:rotate'] in ['-90','90']):
         video_stream['width'],video_stream['height'] = video_stream['height'],video_stream['width']
@@ -1045,7 +1065,7 @@ def metrics_and_frame_rate_from_stream_dicts(video_stream, audio_stream, fname):
                        num_channels = eval(audio_stream['channels']),
                        length = min(vlen, alen)), \
                eval(video_stream['avg_frame_rate']), \
-               True, True
+               True, True,  has_subtitles
     elif video_stream:
         vlen = get_duration_from_ffprobe_stream(video_stream)
         return Metrics(src = Clip.default_metrics,
@@ -1053,26 +1073,39 @@ def metrics_and_frame_rate_from_stream_dicts(video_stream, audio_stream, fname):
                        height = eval(video_stream['height']),
                        length = vlen), \
                eval(video_stream['avg_frame_rate']), \
-               True, False
+               True, False, has_subtitles
     elif audio_stream:
         alen = get_duration_from_ffprobe_stream(audio_stream)
         return Metrics(src = Clip.default_metrics,
                        sample_rate = eval(audio_stream['sample_rate']),
                        num_channels = eval(audio_stream['channels']),
-                       length = alen), None, False, True
+                       length = alen), \
+               None, \
+               False, True, has_subtitles
     else:
         # Should be impossible to get here, but just in case...
         raise ValueError(f"File {fname} contains neither audio nor video.") # pragma: no cover
 
-def metrics_from_ffprobe_output(ffprobe_output, fname, suppress_video=False, suppress_audio=False):
-    """ Given the output of a run of ffprobe -of compact -show_entries
-    stream, return a Metrics object based on that data, or complain if
-    something strange is in there. """
+def metrics_from_ffprobe_output(ffprobe_output, fname, suppress=None):
+    """ Given the output of a run of
+        ffprobe -of compact -show_entries stream
+    return a Metrics object based on that data, or complain if
+    something strange is in there.
 
-    video_stream = None
-    audio_stream = None
+    Suppress should be a list of types to ignore like "video" or "audio" or
+    "subtitle"."""
+
+
+    stream_lists = { 'video': [],
+                       'audio': [],
+                       'subtitle': []}
+
+    if suppress is None:
+        suppress = ['data']
 
     for line in ffprobe_output.strip().split('\n'):
+        # Each line is a pipe-separated list of key value pairs.  Massage that
+        # into a dictionary.
         stream = {}
         fields = line.split('|')
         if fields[0] != 'stream': continue
@@ -1081,27 +1114,29 @@ def metrics_from_ffprobe_output(ffprobe_output, fname, suppress_video=False, sup
             assert key not in stream
             stream[key] = val
 
-        if stream['codec_type'] == 'video' and not suppress_video:
-            if video_stream is not None:
-                raise ValueError(f"Don't know what to do with {fname},"
-                  "which has multiple video streams.")
-            video_stream = stream
-        elif stream['codec_type'] == 'video' and suppress_video:
-            pass
-        elif stream['codec_type'] == 'audio' and not suppress_audio:
-            if audio_stream is not None:
-                print(f'Ignoring an extra audio stream in {fname}')
-            else:
-                audio_stream = stream
-        elif stream['codec_type'] == 'audio' and suppress_audio:
-            pass
-        elif stream['codec_type'] == 'data':
-            pass # pragma: no cover
+        # Store the stream data based on what type it is.  Ignore streams that
+        # we are suppressing.  Complain about streams that we are neither
+        # expecting nor suppressing.
+        t = stream['codec_type']
+        if t in suppress:
+            continue
+        if t in stream_lists:
+            stream_lists[t].append(stream)
         else:
             raise ValueError(f"Don't know what to do with {fname}, "
               f"which has an unknown stream of type {stream['codec_type']}.")
 
-    return metrics_and_frame_rate_from_stream_dicts(video_stream, audio_stream, fname)
+    streams_by_type = {}
+    for t, streams in stream_lists.items():
+        if len(streams)==0:
+            streams_by_type[t] = None
+        elif len(streams)==1:
+            streams_by_type[t] = streams[0]
+        else:
+            warnings.warn(f'In {fname} there are {len(streams)} {t} streams.  Using the first one.')
+            streams_by_type[t] = streams[0]
+
+    return metrics_and_frame_rate_from_stream_dicts(streams_by_type, fname)
 
 def audio_samples_from_file(fname, cache, expected_sample_rate, expected_num_channels,
   expected_num_samples):
@@ -1168,11 +1203,49 @@ def audio_samples_from_file(fname, cache, expected_sample_rate, expected_num_cha
                                    expected_num_channels,
                                    expected_num_samples)
 
+def parse_subtitles(srt_text, subtitles_filename=None):
+    """Return a generator for the subtitles parse from the given text."""
+    for subtitle in srt_text.split('\n\n'):
+        lines = subtitle.split('\n')
+        # Ignore lines[0], a sequence number which we don't need.
+        times = lines[1]
+        if match := re.match(r'(.*) --> (.*)', times):
+            start = parse_hms_to_seconds(match.group(1))
+            end = parse_hms_to_seconds(match.group(2))
+        else:
+            raise ValueError(f'Invalid time range {times} in {subtitles_filename}.')
+        text = '\n'.join(lines[2:])
+        yield (start, end, text)
+
+def captions_from_file(fname, cache):
+    """ Extract captions from a file."""
+
+    # What file should the subtitles live in and does it exist already?
+    subtitles_filename, exists = cache.lookup('subtitles',
+                                              'srt',
+                                              use_hash=False)
+
+    # If we don't already have the subtitles file, use ffmpeg to get it.
+    if not exists:
+        print(f'Extracting subtitles from {fname}')
+        ffmpeg( f'-i {fname}',
+               '-map 0:s:0',
+                f'{subtitles_filename}')
+
+    # Read the subtitles in the from the file.
+    with open(subtitles_filename, 'r') as f:
+        srt_text = f.read().strip()
+
+    # Sendd 'em back.
+    yield from parse_subtitles(srt_text)
+
+
+
 class from_file(Clip, FiniteIndexed):
     """A clip read from a file such as an mp4, flac, or other format readable
     by ffmpeg."""
 
-    def __init__(self, fname, suppress_video=False, suppress_audio=False, cache_dir=None):
+    def __init__(self, fname, suppress=None, cache_dir=None):
         Clip.__init__(self)
 
         # Make sure the file exists.
@@ -1187,15 +1260,18 @@ class from_file(Clip, FiniteIndexed):
 
         self.cache = ClipCache(directory=cache_dir)
 
-        self.acquire_metrics(suppress_video, suppress_audio)
+        self.acquire_metrics(suppress)
+
         if self.frame_rate:
+            # Note: Might not have a frame rate if there's no video stream.
             FiniteIndexed.__init__(self,
                                    num_frames=self.metrics.length*self.frame_rate,
                                    length=self.metrics.length)
 
         self.samples = None
+        self.captions = None
 
-    def acquire_metrics(self, suppress_video, suppress_audio):
+    def acquire_metrics(self, suppress=None):
         """ Set the metrics attribute, either by grabbing the metrics from the
         cache, or by getting them the hard way via ffprobe."""
 
@@ -1223,12 +1299,9 @@ class from_file(Clip, FiniteIndexed):
 
         # Parse the (very detailed) ffprobe response to get the metrics we
         # need.
-        response = metrics_from_ffprobe_output(deets,
-                                               self.fname,
-                                               suppress_video,
-                                               suppress_audio)
+        response = metrics_from_ffprobe_output(deets, self.fname, suppress)
 
-        self.metrics, self.frame_rate, self.has_video, self.has_audio = response
+        self.metrics, self.frame_rate, self.has_video, self.has_audio, self.has_captions = response
 
         self.requested_indices = set()
 
@@ -1267,8 +1340,12 @@ class from_file(Clip, FiniteIndexed):
             return read_image(fname)
 
     def get_captions(self):
-        warnings.warn('In from_file, reading of captions is not implemented yet.')
-        return []
+        if self.captions is None:
+            if self.has_captions:
+                self.captions = list(captions_from_file(self.fname, self.cache))
+            else:
+                self.captions = []
+        return self.captions
 
 
     def explode(self):
