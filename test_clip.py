@@ -486,10 +486,22 @@ def test_metrics_from_ffprobe_output2():
     print(m)
 
 def test_metrics_from_ffprobe_output3():
-    # From MakeMKV DVD rip.
+    # From a DVD rip.
     tagged_video_deets = "stream|index=0|codec_name=mpeg2video|codec_long_name=MPEG-2 video|profile=Main|codec_type=video|codec_tag_string=[0][0][0][0]|codec_tag=0x0000|width=720|height=480|coded_width=0|coded_height=0|closed_captions=0|has_b_frames=1|sample_aspect_ratio=8:9|display_aspect_ratio=4:3|pix_fmt=yuv420p|level=8|color_range=tv|color_space=unknown|color_transfer=unknown|color_primaries=unknown|chroma_location=left|field_order=progressive|refs=1|id=N/A|r_frame_rate=30000/1001|avg_frame_rate=30000/1001|time_base=1/1000|start_pts=83|start_time=0.083000|duration_ts=N/A|duration=N/A|bit_rate=N/A|max_bit_rate=N/A|bits_per_raw_sample=N/A|nb_frames=N/A|nb_read_frames=N/A|nb_read_packets=N/A|disposition:default=0|disposition:dub=0|disposition:original=0|disposition:comment=0|disposition:lyrics=0|disposition:karaoke=0|disposition:forced=0|disposition:hearing_impaired=0|disposition:visual_impaired=0|disposition:clean_effects=0|disposition:attached_pic=0|disposition:timed_thumbnails=0|tag:language=eng|tag:BPS-eng=5495948|tag:DURATION-eng=00:12:59.044933333|tag:NUMBER_OF_FRAMES-eng=18681|tag:NUMBER_OF_BYTES-eng=535198192|tag:SOURCE_ID-eng=0100E0|tag:_STATISTICS_WRITING_APP-eng=MakeMKV v1.15.1 linux(x64-release)|tag:_STATISTICS_WRITING_DATE_UTC-eng=2020-06-15 22:14:22|tag:_STATISTICS_TAGS-eng=BPS DURATION NUMBER_OF_FRAMES NUMBER_OF_BYTES SOURCE_ID" # pylint:disable=line-too-long
+    bitmap_subtitle_deets = "stream|index=2|codec_name=dvd_subtitle|codec_long_name=DVD subtitles|profile=unknown|codec_type=subtitle|codec_tag_string=[0][0][0][0]|codec_tag=0x0000|width=720|height=480|id=N/A|r_frame_rate=0/0|avg_frame_rate=0/0|time_base=1/1000|start_pts=0|start_time=0.000000|duration_ts=779044|duration=779.044000|bit_rate=N/A|max_bit_rate=N/A|bits_per_raw_sample=N/A|nb_frames=N/A|nb_read_frames=N/A|nb_read_packets=N/A|disposition:default=1|disposition:dub=0|disposition:original=0|disposition:comment=0|disposition:lyrics=0|disposition:karaoke=0|disposition:forced=0|disposition:hearing_impaired=0|disposition:visual_impaired=0|disposition:clean_effects=0|disposition:attached_pic=0|disposition:timed_thumbnails=0|tag:language=eng|tag:BPS-eng=3689|tag:DURATION-eng=00:12:45.387411111|tag:NUMBER_OF_FRAMES-eng=233|tag:NUMBER_OF_BYTES-eng=352964|tag:SOURCE_ID-eng=0120BD|tag:_STATISTICS_WRITING_APP-eng=MakeMKV v1.15.1 linux(x64-release)|tag:_STATISTICS_WRITING_DATE_UTC-eng=2020-06-15 22:14:22|tag:_STATISTICS_TAGS-eng=BPS DURATION NUMBER_OF_FRAMES NUMBER_OF_BYTES SOURCE_ID" # pylint:disable=line-too-long
+
+    # Duration correctly found from tag:DURATION-eng
     m, _, _, _, _ = metrics_from_ffprobe_output(f'{tagged_video_deets}', 'test.mp4')
     print(m)
+
+    # Warning about bitmap subtitles.
+    with pytest.warns():
+        metrics_from_ffprobe_output(f'{bitmap_subtitle_deets}\n{tagged_video_deets}', 'test.mp4')
+
+    # Complain about multiple versions of the same key.  (Note no newline between the
+    # two stream details entries.)
+    with pytest.raises(ValueError):
+        metrics_from_ffprobe_output(f'{bitmap_subtitle_deets}{tagged_video_deets}', 'test.mp4')
 
 def test_from_file1():
     with pytest.raises(FileNotFoundError):
@@ -553,7 +565,9 @@ def test_from_file9():
         x.save('hi.mp4', frame_rate=30)
 
         x = from_file('hi.mp4')
-        assert len(x.get_captions()) == 2
+        caps = list(x.get_captions())
+        print(caps)
+        assert len(caps) == 2
         x.verify(30)
 
 def test_parse_subtitles():

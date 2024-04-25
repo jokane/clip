@@ -1040,6 +1040,11 @@ def metrics_and_frame_rate_from_stream_dicts(streams, fname):
     """ Given a dicts representing the audio, video, and subtitles elements of
     a clip, return the appropriate metrics object, the float framerate, and
     booleans telling whether video, audio, and subtitles exist."""
+    video_stream = streams['video']
+    audio_stream = streams['audio']
+    subtitle_stream = streams['subtitle']
+    has_subtitles = subtitle_stream is not None
+
     # Some videos, especially from mobile phones, contain metadata asking for a
     # rotation.  We'll generally not try to deal with that here ---better,
     # perhaps, to let the user flip or rotate as needed later--- but
@@ -1047,13 +1052,6 @@ def metrics_and_frame_rate_from_stream_dicts(streams, fname):
     # and height, and are respected by ffmpeg when the frames are extracted.
     # Thus, we need to apply that change here to prevent mismatched frame sizes
     # down the line.
-
-    video_stream = streams['video']
-    audio_stream = streams['audio']
-    subtitle_stream = streams['subtitle']
-
-    has_subtitles = subtitle_stream is not None
-
     if (video_stream and 'tag:rotate' in video_stream
           and video_stream['tag:rotate'] in ['-90','90']):
         video_stream['width'],video_stream['height'] = video_stream['height'],video_stream['width']
@@ -1118,13 +1116,21 @@ def metrics_from_ffprobe_output(ffprobe_output, fname, suppress=None):
         if fields[0] != 'stream': continue
         for pair in fields[1:]:
             key, val = pair.split('=')
-            assert key not in stream
+            if key in stream:
+                raise ValueError(f'Stream has multiple values for key {key}: {stream[key]} val')
             stream[key] = val
+
+        # What kind of stream is this?
+        t = stream['codec_type']
+
+        # A special case: Image-based subtitles.  Can't do much with those.
+        if t == 'subtitle' and stream['codec_name'] == 'dvd_subtitle' in line:
+            warnings.warn(f'Ignoring image-based subtitles in {fname}.')
+            continue
 
         # Store the stream data based on what type it is.  Ignore streams that
         # we are suppressing.  Complain about streams that we are neither
         # expecting nor suppressing.
-        t = stream['codec_type']
         if t in suppress:
             continue
         if t in stream_lists:
