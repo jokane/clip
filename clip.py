@@ -1448,12 +1448,12 @@ class slice_clip(MutatorClip):
         self.start_sample = int(start * self.sample_rate())
         self.metrics = Metrics(self.metrics, length=end-start)
 
+        self.subtitles = None
+
     def frame_signature(self, t):
         return self.clip.frame_signature(self.start_time + t)
 
-    def request_frame(self, t)
-                irint('after:', new_start, new_end)
-
+    def request_frame(self, t):
         self.clip.request_frame(self.start_time + t)
 
     def get_frame(self, t):
@@ -1464,14 +1464,17 @@ class slice_clip(MutatorClip):
         return original_samples[self.start_sample:self.start_sample+self.num_samples()]
 
     def get_subtitles(self):
-        for subtitle in self.clip.get_subtitles():
-            new_start = subtitle[0] - self.start_time
-            new_end = subtitle[1] - self.start_time
-            length = self.length()
-            if 0 <= new_start <= length or 0 <= new_end <= length:
-                new_start = max(0, new_start)
-                new_end = min(self.length(), new_end)
-                yield (new_start, new_end, subtitle[2])
+        if self.subtitles is None:
+            self.subtitles = []
+            for subtitle in self.clip.get_subtitles():
+                new_start = subtitle[0] - self.start_time
+                new_end = subtitle[1] - self.start_time
+                length = self.length()
+                if 0 <= new_start <= length or 0 <= new_end <= length:
+                    new_start = max(0, new_start)
+                    new_end = min(self.length(), new_end)
+                    self.subtitles.append((new_start, new_end, subtitle[2]))
+        return self.subtitles
 
 def join(video_clip, audio_clip):
     """ Create a new clip that combines the video of one clip with the audio of
