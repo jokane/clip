@@ -574,7 +574,7 @@ def test_parse_subtitles():
     with pytest.raises(ValueError):
         print(list(parse_subtitles('1\n00:00:00,001 -> A0:00:00,002')))
 
-def test_slice_clip():
+def test_slice_clip1():
     a = join(
       solid([0,0,0], 640, 480, 10),
       sine_wave(880, 0.1, 10, 48000, 2)
@@ -594,6 +594,26 @@ def test_slice_clip():
 
     f = slice_clip(a, end=3)
     f.verify(30)
+
+def test_slice_clip2():
+    # Subtitles that are sliced out don't appear in the output.
+    x = solid([0,0,0], 640, 480, 7)
+    x = add_subtitles(x,
+                      (1, 2, 'First'),
+                      (3, 4, 'Second'),
+                      (5, 6, 'Third'))
+    y = slice_clip(x, 2.5, 4.5)
+    subs = list(y.get_subtitles())
+    print(y.length(), subs)
+    assert len(subs)==1
+
+    # Subtitles that are partially sliced out are kept.
+    z = slice_clip(x, 1.5, 4.5)
+    subs = list(z.get_subtitles())
+    print(z.length(), subs)
+    assert len(subs)==2
+    assert subs[0][1] - subs[0][0] == 0.5
+
 
 def asff_helper(fname,
                 expected_num_samples,
@@ -852,6 +872,7 @@ def test_composite11():
     )
 
     assert b.frame_signature(0) == c.frame_signature(0)
+
 
 def test_join1():
     # Normal case.

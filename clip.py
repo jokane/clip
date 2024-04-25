@@ -1451,7 +1451,9 @@ class slice_clip(MutatorClip):
     def frame_signature(self, t):
         return self.clip.frame_signature(self.start_time + t)
 
-    def request_frame(self, t):
+    def request_frame(self, t)
+                irint('after:', new_start, new_end)
+
         self.clip.request_frame(self.start_time + t)
 
     def get_frame(self, t):
@@ -1465,7 +1467,10 @@ class slice_clip(MutatorClip):
         for subtitle in self.clip.get_subtitles():
             new_start = subtitle[0] - self.start_time
             new_end = subtitle[1] - self.start_time
-            if new_start > 0:
+            length = self.length()
+            if 0 <= new_start <= length or 0 <= new_end <= length:
+                new_start = max(0, new_start)
+                new_end = min(self.length(), new_end)
                 yield (new_start, new_end, subtitle[2])
 
 def join(video_clip, audio_clip):
@@ -1587,7 +1592,9 @@ class Element:
     def get_subtitles(self):
         """ Return the subtitles of the constituent clip, shifted appropriately. """
         for subtitle_start_time, subtitle_end_time, text in self.clip.get_subtitles():
-            yield self.start_time+subtitle_start_time, self.start_time+subtitle_end_time, text
+            new_start_time = self.start_time+subtitle_start_time
+            new_end_time = self.start_time+subtitle_end_time
+            yield new_start_time, new_end_time, text
 
     def apply_to_frame(self, under, t):
         """ Modify the given frame as described by this element. """
