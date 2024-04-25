@@ -355,7 +355,7 @@ def frame_times(clip_length, frame_rate):
 
 def format_seconds_as_hms(seconds):
     """Return a string representing the given time in 00:01:23,456 format.
-    This specific format is important for saving captions in the format that
+    This specific format is important for saving subtitles in the format that
     ffmpeg likes to see."""
     seconds, fraction = divmod(seconds, 1)
     minutes, seconds = divmod(seconds, 60)
@@ -525,8 +525,9 @@ class Clip(ABC):
         """Create and return the audio data for the clip."""
 
     @abstractmethod
-    def get_captions(self):
-        """Return an iterable of captions, each a (start_time, end_time, text) triple."""
+    def get_subtitles(self):
+        """Return an iterable of subtitles, each a (start_time, end_time, text)
+        triple."""
 
 
     # Default metrics to use when not otherwise specified.  These can make code
@@ -616,13 +617,13 @@ class Clip(ABC):
         samples = self.get_samples()
         assert samples.shape == (self.num_samples(), self.num_channels())
 
-        captions = self.get_captions()
-        for caption in captions:
-            assert len(caption) == 3
-            assert is_non_negative(caption[0])
-            assert is_non_negative(caption[1])
-            assert caption[0] < caption[1]
-            assert is_string(caption[2])
+        subtitles = self.get_subtitles()
+        for subtitle in subtitles:
+            assert len(subtitle) == 3
+            assert is_non_negative(subtitle[0])
+            assert is_non_negative(subtitle[1])
+            assert subtitle[0] < subtitle[1]
+            assert is_string(subtitle[2])
 
     def stage(self, directory, cache, frame_rate, fname=""):
         """Get everything for this clip onto to disk in the specified
@@ -636,9 +637,9 @@ class Clip(ABC):
             assert data is not None
             soundfile.write(audio_fname, data, self.sample_rate())
 
-            # Captions
-            captions_fname = 'captions.srt'
-            self.save_captions(captions_fname)
+            # Subtitles
+            subtitles_fname = 'subtitles.srt'
+            self.save_subtitles(subtitles_fname)
 
             # Video.
             task = f"Staging {fname}" if fname else "Staging"
@@ -659,7 +660,7 @@ class Clip(ABC):
                     pb.update(index)
 
     def save(self, fname, frame_rate, bitrate=None, target_size=None, two_pass=False,
-             preset='slow', cache_dir='/tmp/clipcache/computed', burn_captions=False):
+             preset='slow', cache_dir='/tmp/clipcache/computed', burn_subtitles=False):
         """ Save to a file.
 
         Bitrate controls the target bitrate.  Handles the tradeoff between
@@ -679,7 +680,7 @@ class Clip(ABC):
         # First, a simple case: If we're saving to an audio-only format, it's
         # easy.
         if re.search('.(flac|wav)$', fname):
-            assert not burn_captions
+            assert not burn_subtitles
             data = self.get_samples()
             assert data is not None
             soundfile.write(fname, data, self.sample_rate())
@@ -732,26 +733,26 @@ class Clip(ABC):
                 #   to get outputs that play on Apple gadgets.
                 # - Set the output frame rate.
 
-                captions_exist = os.stat('captions.srt').st_size > 0
-                if captions_exist:
-                    captions_input='-i captions.srt -c:s mov_text -metadata:s:s:0 language=eng'
+                subtitles_exist = os.stat('subtitles.srt').st_size > 0
+                if subtitles_exist:
+                    subtitles_input='-i subtitles.srt -c:s mov_text -metadata:s:s:0 language=eng'
                 else:
-                    captions_input=''
-                if captions_exist and burn_captions:
-                    captions_filter = ',subtitles=captions.srt'
+                    subtitles_input=''
+                if subtitles_exist and burn_subtitles:
+                    subtitles_filter = ',subtitles=subtitles.srt'
                 else:
-                    captions_filter = ''
+                    subtitles_filter = ''
                 args = [
                     f'-framerate {frame_rate}',
                     f'-i %06d.{cache.frame_format}',
                     '-i audio.flac',
-                    captions_input,
+                    subtitles_input,
                     '-vcodec libx264',
                     '-f mp4',
                     f'-vb {bitrate}' if bitrate else '',
                     f'-preset {preset}' if preset else '',
                     '-profile:v high',
-                    f'-filter_complex "format=yuv420p,pad=width=ceil(iw/2)*2:height=ceil(ih/2)*2,fps={frame_rate}{captions_filter}"', #pylint: disable=line-too-long
+                    f'-filter_complex "format=yuv420p,pad=width=ceil(iw/2)*2:height=ceil(ih/2)*2,fps={frame_rate}{subtitles_filter}"', #pylint: disable=line-too-long
                 ]
 
                 num_frames = int(self.length() * frame_rate)
@@ -770,15 +771,15 @@ class Clip(ABC):
 
             print(f'Wrote {self.readable_length()} to {fname}.')
 
-    def save_captions(self, filename):
-        """Save the captions for this clip to the given file."""
+    def save_subtitles(self, filename):
+        """Save the subtitles for this clip to the given file."""
         with open(filename, 'w') as f:
-            for number, caption in enumerate(self.get_captions()):
+            for number, subtitle in enumerate(self.get_subtitles()):
                 print(number+1, file=f)
-                hms0 = format_seconds_as_hms(caption[0])
-                hms1 = format_seconds_as_hms(caption[1])
+                hms0 = format_seconds_as_hms(subtitle[0])
+                hms1 = format_seconds_as_hms(subtitle[1])
                 print(hms0, '-->', hms1, file=f)
-                print(caption[2], file=f)
+                print(subtitle[2], file=f)
                 print(file=f)
 
     def get_cached_filename(self, cache, t):
@@ -852,7 +853,7 @@ class VideoClip(Clip):
         is, silence with the appropriate metrics."""
         return np.zeros([self.metrics.num_samples(), self.metrics.num_channels])
 
-    def get_captions(self):
+    def get_subtitles(self):
         return []
 
 
@@ -898,8 +899,8 @@ class MutatorClip(Clip):
     def get_frame(self, t):
         return self.clip.get_frame(t)
 
-    def get_captions(self):
-        return self.clip.get_captions()
+    def get_subtitles(self):
+        return self.clip.get_subtitles()
 
     def get_samples(self):
         return self.clip.get_samples()
@@ -950,7 +951,7 @@ class solid(Clip):
     request_frame = AudioClip.request_frame
     get_frame = AudioClip.get_frame
     get_samples = VideoClip.get_samples
-    get_captions = VideoClip.get_captions
+    get_subtitles = VideoClip.get_subtitles
 
 class sine_wave(AudioClip):
     """ A sine wave with the given frequency. """
@@ -975,7 +976,7 @@ class sine_wave(AudioClip):
         samples = np.stack([samples]*self.num_channels(), axis=1)
         return samples
 
-    def get_captions(self):
+    def get_subtitles(self):
         return []
 
 class scale_alpha(MutatorClip):
@@ -1230,8 +1231,8 @@ def parse_subtitles(srt_text, subtitles_filename=None):
         text = '\n'.join(lines[2:])
         yield (start, end, text)
 
-def captions_from_file(fname, cache):
-    """ Extract captions from a file."""
+def subtitles_from_file(fname, cache):
+    """ Extract subtitles from a file."""
 
     # What file should the subtitles live in and does it exist already?
     subtitles_filename, exists = cache.lookup('subtitles',
@@ -1282,7 +1283,7 @@ class from_file(Clip, FiniteIndexed):
                                    length=self.metrics.length)
 
         self.samples = None
-        self.captions = None
+        self.subtitles = None
 
     def acquire_metrics(self, suppress=None):
         """ Set the metrics attribute, either by grabbing the metrics from the
@@ -1314,7 +1315,7 @@ class from_file(Clip, FiniteIndexed):
         # need.
         response = metrics_from_ffprobe_output(deets, self.fname, suppress)
 
-        self.metrics, self.frame_rate, self.has_video, self.has_audio, self.has_captions = response
+        self.metrics, self.frame_rate, self.has_video, self.has_audio, self.has_subtitles = response
 
         self.requested_indices = set()
 
@@ -1352,13 +1353,13 @@ class from_file(Clip, FiniteIndexed):
 
             return read_image(fname)
 
-    def get_captions(self):
-        if self.captions is None:
-            if self.has_captions:
-                self.captions = list(captions_from_file(self.fname, self.cache))
+    def get_subtitles(self):
+        if self.subtitles is None:
+            if self.has_subtitles:
+                self.subtitles = list(subtitles_from_file(self.fname, self.cache))
             else:
-                self.captions = []
-        return self.captions
+                self.subtitles = []
+        return self.subtitles
 
 
     def explode(self):
@@ -1460,12 +1461,12 @@ class slice_clip(MutatorClip):
         original_samples = self.clip.get_samples()
         return original_samples[self.start_sample:self.start_sample+self.num_samples()]
 
-    def get_captions(self):
-        for caption in self.clip.get_captions():
-            new_start = caption[0] - self.start_time
-            new_end = caption[1] - self.start_time
+    def get_subtitles(self):
+        for subtitle in self.clip.get_subtitles():
+            new_start = subtitle[0] - self.start_time
+            new_end = subtitle[1] - self.start_time
             if new_start > 0:
-                yield (new_start, new_end, caption[2])
+                yield (new_start, new_end, subtitle[2])
 
 def join(video_clip, audio_clip):
     """ Create a new clip that combines the video of one clip with the audio of
@@ -1583,10 +1584,10 @@ class Element:
             return
         self.clip.request_frame(clip_t)
 
-    def get_captions(self):
-        """ Return the captions of the constituent clip, shifted appropriately. """
-        for caption_start_time, caption_end_time, text in self.clip.get_captions():
-            yield self.start_time+caption_start_time, self.start_time+caption_end_time, text
+    def get_subtitles(self):
+        """ Return the subtitles of the constituent clip, shifted appropriately. """
+        for subtitle_start_time, subtitle_end_time, text in self.clip.get_subtitles():
+            yield self.start_time+subtitle_start_time, self.start_time+subtitle_end_time, text
 
     def apply_to_frame(self, under, t):
         """ Modify the given frame as described by this element. """
@@ -1760,8 +1761,8 @@ class composite(Clip):
 
         return samples
 
-    def get_captions(self):
-        yield from heapq.merge(*[e.get_captions() for e in self.elements],
+    def get_subtitles(self):
+        yield from heapq.merge(*[e.get_subtitles() for e in self.elements],
                                key = lambda x: x[0])
 
 class static_frame(VideoClip):
@@ -1802,7 +1803,7 @@ class static_frame(VideoClip):
     def get_frame(self, t):
         return self.the_frame
 
-    def get_captions(self):
+    def get_subtitles(self):
         return []
 
 
@@ -2311,7 +2312,7 @@ class repeat_frame(VideoClip):
     def get_frame(self, t):
         return self.clip.get_frame(self.when)
 
-    def get_captions(self):
+    def get_subtitles(self):
         return []
 
 def hold_at_start(clip, target_length):
@@ -2780,23 +2781,25 @@ class silence_audio(MutatorClip):
     def get_samples(self):
         return np.zeros([self.metrics.num_samples(), self.metrics.num_channels])
 
-class add_captions(MutatorClip):
-    """ Add one or more captions to a clip. """
+class add_subtitles(MutatorClip):
+    """ Add one or more subtitles to a clip. """
     def __init__(self, clip, *args):
         super().__init__(clip)
-        for i, caption in enumerate(args):
-            require_iterable(caption, f'caption {i}')
-            require_float(caption[0], f'caption {i} start time')
-            require_non_negative(caption[0], f'caption {i} start time')
-            require_less(caption[0], caption[1], f'caption {i} start time', f'caption {i} end time')
-            require_less_equal(caption[1], clip.length(), f'caption {i} start time', 'clip length')
-            require_string(caption[2], f'caption {i} text')
+        for i, subtitle in enumerate(args):
+            require_iterable(subtitle, f'subtitle {i}')
+            require_float(subtitle[0], f'subtitle {i} start time')
+            require_non_negative(subtitle[0], f'subtitle {i} start time')
+            require_less(subtitle[0], subtitle[1], f'subtitle {i} start time',
+                         f'subtitle {i} end time')
+            require_less_equal(subtitle[1], clip.length(), f'subtitle {i} start time',
+                               'clip length')
+            require_string(subtitle[2], f'subtitle {i} text')
 
-        self.new_captions = args
-        self.captions = None
+        self.new_subtitles = args
+        self.subtitles = None
 
-    def get_captions(self):
-        if self.captions is None:
-            self.captions = list(heapq.merge(self.new_captions, self.clip.get_captions()))
-        yield from self.captions
+    def get_subtitles(self):
+        if self.subtitles is None:
+            self.subtitles = list(heapq.merge(self.new_subtitles, self.clip.get_subtitles()))
+        yield from self.subtitles
 

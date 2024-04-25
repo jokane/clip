@@ -336,45 +336,45 @@ def test_save5():
     with pytest.raises(ValueError):
         x.save('test.mp4', frame_rate=30, bitrate='1024k', target_size=5)
 
-def test_captions1():
-    # There are various get_captions implementations in different classes.
+def test_subtitles1():
+    # There are various get_subtitles implementations in different classes.
     # Make a clip that covers several of them.
 
-    # For VideoClip.get_captions:
+    # For VideoClip.get_subtitles:
     x = solid([0,0,0], 640, 480, 5)
 
-    # For add_captions.get_captions:
-    x = add_captions(x, (2, 3, 'First caption'),
-                        (3, 4, 'Second caption'))
+    # For add_subtitles.get_subtitles:
+    x = add_subtitles(x, (2, 3, 'First subtitle'),
+                        (3, 4, 'Second subtitle'))
 
-    # For MutatorClip.get_captions:
+    # For MutatorClip.get_subtitles:
     x = filter_frames(x, lambda x: x)
 
-    # For slice_clip.get_captions:
+    # For slice_clip.get_subtitles:
     x = slice_clip(x, 1, 4)
 
-    caps = list(x.get_captions())
+    caps = list(x.get_subtitles())
     assert len(caps) == 2
     assert caps[0][0] == 1
     print(caps)
     x.verify(frame_rate=30)
 
     with temporary_current_directory():
-        x.save('burned.mp4', frame_rate=30, burn_captions=True)
-        x.save('not_burned.mp4', frame_rate=30, burn_captions=False)
+        x.save('burned.mp4', frame_rate=30, burn_subtitles=True)
+        x.save('not_burned.mp4', frame_rate=30, burn_subtitles=False)
 
-def test_captions2():
-    # Compositing merges the captions correctly.
+def test_subtitles2():
+    # Compositing merges the subtitles correctly.
     x = solid([0,0,0], 640, 480, 5)
-    x = add_captions(x, (3, 4, 'cap2'))
+    x = add_subtitles(x, (3, 4, 'cap2'))
 
     y = solid([0,0,0], 640, 480, 5)
-    y = add_captions(y, (1, 2, 'cap1'))
+    y = add_subtitles(y, (1, 2, 'cap1'))
 
     z = composite(Element(x, 0, [0, 0]),
                   Element(y, 0, [0, 0]))
 
-    caps = list(z.get_captions())
+    caps = list(z.get_subtitles())
     print(caps)
     assert len(caps) == 2
     assert caps[0][2] == 'cap1'
@@ -557,15 +557,15 @@ def test_from_file8():
         x.explode()
 
 def test_from_file9():
-    # If there are captions to read.
+    # If there are subtitles to read.
     with temporary_current_directory():
         x = solid([0,0,0], 640, 480, 5)
-        x = add_captions(x, (2, 3, 'First caption'),
-                            (3, 4, 'Second caption'))
+        x = add_subtitles(x, (2, 3, 'First subtitle'),
+                            (3, 4, 'Second subtitle'))
         x.save('hi.mp4', frame_rate=30)
 
         x = from_file('hi.mp4')
-        caps = list(x.get_captions())
+        caps = list(x.get_subtitles())
         print(caps)
         assert len(caps) == 2
         x.verify(30)
