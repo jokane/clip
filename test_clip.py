@@ -1185,6 +1185,15 @@ def test_resample2():
     b = resample(a)
     b.verify(30)
 
+def test_resample3():
+    # Subtitle times get scaled appropriately.
+    x = solid([0,0,0], 640, 480, 5)
+    x = add_subtitles(x, (2, 3, 'subtitle'))
+    x = resample(x, length=10)
+    subs = list(x.get_subtitles())
+    print(subs)
+    assert subs[0][0] == 4
+
 def test_slice_out1():
     # Bad clip or bad times.
     a = black(640, 480, 3)
