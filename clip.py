@@ -1023,12 +1023,16 @@ def get_duration_from_ffprobe_stream(stream):
     if 'duration' in stream and is_float(stream['duration']):
         return float(stream['duration'])
 
-    if 'tag:DURATION' in stream:
-        if match := re.match(r"(\d\d):(\d\d):([0-9\.]+)", stream['tag:DURATION']):
-            hours = float(match.group(1))
-            mins = float(match.group(2))
-            secs = float(match.group(3))
-            return secs + 60*mins + 60*60*hours
+    tags = ['tag:DURATION',
+            'tag:DURATION-eng']
+
+    for tag in tags:
+        if tag in stream:
+            if match := re.match(r"(\d\d):(\d\d):([0-9\.]+)", stream[tag]):
+                hours = float(match.group(1))
+                mins = float(match.group(2))
+                secs = float(match.group(3))
+                return secs + 60*mins + 60*60*hours
 
     raise ValueError(f"Could not find a duration in ffprobe stream. {stream}")
 
@@ -1093,6 +1097,7 @@ def metrics_from_ffprobe_output(ffprobe_output, fname, suppress=None):
         ffprobe -of compact -show_entries stream
     return a Metrics object based on that data, or complain if
     something strange is in there.
+    print(ffprobe_output)
 
     Suppress should be a list of types to ignore like "video" or "audio" or
     "subtitle"."""
