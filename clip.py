@@ -2259,6 +2259,16 @@ def slice_out(clip, start, end):
     require_less(start, end, "start time", "end time")
     require_less_equal(end, clip.length(), "end time", "clip length")
 
+    # Special cases because slice_clip complains if we ask for a length zero
+    # slice.  As a bonus, this eliminates the need for chaining. (And, if for
+    # some reason, we're asked to slice out the entire clip, the aforementioned
+    # slice_clip complaint will kick in.)
+    if start == 0:
+        return slice_clip(clip, end, clip.length())
+    elif end == clip.length():
+        return slice_clip(clip, 0, start)
+
+    # Normal case: Something before and something after.
     return chain(slice_clip(clip, 0, start),
                  slice_clip(clip, end, clip.length()))
 
@@ -2802,4 +2812,15 @@ class add_subtitles(MutatorClip):
         if self.subtitles is None:
             self.subtitles = list(heapq.merge(self.new_subtitles, self.clip.get_subtitles()))
         yield from self.subtitles
+
+def bgr2rgb(clip):
+    """Swap the first and third color channels.  Useful if, instead of saving,
+    you are sending the frames to something, like PIL, that expects RGB instead
+    of BGR."""
+    def swap_channels(frame):
+        return cv2.cvtColor(frame, cv2.COLOR_BGRA2RGBA)
+
+    return filter_frames(clip=clip,
+                         func=swap_channels,
+                         name='bgr2rgb')
 

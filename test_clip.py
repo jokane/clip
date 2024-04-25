@@ -1186,7 +1186,7 @@ def test_resample2():
     b.verify(30)
 
 def test_slice_out1():
-    # Bad times.
+    # Bad clip or bad times.
     a = black(640, 480, 3)
     with pytest.raises(TypeError):
         slice_out(0,0,0)
@@ -1203,6 +1203,12 @@ def test_slice_out2():
     b = slice_out(a, 1.5, 2.5)
     b.verify(30)
     assert b.length() == 2
+
+def test_slice_out3():
+    # Start at zero or end at the end.
+    a = black(640, 480, 3)
+    assert slice_out(a, 0, 1).length() == 2
+    assert slice_out(a, 2, 3).length() == 2
 
 def test_letterbox():
     a = white(640, 480, 3)
@@ -1501,7 +1507,10 @@ def test_silence_audio():
     b = silence_audio(a)
     b.verify(30)
 
-
+def test_bgr2rgb():
+    a = from_file("test_files/bunny.webm")
+    b = bgr2rgb(a)
+    b.verify(30)
 
 
 # Grab all of the test source files first.  (...instead of checking within
