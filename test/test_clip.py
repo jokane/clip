@@ -14,21 +14,23 @@ import pytest
 
 from clip import *
 
+TEST_FILES_DIR = ".test_files"
+
 def get_test_files():  # pragma: no cover
     """ Download some media files to use for the test, if they don't exist
     already."""
 
-    if not os.path.exists("test_files"):
-        os.mkdir("test_files")
+    if not os.path.exists(TEST_FILES_DIR):
+        os.mkdir(TEST_FILES_DIR)
 
     opener = urllib.request.build_opener()
     opener.addheaders = [('User-agent', 'Mozilla/5.0')]
     urllib.request.install_opener(opener)
 
     def snag(fname, url):
-        if not os.path.exists("test_files/" + fname):
+        if not os.path.exists(f"{TEST_FILES_DIR}/" + fname):
             print(f"Downloading {fname}...")
-            urllib.request.urlretrieve(url, "test_files/" + fname)
+            urllib.request.urlretrieve(url, f"{TEST_FILES_DIR}/" + fname)
 
     snag("books.mp4", "https://www.pexels.com/video/5224014/download")
     snag("music.mp3", "https://www.dropbox.com/s/mvvwaw1msplnteq/City%20Lights%20-%20The%20Lemming%20Shepherds.mp3?dl=1") #pylint: disable=line-too-long
@@ -38,25 +40,25 @@ def get_test_files():  # pragma: no cover
     snag("snowman.pdf", "https://ctan.math.utah.edu/ctan/tex-archive/graphics/pgf/contrib/scsnowman/scsnowman-sample.pdf") # pylint: disable=line-too-long
     snag("brian.jpg", "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b7/Brian_Wilson_%287314673472%29_%28tall%29.jpg/800px-Brian_Wilson_%287314673472%29_%28tall%29.jpg") # pylint: disable=line-too-long
 
-    if not os.path.exists("test_files/bunny_frames"):
-        os.mkdir("test_files/bunny_frames")
-        ffmpeg('-i test_files/bunny.webm', 'test_files/bunny_frames/%04d.png')
+    if not os.path.exists(f"{TEST_FILES_DIR}/bunny_frames"):
+        os.mkdir(f"{TEST_FILES_DIR}/bunny_frames")
+        ffmpeg(f'-i {TEST_FILES_DIR}/bunny.webm', f'{TEST_FILES_DIR}/bunny_frames/%04d.png')
 
-    if not os.path.exists("test_files/bunny.zip"):
-        with temporarily_changed_directory("test_files"):
+    if not os.path.exists(f"{TEST_FILES_DIR}/bunny.zip"):
+        with temporarily_changed_directory(TEST_FILES_DIR):
             os.system("zip bunny.zip bunny_frames/*.png")
 
-    exists = os.path.exists("test_files/ethnocentric_rg.otf")
-    exists = exists and os.path.exists("test_files/ethnocentric_rg_it.otf")
+    exists = os.path.exists(f"{TEST_FILES_DIR}/ethnocentric_rg.otf")
+    exists = exists and os.path.exists(f"{TEST_FILES_DIR}/ethnocentric_rg_it.otf")
     if not exists:
         with urllib.request.urlopen("https://dl.dafont.com/dl/?f=ethnocentric") as u:
             zip_data = u.read()
         file_like_object = io.BytesIO(zip_data)
         with zipfile.ZipFile(file_like_object) as z:
-            with open("test_files/ethnocentric_rg.otf", 'wb') as f, \
+            with open(f"{TEST_FILES_DIR}/ethnocentric_rg.otf", 'wb') as f, \
               z.open("ethnocentric rg.otf") as otf:
                 f.write(otf.read())
-            with open("test_files/ethnocentric_rg_it.otf", 'wb') as f, \
+            with open(f"{TEST_FILES_DIR}/ethnocentric_rg_it.otf", 'wb') as f, \
               z.open("ethnocentric rg it.otf") as otf:
                 f.write(otf.read())
 
@@ -243,12 +245,12 @@ def test_white():
     white(640, 480, 300).verify(30)
 
 def test_read_image1():
-    img = read_image('test_files/water.png')
+    img = read_image(f'{TEST_FILES_DIR}/water.png')
     assert img.shape == (682, 1280, 4)
     assert img.dtype == np.uint8
 
 def test_read_image2():
-    img = read_image('test_files/brian.jpg')
+    img = read_image(f'{TEST_FILES_DIR}/brian.jpg')
     assert img.shape == (1067, 800, 4)
     assert img.dtype == np.uint8
 
@@ -262,19 +264,19 @@ def test_flatten_args():
     assert len(y) == 3
 
 def test_sha256sum_file():
-    h = sha256sum_file('test_files/brian.jpg')
+    h = sha256sum_file(f'{TEST_FILES_DIR}/brian.jpg')
     assert h[:7] == 'e16d354'
 
 def test_get_font():
-    get_font("test_files/ethnocentric_rg.otf", 10)
-    get_font("test_files/ethnocentric_rg.otf", 10)
-    get_font("test_files/ethnocentric_rg_it.otf", 20)
+    get_font(f"{TEST_FILES_DIR}/ethnocentric_rg.otf", 10)
+    get_font(f"{TEST_FILES_DIR}/ethnocentric_rg.otf", 10)
+    get_font(f"{TEST_FILES_DIR}/ethnocentric_rg_it.otf", 20)
 
     with pytest.raises(ValueError):
         get_font("clip3.py", 20)
 
     with pytest.raises(ValueError):
-        get_font("test_files/asdasdasdsad.otf", 20)
+        get_font(f"{TEST_FILES_DIR}/asdasdasdsad.otf", 20)
 
 def test_format_seconds_as_hms():
     assert format_seconds_as_hms(3723.456) == '01:02:03,456'
@@ -308,7 +310,7 @@ def test_save2():
 
 def test_save3():
     # With a target filesize.
-    a = from_file("test_files/bunny.webm")
+    a = from_file(f"{TEST_FILES_DIR}/bunny.webm")
     with temporary_current_directory():
         for ts in [5, 10]:
             a.save('small_bunny.mp4',
@@ -505,44 +507,44 @@ def test_metrics_from_ffprobe_output3():
 
 def test_from_file1():
     with pytest.raises(FileNotFoundError):
-        from_file("test_files/books12312312.mp4")
+        from_file(f"{TEST_FILES_DIR}/books12312312.mp4")
 
 def test_from_file2():
-    a = from_file("test_files/bunny.webm")
+    a = from_file(f"{TEST_FILES_DIR}/bunny.webm")
     a = slice_clip(a, 0, 1.1)
     a.verify(30)
 
 def test_from_file3():
-    b = from_file("test_files/bunny.webm")
+    b = from_file(f"{TEST_FILES_DIR}/bunny.webm")
     b.verify(30)
 
     # Again to use the cached dimensions.
-    c = from_file("test_files/bunny.webm")
+    c = from_file(f"{TEST_FILES_DIR}/bunny.webm")
     c.verify(30)
 
 def test_from_file4():
     # For the case with no video.
-    d = from_file("test_files/music.mp3")
+    d = from_file(f"{TEST_FILES_DIR}/music.mp3")
     assert not d.has_video
     d.verify(30)
 
 def test_from_file5():
     # For the case with no audio.
-    e = from_file("test_files/books.mp4")
+    e = from_file(f"{TEST_FILES_DIR}/books.mp4")
     e = slice_clip(e, 1.5, 2.5)
     e.verify(10)
 
 def test_from_file6():
     # Suppress audio and suppress video.
-    a = from_file("test_files/bunny.webm", suppress=['audio'])
+    a = from_file(f"{TEST_FILES_DIR}/bunny.webm", suppress=['audio'])
     assert a.has_audio is False
 
-    b = from_file("test_files/bunny.webm", suppress=['video'])
+    b = from_file(f"{TEST_FILES_DIR}/bunny.webm", suppress=['video'])
     assert b.has_audio is True
 
 def test_from_file7():
     # Be sure to get both cache hits and cache misses.
-    fname = os.path.join(os.getcwd(), 'test_files/bunny.webm')
+    fname = os.path.join(os.getcwd(), f'{TEST_FILES_DIR}/bunny.webm')
 
     with temporary_current_directory():
         for _ in range(2):
@@ -551,7 +553,7 @@ def test_from_file7():
 
 def test_from_file8():
     # No need to explode if there's no requested frames.
-    fname = os.path.join(os.getcwd(), 'test_files/bunny.webm')
+    fname = os.path.join(os.getcwd(), f'{TEST_FILES_DIR}/bunny.webm')
     with temporary_current_directory():
         x = from_file(fname, cache_dir=os.getcwd())
         x.explode()
@@ -644,7 +646,7 @@ def test_audio_samples_from_file1():
     with pytest.raises(FFMPEGException):
         # No audio track.
         asff_helper(
-          "test_files/books.mp4",
+          f"{TEST_FILES_DIR}/books.mp4",
           expected_num_samples=0,
           expected_num_channels=1,
           expected_sample_rate=0
@@ -654,7 +656,7 @@ def test_audio_samples_from_file2():
     with pytest.raises(ValueError):
         # Wrong sample rate.
         asff_helper(
-          "test_files/music.mp3",
+          f"{TEST_FILES_DIR}/music.mp3",
           expected_num_samples=3335168,
           expected_num_channels=2,
           expected_sample_rate=48000
@@ -664,7 +666,7 @@ def test_audio_samples_from_file3():
     with pytest.raises(ValueError):
         # Wrong number of channels
         asff_helper(
-          "test_files/music.mp3",
+          f"{TEST_FILES_DIR}/music.mp3",
           expected_num_samples=3335168,
           expected_num_channels=1,
           expected_sample_rate=44100
@@ -674,7 +676,7 @@ def test_audio_samples_from_file4():
     with pytest.raises(ValueError):
         # Wrong length.
         asff_helper(
-          "test_files/music.mp3",
+          f"{TEST_FILES_DIR}/music.mp3",
           expected_num_samples=4335170,
           expected_num_channels=2,
           expected_sample_rate=44100
@@ -683,7 +685,7 @@ def test_audio_samples_from_file4():
 def test_audio_samples_from_file5():
     # Slightly too long.
     asff_helper(
-      "test_files/music.mp3",
+      f"{TEST_FILES_DIR}/music.mp3",
       expected_num_samples=3337343,
       expected_num_channels=2,
       expected_sample_rate=44100
@@ -692,7 +694,7 @@ def test_audio_samples_from_file5():
 def test_audio_samples_from_file6():
     # Slightly too short.
     asff_helper(
-      "test_files/music.mp3",
+      f"{TEST_FILES_DIR}/music.mp3",
       expected_num_samples=3337345,
       expected_num_channels=2,
       expected_sample_rate=44100
@@ -701,7 +703,7 @@ def test_audio_samples_from_file6():
 def test_audio_samples_from_file7():
     # All good.
     asff_helper(
-      "test_files/music.mp3",
+      f"{TEST_FILES_DIR}/music.mp3",
       expected_num_samples=3337344,
       expected_num_channels=2,
       expected_sample_rate=44100
@@ -709,7 +711,7 @@ def test_audio_samples_from_file7():
 
 def test_audio_samples_from_file8():
     # Ensure a cache miss and a cache hit.
-    fname = os.path.join(os.getcwd(), 'test_files/music.mp3')
+    fname = os.path.join(os.getcwd(), f'{TEST_FILES_DIR}/music.mp3')
 
     with temporary_current_directory():
         cache = ClipCache(os.getcwd())
@@ -721,14 +723,14 @@ def test_audio_samples_from_file8():
                                     expected_sample_rate=44100)
 
 def test_alpha_blend():
-    f0 = cv2.imread("test_files/flowers.png", cv2.IMREAD_UNCHANGED)
+    f0 = cv2.imread(f"{TEST_FILES_DIR}/flowers.png", cv2.IMREAD_UNCHANGED)
     f1 = np.zeros(shape=f0.shape, dtype=np.uint8)
     f2 = alpha_blend(f0, f1)
-    cv2.imwrite('test_files/blended.png', f2)
+    cv2.imwrite(f'{TEST_FILES_DIR}/blended.png', f2)
 
-    f0 = cv2.imread("test_files/water.png", cv2.IMREAD_UNCHANGED)
+    f0 = cv2.imread(f"{TEST_FILES_DIR}/water.png", cv2.IMREAD_UNCHANGED)
     f0 = f0[0:439,:,:]
-    f1 = cv2.imread("test_files/flowers.png", cv2.IMREAD_UNCHANGED)
+    f1 = cv2.imread(f"{TEST_FILES_DIR}/flowers.png", cv2.IMREAD_UNCHANGED)
     f2 = alpha_blend(f0, f1)
 
 def test_composite1():
@@ -777,7 +779,7 @@ def test_composite5():
 
 def test_composite6():
     # Clipping above, below, left, and right.
-    x = static_image("test_files/flowers.png", 10)
+    x = static_image(f"{TEST_FILES_DIR}/flowers.png", 10)
     x = scale_by_factor(x, 0.4)
 
     z = composite(
@@ -791,7 +793,7 @@ def test_composite6():
 
 def test_composite7():
     # Totally off-screen.
-    x = static_image("test_files/flowers.png", 10)
+    x = static_image(f"{TEST_FILES_DIR}/flowers.png", 10)
     x = scale_by_factor(x, 0.4)
 
     z = composite(
@@ -806,7 +808,7 @@ def test_composite7():
 
 def test_composite8():
     # Alpha blending.
-    x = static_image("test_files/flowers.png", 5000)
+    x = static_image(f"{TEST_FILES_DIR}/flowers.png", 5000)
     x = scale_by_factor(x, 0.4)
 
     z = composite(
@@ -820,7 +822,7 @@ def test_composite8():
 
 def test_composite9():
     # Bad inputs.
-    x = static_image("test_files/flowers.png", 5000)
+    x = static_image(f"{TEST_FILES_DIR}/flowers.png", 5000)
     with pytest.raises(ValueError):
         # Bad position, iterable but wrong length.
         composite(Element(x, 0, [0,0,0], video_mode=VideoMode.BLEND))
@@ -843,7 +845,7 @@ def test_composite9():
 
 def test_composite10():
     # Callable position.
-    x = static_image("test_files/flowers.png", 5)
+    x = static_image(f"{TEST_FILES_DIR}/flowers.png", 5)
     x = scale_by_factor(x, 0.4)
 
     def pos1(t):
@@ -860,7 +862,7 @@ def test_composite10():
 
 def test_composite11():
     # Ignored video should not impact the frame signatures.
-    a = static_image("test_files/flowers.png", 5)
+    a = static_image(f"{TEST_FILES_DIR}/flowers.png", 5)
 
     b = composite(
       Element(a, 0, [0,0], video_mode=VideoMode.BLEND),
@@ -959,12 +961,12 @@ def test_scale_to_fit():
 
 def test_static_frame1():
     # Legit usage: An RGBA image.
-    a = static_image("test_files/water.png", 10)
+    a = static_image(f"{TEST_FILES_DIR}/water.png", 10)
     a.verify(30)
 
 def test_static_frame2():
     # Legit usage: An RGB image.
-    b = static_image("test_files/brian.jpg", 10)
+    b = static_image(f"{TEST_FILES_DIR}/brian.jpg", 10)
     b.verify(30)
 
 def test_static_frame3():
@@ -1175,7 +1177,7 @@ def test_crop():
         crop(a, [10, 10], [100, 10000])
 
 def test_draw_text():
-    font = "test_files/ethnocentric_rg_it.otf"
+    font = f"{TEST_FILES_DIR}/ethnocentric_rg_it.otf"
     x = draw_text("Hello!", font, font_size=200, color=[255,0,255], length=5)
     x.verify(10)
 
@@ -1187,7 +1189,7 @@ def test_to_monochrome():
 def test_resample1():
     # Basic case.
     length = 5
-    a = from_file("test_files/bunny.webm")
+    a = from_file(f"{TEST_FILES_DIR}/bunny.webm")
     a = slice_clip(a, 0, length)
 
     sr = 48000
@@ -1200,7 +1202,7 @@ def test_resample1():
 def test_resample2():
     # Cover all of the default-parameter branches.
     length = 5
-    a = from_file("test_files/bunny.webm")
+    a = from_file(f"{TEST_FILES_DIR}/bunny.webm")
     a = slice_clip(a, 0, length)
 
     b = resample(a)
@@ -1246,7 +1248,7 @@ def test_letterbox():
     b.verify(30)
 
 def test_repeat_frame():
-    x = from_file("test_files/bunny.webm")
+    x = from_file(f"{TEST_FILES_DIR}/bunny.webm")
     a = slice_clip(x, 0, 1)
 
     when = 0.2
@@ -1258,7 +1260,7 @@ def test_repeat_frame():
 
 def test_hold_at_start1():
     # Normal usage.
-    x = from_file("test_files/bunny.webm")
+    x = from_file(f"{TEST_FILES_DIR}/bunny.webm")
     a = slice_clip(x, 0, 1)
 
     b = hold_at_start(a, 5)
@@ -1267,7 +1269,7 @@ def test_hold_at_start1():
 
 def test_hold_at_start2():
     # When length is not an exact number of frames.
-    x = from_file("test_files/bunny.webm")
+    x = from_file(f"{TEST_FILES_DIR}/bunny.webm")
     a = slice_clip(x, 0, 0.98)
     b = hold_at_start(a, 5)
     b.verify(x.frame_rate, verbose=True)
@@ -1275,7 +1277,7 @@ def test_hold_at_start2():
 
 def test_hold_at_end1():
     # Normal usage.
-    x = from_file("test_files/bunny.webm")
+    x = from_file(f"{TEST_FILES_DIR}/bunny.webm")
     a = slice_clip(x, 0, 1)
 
     b = hold_at_end(a, 5)
@@ -1284,7 +1286,7 @@ def test_hold_at_end1():
 
 def test_hold_at_end2():
     # When length is not an exact number of frames.
-    x = from_file("test_files/bunny.webm")
+    x = from_file(f"{TEST_FILES_DIR}/bunny.webm")
     a = slice_clip(x, 0, 0.98)
     b = hold_at_end(a, 5)
     b.verify(x.frame_rate, verbose=True)
@@ -1292,17 +1294,17 @@ def test_hold_at_end2():
 
 def test_image_glob1():
     # Normal usage.
-    a = image_glob("test_files/bunny_frames/*.png", frame_rate=24)
+    a = image_glob(f"{TEST_FILES_DIR}/bunny_frames/*.png", frame_rate=24)
     a.verify(24)
 
 def test_image_glob2():
     # Bad pattern.
     with pytest.raises(FileNotFoundError):
-        image_glob("test_files/bunny_frames/*.poo", frame_rate=24)
+        image_glob(f"{TEST_FILES_DIR}/bunny_frames/*.poo", frame_rate=24)
 
 def test_image_glob3():
     # Make sure we can still find the files if the current directory changes.
-    a = image_glob("test_files/bunny_frames/*.png", frame_rate=24)
+    a = image_glob(f"{TEST_FILES_DIR}/bunny_frames/*.png", frame_rate=24)
     a.verify(24)
 
     with temporary_current_directory():
@@ -1310,26 +1312,26 @@ def test_image_glob3():
 
 def test_image_glob4():
     # Provide length instead of frame rate.
-    a = image_glob("test_files/bunny_frames/*.png", length=315)
+    a = image_glob(f"{TEST_FILES_DIR}/bunny_frames/*.png", length=315)
     assert a.frame_rate == 10
 
 def test_image_glob5():
     # Bad args.
     with pytest.raises(ValueError):
-        image_glob("test_files/bunny_frames/*.png", length=1, frame_rate=1)
+        image_glob(f"{TEST_FILES_DIR}/bunny_frames/*.png", length=1, frame_rate=1)
     with pytest.raises(ValueError):
-        image_glob("test_files/bunny_frames/*.png")
+        image_glob(f"{TEST_FILES_DIR}/bunny_frames/*.png")
 
 def test_zip_file1():
-    a = zip_file("test_files/bunny.zip", frame_rate=15)
+    a = zip_file(f"{TEST_FILES_DIR}/bunny.zip", frame_rate=15)
     a.verify(30)
 
 def test_zip_file2():
     with pytest.raises(FileNotFoundError):
-        zip_file("test_files/bunny.zap", frame_rate=15)
+        zip_file(f"{TEST_FILES_DIR}/bunny.zap", frame_rate=15)
 
 def test_to_default_metrics():
-    a = from_file("test_files/bunny.webm")
+    a = from_file(f"{TEST_FILES_DIR}/bunny.webm")
     a = slice_clip(a, 0, 1.0)
 
     with pytest.raises(ValueError):
@@ -1364,13 +1366,13 @@ def test_timewarp():
     assert 2*b.length() == a.length()
 
 def test_pdf_page1():
-    a = pdf_page("test_files/snowman.pdf",
+    a = pdf_page(f"{TEST_FILES_DIR}/snowman.pdf",
                  page_num=1,
                  length=3)
     a.verify(30)
 
 def test_pdf_page2():
-    a = pdf_page("test_files/snowman.pdf",
+    a = pdf_page(f"{TEST_FILES_DIR}/snowman.pdf",
                  page_num=1,
                  length=3,
                  size=(101,120))
@@ -1379,13 +1381,13 @@ def test_pdf_page2():
     assert a.height() == 120
 
 def test_spin():
-    a = static_image("test_files/flowers.png", 5)
+    a = static_image(f"{TEST_FILES_DIR}/flowers.png", 5)
     b = spin(a, 2)
     b.verify(30)
 
 def test_vstack():
-    a = static_image("test_files/flowers.png", 3)
-    b = static_image("test_files/water.png", 5)
+    a = static_image(f"{TEST_FILES_DIR}/flowers.png", 3)
+    b = static_image(f"{TEST_FILES_DIR}/water.png", 5)
 
     c = vstack(a, b, align=Align.LEFT)
     c.verify(30)
@@ -1400,8 +1402,8 @@ def test_vstack():
         vstack(a, b, align=Align.TOP)
 
 def test_hstack():
-    a = static_image("test_files/flowers.png", 3)
-    b = static_image("test_files/water.png", 5)
+    a = static_image(f"{TEST_FILES_DIR}/flowers.png", 3)
+    b = static_image(f"{TEST_FILES_DIR}/water.png", 5)
 
     c = hstack(a, b, align=Align.TOP)
     c.verify(30)
@@ -1416,8 +1418,8 @@ def test_hstack():
         hstack(a, b, align=Align.LEFT)
 
 def test_stack_clips():
-    a = static_image("test_files/flowers.png", 3)
-    b = static_image("test_files/water.png", 5)
+    a = static_image(f"{TEST_FILES_DIR}/flowers.png", 3)
+    b = static_image(f"{TEST_FILES_DIR}/water.png", 5)
 
     # Integer for spacing in the list
     c = stack_clips(a, 10, b, align=Align.LEFT, vert=True, name='vstack')
@@ -1428,20 +1430,20 @@ def test_stack_clips():
         stack_clips(a, 1.2, b, align=Align.LEFT, vert=True, name='vstack')
 
 def test_background():
-    font = "test_files/ethnocentric_rg_it.otf"
+    font = f"{TEST_FILES_DIR}/ethnocentric_rg_it.otf"
     a = draw_text("Hello!", font, font_size=200, color=[255,0,255], length=5)
     b = background(a, (255,0,0))
     b.verify(30 )
 
 def test_superimpose_center():
-    a = static_image("test_files/flowers.png", 3)
-    b = static_image("test_files/water.png", 5)
+    a = static_image(f"{TEST_FILES_DIR}/flowers.png", 3)
+    b = static_image(f"{TEST_FILES_DIR}/water.png", 5)
 
     c = superimpose_center(a, b, 0)
     c.verify(30)
 
 def test_loop():
-    a = static_image("test_files/flowers.png", 1.2)
+    a = static_image(f"{TEST_FILES_DIR}/flowers.png", 1.2)
     b = spin(a, 1)
     c = loop(b, 10)
     c.verify(30)
@@ -1449,7 +1451,7 @@ def test_loop():
 
 def test_ken_burns1():
     # Legit.
-    a = static_image("test_files/flowers.png", 10)
+    a = static_image(f"{TEST_FILES_DIR}/flowers.png", 10)
     b = ken_burns(clip=a,
                   width=520,
                   height=520,
@@ -1461,7 +1463,7 @@ def test_ken_burns1():
 
 def test_ken_burns2():
     # Small distortion: OK.  1.779291553133515 vs 1.7777777777777777
-    a = static_image("test_files/flowers.png", 10)
+    a = static_image(f"{TEST_FILES_DIR}/flowers.png", 10)
     a2 = scale_to_size(a, width=2945, height=1656)
     b = ken_burns(clip=a2,
                   width=1024,
@@ -1474,7 +1476,7 @@ def test_ken_burns2():
 
 def test_ken_burns3():
     # Big distortions: Bad.
-    a = static_image("test_files/flowers.png", 10)
+    a = static_image(f"{TEST_FILES_DIR}/flowers.png", 10)
 
     with pytest.raises(ValueError):
         ken_burns(clip=a,
@@ -1532,13 +1534,13 @@ def test_fade_between():
         fade_between(a, d)
 
 def test_silence_audio():
-    a = from_file("test_files/bunny.webm")
+    a = from_file(f"{TEST_FILES_DIR}/bunny.webm")
     a = slice_clip(a, 0, 5)
     b = silence_audio(a)
     b.verify(30)
 
 def test_bgr2rgb():
-    a = from_file("test_files/bunny.webm")
+    a = from_file(f"{TEST_FILES_DIR}/bunny.webm")
     b = bgr2rgb(a)
     b.verify(30)
 
