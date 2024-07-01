@@ -31,12 +31,12 @@ import cv2
 import numba
 import numpy as np
 import pdf2image
-import progressbar
 import scipy.signal
 from PIL import ImageFont, ImageDraw, Image
 import soundfile
 
 from .validate import *
+from .progress import custom_progressbar
 
 def require_clip(x, name):
     """ Raise an informative exception if x is not a Clip. """
@@ -137,29 +137,6 @@ def sha256sum_file(filename):
     return h.hexdigest()
 
 
-def custom_progressbar(task, steps):
-    """Return a progress bar (for use as a context manager) customized for
-    our purposes."""
-    digits = int(math.log10(steps))+1
-    widgets = [
-        '|',
-        f'{task:^25s}',
-        ' ',
-        progressbar.Bar(),
-        progressbar.Percentage(),
-        '| ',
-        progressbar.SimpleProgress(format=f'%(value_s){digits}s/%(max_value_s){digits}s'),
-        ' |',
-        progressbar.ETA(
-            format_not_started='',
-            format_finished='%(elapsed)8s',
-            format='%(eta)8s',
-            format_zero='',
-            format_NA=''
-        ),
-        '|'
-    ]
-    return progressbar.ProgressBar(max_value=steps, widgets=widgets)
 
 def read_image(fname):
     """Read an image from disk, make sure it has the correct RGBA uint8 format,
