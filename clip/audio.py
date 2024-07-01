@@ -2,7 +2,8 @@
 
 import numpy as np
 
-from .base import MutatorClip
+from .base import MutatorClip, AudioClip, VideoClip, require_clip
+from .composite import composite, Element, AudioMode, VideoMode
 from .metrics import Metrics
 from .validate import require_float, require_positive
 
@@ -38,3 +39,26 @@ class scale_volume(MutatorClip):
 
     def get_samples(self):
         return self.factor * self.clip.get_samples()
+
+class silence_audio(MutatorClip):
+    """ Replace whatever audio we have with silence. """
+    def get_samples(self):
+        return np.zeros([self.metrics.num_samples(), self.metrics.num_channels])
+
+def join(video_clip, audio_clip):
+    """ Create a new clip that combines the video of one clip with the audio of
+    another.  The length will be the length of the longer of the two."""
+    require_clip(video_clip, "video clip")
+    require_clip(audio_clip, "audio clip")
+
+    assert not isinstance(video_clip, AudioClip)
+    assert not isinstance(audio_clip, VideoClip)
+
+    return composite(Element(video_clip, 0, [0,0],
+                             video_mode=VideoMode.REPLACE,
+                             audio_mode=AudioMode.IGNORE),
+                     Element(audio_clip, 0, [0,0],
+                             video_mode=VideoMode.IGNORE,
+                             audio_mode=AudioMode.REPLACE))
+
+

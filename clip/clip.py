@@ -42,7 +42,6 @@ def get_font(font, size):
     return get_font.cache[(font, size)]
 get_font.cache = {}
 
-
 class solid(Clip):
     """A video clip in which each frame has the same solid color."""
     def __init__(self, color, width, height, length):
@@ -88,7 +87,6 @@ class sine_wave(AudioClip):
 
     def get_subtitles(self):
         return []
-
 
 def black(width, height, length):
     """ A silent solid black clip. """
@@ -146,24 +144,6 @@ class slice_clip(MutatorClip):
                     self.subtitles.append((new_start, new_end, subtitle[2]))
         return self.subtitles
 
-def join(video_clip, audio_clip):
-    """ Create a new clip that combines the video of one clip with the audio of
-    another.  The length will be the length of the longer of the two."""
-    require_clip(video_clip, "video clip")
-    require_clip(audio_clip, "audio clip")
-
-    assert not isinstance(video_clip, AudioClip)
-    assert not isinstance(audio_clip, VideoClip)
-
-    return composite(Element(video_clip, 0, [0,0],
-                             video_mode=VideoMode.REPLACE,
-                             audio_mode=AudioMode.IGNORE),
-                     Element(audio_clip, 0, [0,0],
-                             video_mode=VideoMode.IGNORE,
-                             audio_mode=AudioMode.REPLACE))
-
-
-
 class static_frame(VideoClip):
     """ Show a single image over and over, silently. """
     def __init__(self, the_frame, frame_name, length):
@@ -204,7 +184,6 @@ class static_frame(VideoClip):
 
     def get_subtitles(self):
         return []
-
 
 def static_image(filename, length):
     """ Show a single image loaded from a file over and over, silently. """
@@ -255,8 +234,6 @@ def scale_to_size(clip, width, height):
                          func=scale_filter,
                          name=f'scale to {width}x{height}',
                          size=(width,height))
-
-
 
 class reverse(MutatorClip):
     """ Reverse both the video and audio in a clip. """
@@ -369,8 +346,6 @@ def to_monochrome(clip):
                          name='to_monochrome',
                          size='same')
 
-
-
 def slice_out(clip, start, end):
     """ Remove the part between the given endponts. """
     require_clip(clip, "clip")
@@ -416,7 +391,6 @@ def letterbox(clip, width, height):
                              audio_mode=AudioMode.REPLACE),
                       width=width,
                       height=height)
-
 
 class repeat_frame(VideoClip):
     """Show the same frame, from another clip, over and over."""
@@ -472,7 +446,6 @@ def hold_at_end(clip, target_length):
     return chain(clip,
                  repeat_frame(clip, clip.length(), target_length),
                  length=target_length)
-
 
 class image_glob(VideoClip,FiniteIndexed):
     """Video from a collection of identically-sized image files that match a
@@ -553,7 +526,6 @@ class zip_file(VideoClip, FiniteIndexed):
         frame = cv2.cvtColor(frame, cv2.COLOR_RGBA2BGRA)
         return frame
 
-
 def pdf_page(pdf_file, page_num, length, **kwargs):
     """A silent video constructed from a single page of a PDF."""
     require_string(pdf_file, "file name")
@@ -588,7 +560,6 @@ def pdf_page(pdf_file, page_num, length, **kwargs):
     return static_frame(frame,
                         frame_name=f'{pdf_file} ({pdf_hash}), page {page_num} {kwargs}',
                         length=length)
-
 
 class spin(MutatorClip):
     """ Rotate the contents of a clip about the center, a given number of
@@ -673,7 +644,6 @@ def background(clip, bg_color):
                               0,
                               (0,0),
                               video_mode=VideoMode.BLEND))
-
 
 def superimpose_center(under_clip, over_clip, start_time, audio_mode=AudioMode.ADD):
     """Superimpose one clip on another, in the center of each frame, starting at
@@ -789,11 +759,6 @@ def fade_between(clip1, clip2):
     require_equal(clip1.length(), clip2.length(), "clip lengths")
 
     return chain(clip1, clip2, fade_time=clip1.length())
-
-class silence_audio(MutatorClip):
-    """ Replace whatever audio we have with silence. """
-    def get_samples(self):
-        return np.zeros([self.metrics.num_samples(), self.metrics.num_channels])
 
 class add_subtitles(MutatorClip):
     """ Add one or more subtitles to a clip. """
