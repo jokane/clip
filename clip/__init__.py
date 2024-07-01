@@ -35,6 +35,10 @@ Possibly relevant implementation details:
 
 """
 
+from .alpha import *
+from .base import *
 from .clip import *
+from .fade import *
 from .from_file import *
+from .stack import *
 

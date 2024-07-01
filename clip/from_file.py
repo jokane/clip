@@ -12,7 +12,8 @@ import cv2
 import numpy as np
 import soundfile
 
-from .clip import Clip, FiniteIndexed, ClipCache, read_image
+from .base import Clip, FiniteIndexed, ClipCache
+from .clip import read_image
 from .ffmpeg import ffmpeg
 from .metrics import Metrics
 from .validate import *
