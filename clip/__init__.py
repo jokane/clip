@@ -36,4 +36,5 @@ Possibly relevant implementation details:
 """
 
 from .clip import *
+from .from_file import *
 

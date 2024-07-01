@@ -3,6 +3,7 @@
 import contextlib
 import hashlib
 import os
+import re
 import tempfile
 
 from .validate import is_iterable
@@ -54,3 +55,27 @@ def sha256sum_file(filename):
             h.update(mv[:n])
     return h.hexdigest()
 
+def format_seconds_as_hms(seconds):
+    """Return a string representing the given time in 00:01:23,456 format.
+    This specific format is important for saving subtitles in the format that
+    ffmpeg likes to see."""
+    seconds, fraction = divmod(seconds, 1)
+    minutes, seconds = divmod(seconds, 60)
+    hours, minutes = divmod(minutes, 60)
+    millis = int(1000*fraction)
+    seconds = int(seconds)
+    minutes = int(minutes)
+    hours = int(hours)
+    return f'{hours:02}:{minutes:02}:{seconds:02},{millis:03}'
+
+def parse_hms_to_seconds(hms):
+    """Parse a string in 00:01:23,456 into a floating point number of
+    seconds."""
+    if match := re.match(r"(\d\d):(\d\d):(\d\d),(\d\d\d)", hms):
+        hours = float(match.group(1))
+        mins = float(match.group(2))
+        secs = float(match.group(3))
+        millis = float(match.group(4))
+        return millis/1000 + secs + 60*mins + 60*60*hours
+    else:
+        raise ValueError(f'Cannot parse {hms} as hours, minutes, seconds, and milliseconds.')
