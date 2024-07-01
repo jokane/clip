@@ -1207,9 +1207,10 @@ def subtitles_from_file(fname, cache):
     # If we don't already have the subtitles file, use ffmpeg to get it.
     if not exists:
         print(f'Extracting subtitles from {fname}')
-        ffmpeg( f'-i {fname}',
-               '-map 0:s:0',
-                f'{subtitles_filename}')
+        with temporary_current_directory():
+            ffmpeg( f'-i {fname}',
+                   '-map 0:s:0',
+                    f'{subtitles_filename}')
 
     # Read the subtitles in the from the file.
     with open(subtitles_filename, 'r') as f:
