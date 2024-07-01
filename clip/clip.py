@@ -15,9 +15,8 @@ import zipfile
 import cv2
 import numpy as np
 import pdf2image
-from PIL import ImageFont, ImageDraw, Image
+from PIL import Image
 
-from .alpha import alpha_blend
 from .audio import stereo_to_mono, mono_to_stereo
 from .base import Clip, VideoClip, AudioClip, MutatorClip, FiniteIndexed, require_clip
 from .chain import chain
@@ -30,17 +29,6 @@ from .resample import resample
 from .util import *
 from .validate import *
 
-def get_font(font, size):
-    """Return a TrueType font for use on Pillow images, with caching to
-    prevent loading the same font again and again.  (The performance
-    improvement seems to be small but non-zero.)"""
-    if (font, size) not in get_font.cache:
-        try:
-            get_font.cache[(font, size)] = ImageFont.truetype(font, size)
-        except OSError as e:
-            raise ValueError(f"Failed to open font {font}.") from e
-    return get_font.cache[(font, size)]
-get_font.cache = {}
 
 class solid(Clip):
     """A video clip in which each frame has the same solid color."""
@@ -276,66 +264,6 @@ class crop(MutatorClip):
         ur = self.upper_right
         return frame[ll[1]:ur[1], ll[0]:ur[0], :]
 
-class draw_text(VideoClip):
-    """ A clip consisting of just a bit of text. """
-    def __init__(self, text, font_filename, font_size, color, length):
-        super().__init__()
-
-        require_string(font_filename, "font filename")
-        require_float(font_size, "font size")
-        require_positive(font_size, "font size")
-        require_color(color, "color")
-
-        # Determine the bounding box for the text that we want.  This is
-        # relevant both for sizing and for using the right position later when
-        # we actually draw the text.
-        draw = ImageDraw.Draw(Image.new("RGBA", (1,1)))
-        font = get_font(font_filename, font_size)
-
-        self.bbox = draw.textbbox((0,0), text=text, font=font)
-
-        self.metrics = Metrics(src=Clip.default_metrics,
-                               width=self.bbox[2]-self.bbox[0],
-                               height=self.bbox[3]-self.bbox[1],
-                               length=length)
-
-        self.text = text
-        self.font_filename = font_filename
-        self.font_size = font_size
-        self.color = color
-        self.frame = None
-
-    def frame_signature(self, t):
-        return ['text', self.text, self.font_filename, self.font_size,
-          self.length()]
-
-    def request_frame(self, t):
-        pass
-
-    def get_frame(self, t):
-        if self.frame is None:
-            # Use Pillow to draw the text.
-            image = Image.new("RGBA", (self.width(), self.height()), (0,0,0,0))
-            draw = ImageDraw.Draw(image)
-            color = self.color
-            draw.text((-self.bbox[0],-self.bbox[1]),
-                      self.text,
-                      font=get_font(self.font_filename, self.font_size),
-                      fill=(color[2],color[1],color[0],255))
-            frame = np.array(image)
-
-            # Pillow seems not to handle transparency quite how one might
-            # expect -- as far as I can tell, it seems to fill the entire text
-            # rectangle with the target color, and then use the alpha channel
-            # to "draw" the text.  These seemed to be resulting in rectangular
-            # blobs, instead of readable text in some cases.  (Hypothesis:
-            # Sometimes the alpha channel is discarded at some point?)  Below,
-            # we fix this by blending into a black background.
-            bg = np.zeros(frame.shape, dtype=np.uint8)
-            frame = alpha_blend(frame, bg)
-            self.frame = frame
-
-        return self.frame
 
 def to_monochrome(clip):
     """ Convert a clip's video to monochrome. """
@@ -751,14 +679,6 @@ class ken_burns(MutatorClip):
         fragment = frame[p1[1]:p2[1],p1[0]:p2[0],:]
         sized_fragment = cv2.resize(fragment, (self.width(), self.height()))
         return sized_fragment
-
-def fade_between(clip1, clip2):
-    """ Fade from one clip to another.  Both must have the same length. """
-    require_clip(clip1, "first clip")
-    require_clip(clip2, "second clip")
-    require_equal(clip1.length(), clip2.length(), "clip lengths")
-
-    return chain(clip1, clip2, fade_time=clip1.length())
 
 class add_subtitles(MutatorClip):
     """ Add one or more subtitles to a clip. """

@@ -38,9 +38,11 @@ Possibly relevant implementation details:
 from .audio import *
 from .alpha import *
 from .base import *
+from .chain import *
 from .clip import *
 from .fade import *
 from .from_file import *
-from .stack import *
 from .resample import *
+from .stack import *
+from .text import *
 

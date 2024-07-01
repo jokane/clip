@@ -75,3 +75,4 @@ class fade_out(fade_base):
         a[a.shape[0]-length:a.shape[0]] *= np.linspace([1.0]*num_channels,
                                                        [0.0]*num_channels, length)
         return a
+
