@@ -15,10 +15,10 @@ import zipfile
 import cv2
 import numpy as np
 import pdf2image
-import scipy.signal
 from PIL import ImageFont, ImageDraw, Image
 
 from .alpha import alpha_blend
+from .audio import stereo_to_mono, mono_to_stereo
 from .base import Clip, VideoClip, AudioClip, MutatorClip, FiniteIndexed, require_clip
 from .chain import chain
 from .composite import composite, Element, AudioMode, VideoMode
@@ -26,9 +26,9 @@ from .ffmpeg import *
 from .filter import filter_frames
 from .metrics import *
 from .progress import custom_progressbar
+from .resample import resample
 from .util import *
 from .validate import *
-
 
 def get_font(font, size):
     """Return a TrueType font for use on Pillow images, with caching to
@@ -257,38 +257,6 @@ def scale_to_size(clip, width, height):
                          size=(width,height))
 
 
-class mono_to_stereo(MutatorClip):
-    """ Change the number of channels from one to two. """
-    def __init__(self, clip):
-        super().__init__(clip)
-        if self.clip.metrics.num_channels != 1:
-            raise ValueError(f"Expected 1 audio channel, not {self.clip.num_channels()}.")
-        self.metrics = Metrics(self.metrics, num_channels=2)
-    def get_samples(self):
-        data = self.clip.get_samples()
-        return np.concatenate((data, data), axis=1)
-
-class stereo_to_mono(MutatorClip):
-    """ Change the number of channels from two to one. """
-    def __init__(self, clip):
-        super().__init__(clip)
-        if self.clip.metrics.num_channels != 2:
-            raise ValueError(f"Expected 2 audio channels, not {self.clip.num_channels()}.")
-        self.metrics = Metrics(self.metrics, num_channels=1)
-    def get_samples(self):
-        data = self.clip.get_samples()
-        return (0.5*data[:,0] + 0.5*data[:,1]).reshape(self.num_samples(), 1)
-
-class scale_volume(MutatorClip):
-    """ Scale the volume of audio in a clip.  """
-    def __init__(self, clip, factor):
-        super().__init__(clip)
-        require_float(factor, "scaling factor")
-        require_positive(factor, "scaling factor")
-        self.factor = factor
-
-    def get_samples(self):
-        return self.factor * self.clip.get_samples()
 
 class reverse(MutatorClip):
     """ Reverse both the video and audio in a clip. """
@@ -401,67 +369,6 @@ def to_monochrome(clip):
                          name='to_monochrome',
                          size='same')
 
-
-class resample(MutatorClip):
-    """ Change the sample rate and/or length. """
-    def __init__(self, clip, sample_rate=None, length=None):
-
-        super().__init__(clip)
-
-        if sample_rate is not None:
-            require_float(sample_rate, "sample rate")
-            require_positive(sample_rate, "sample rate")
-        else:
-            sample_rate = self.clip.sample_rate()
-
-        if length is not None:
-            require_float(length, "length")
-            require_positive(length, "length")
-        else:
-            length = self.clip.length()
-
-        self.metrics = Metrics(src=self.clip.metrics,
-                               sample_rate=sample_rate,
-                               length=length)
-
-    def old_time(self, t):
-        """ Return the time in the original clip to be used at the given
-        time of the present clip. """
-        assert t <= self.length()
-        seconds_here = t
-        seconds_there = seconds_here * self.clip.length() / self.length()
-        assert seconds_there <= self.clip.length()
-        return seconds_there
-
-    def new_time(self, t):
-        """ Return the time in the present clip that corresponds to the given
-        time of the original clip. """
-        assert t <= self.clip.length()
-        seconds_there = t
-        seconds_here = seconds_there * self.length() / self.clip.length()
-        assert seconds_here <= self.length()
-        return seconds_here
-
-    def frame_signature(self, t):
-        return self.clip.frame_signature(self.old_time(t))
-
-    def request_frame(self, t):
-        self.clip.request_frame(self.old_time(t))
-
-    def get_frame(self, t):
-        return self.clip.get_frame(self.old_time(t))
-
-    def get_samples(self):
-        data = self.clip.get_samples()
-        if self.clip.sample_rate() != self.sample_rate() or self.clip.length() != self.length():
-            data = scipy.signal.resample(data, self.num_samples())
-        return data
-
-    def get_subtitles(self):
-        for subtitle in self.clip.get_subtitles():
-            yield (self.new_time(subtitle[0]),
-                   self.new_time(subtitle[1]),
-                   subtitle[2])
 
 
 def slice_out(clip, start, end):
@@ -645,46 +552,6 @@ class zip_file(VideoClip, FiniteIndexed):
         frame = np.array(pil_image)
         frame = cv2.cvtColor(frame, cv2.COLOR_RGBA2BGRA)
         return frame
-
-def to_default_metrics(clip):
-    """Adjust a clip so that its metrics match the default metrics: Scale video
-    and resample to match frame rate and sample rate.  Useful if assorted clips
-    from various sources will be chained together."""
-
-    require_clip(clip, "clip")
-
-    dm = Clip.default_metrics
-
-    # Video dimensions.
-    if clip.width() != dm.width or clip.height() != dm.height:
-        clip = letterbox(clip, dm.width, dm.height)
-
-    # Sample rate.
-    if clip.sample_rate() != dm.sample_rate:
-        clip = resample(clip, sample_rate=dm.sample_rate)
-
-    # Number of audio channels.
-    nc_before = clip.num_channels()
-    nc_after = dm.num_channels
-    if nc_before == nc_after:
-        pass
-    elif nc_before == 2 and nc_after == 1:
-        clip = stereo_to_mono(clip)
-    elif nc_before == 1 and nc_after == 2:
-        clip = mono_to_stereo(clip)
-    else:
-        raise NotImplementedError(f"Don't know how to convert from {nc_before}"
-                                  f"channels to {nc_after}.")
-
-    return clip
-
-def timewarp(clip, factor):
-    """ Speed up a clip by the given factor. """
-    require_clip(clip, "clip")
-    require_float(factor, "factor")
-    require_positive(factor, "factor")
-
-    return resample(clip, length=clip.length()/factor)
 
 
 def pdf_page(pdf_file, page_num, length, **kwargs):
@@ -961,3 +828,34 @@ def bgr2rgb(clip):
                          func=swap_channels,
                          name='bgr2rgb')
 
+def to_default_metrics(clip):
+    """Adjust a clip so that its metrics match the default metrics: Scale video
+    and resample to match frame rate and sample rate.  Useful if assorted clips
+    from various sources will be chained together."""
+
+    require_clip(clip, "clip")
+
+    dm = Clip.default_metrics
+
+    # Video dimensions.
+    if clip.width() != dm.width or clip.height() != dm.height:
+        clip = letterbox(clip, dm.width, dm.height)
+
+    # Sample rate.
+    if clip.sample_rate() != dm.sample_rate:
+        clip = resample(clip, sample_rate=dm.sample_rate)
+
+    # Number of audio channels.
+    nc_before = clip.num_channels()
+    nc_after = dm.num_channels
+    if nc_before == nc_after:
+        pass
+    elif nc_before == 2 and nc_after == 1:
+        clip = stereo_to_mono(clip)
+    elif nc_before == 1 and nc_after == 2:
+        clip = mono_to_stereo(clip)
+    else:
+        raise NotImplementedError(f"Don't know how to convert from {nc_before}"
+                                  f"channels to {nc_after}.")
+
+    return clip
