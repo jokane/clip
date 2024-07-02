@@ -56,4 +56,3 @@ def fade_between(clip1, clip2):
     require_equal(clip1.length(), clip2.length(), "clip lengths")
 
     return chain(clip1, clip2, fade_time=clip1.length())
-

@@ -13,7 +13,7 @@ import numpy as np
 import soundfile
 
 from .base import Clip, FiniteIndexed, ClipCache
-from .clip import read_image
+from .util import read_image
 from .ffmpeg import ffmpeg
 from .metrics import Metrics
 from .validate import *

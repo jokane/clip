@@ -1,6 +1,7 @@
 """ A tool for the "Ken Burns" effect, panning and zooming along another clip
 (which is traditionally a static image, but not not be in this case.) """
 
+# pylint: disable=duplicate-code
 import math
 
 import cv2

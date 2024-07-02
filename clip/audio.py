@@ -1,4 +1,4 @@
-""" Tools for simple audio manipulations. """
+""" Tools for simple audio creation and manipulation. """
 
 import numpy as np
 

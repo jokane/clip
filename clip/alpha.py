@@ -1,4 +1,4 @@
-""" Tools for manupulating the alpha channel. """
+""" Tools for manupulating the alpha channel of a video. """
 
 import numba
 import numpy as np
@@ -70,3 +70,4 @@ class scale_alpha(MutatorClip):
             frame[:,:,3] *= factor
             frame = frame.astype('uint8')
         return frame
+

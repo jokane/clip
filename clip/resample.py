@@ -1,5 +1,6 @@
 """ Tools for resampling clips. """
 
+import numpy as np
 import scipy.signal
 
 from .base import MutatorClip, require_clip
@@ -67,7 +68,6 @@ class resample(MutatorClip):
                    self.new_time(subtitle[1]),
                    subtitle[2])
 
-
 def timewarp(clip, factor):
     """ Speed up a clip by the given factor. """
     require_clip(clip, "clip")
@@ -75,4 +75,13 @@ def timewarp(clip, factor):
     require_positive(factor, "factor")
 
     return resample(clip, length=clip.length()/factor)
+
+class reverse(MutatorClip):
+    """ Reverse both the video and audio in a clip. """
+    def frame_signature(self, t):
+        return self.clip.frame_signature(self.length() - t)
+    def get_frame(self, t):
+        return self.clip.get_frame(self.length() - t)
+    def get_samples(self):
+        return np.flip(self.clip.get_samples(), axis=0)
 

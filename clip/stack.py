@@ -2,7 +2,7 @@
 
 from enum import Enum
 
-from .clip import Clip
+from .base import Clip
 from .composite import composite, Element
 from .util import flatten_args
 from .validate import is_int

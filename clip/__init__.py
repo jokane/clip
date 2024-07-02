@@ -35,15 +35,30 @@ Possibly relevant implementation details:
 
 """
 
-from .audio import *
 from .alpha import *
+from .audio import *
 from .base import *
 from .chain import *
-from .ken_burns import *
-from .clip import *
+from .color import *
+from .crop_slice import *
+from .dimensions import *
 from .fade import *
+from .ffmpeg import *
+from .filter import *
 from .from_file import *
+from .glob import *
+from .hold import *
+from .ken_burns import *
+from .loop import *
+from .pdf import *
 from .resample import *
+from .scale import *
+from .spin import *
 from .stack import *
+from .subtitles import *
+from .superimpose import *
 from .text import *
+from .util import *
+from .video import *
+from .zip import *
 
