@@ -50,32 +50,6 @@ class solid(Clip):
     get_samples = VideoClip.get_samples
     get_subtitles = VideoClip.get_subtitles
 
-class sine_wave(AudioClip):
-    """ A sine wave with the given frequency. """
-    def __init__(self, frequency, volume, length, sample_rate, num_channels):
-        super().__init__()
-
-        require_float(frequency, "frequency")
-        require_positive(frequency, "frequency")
-        require_float(volume, "volume")
-        require_positive(volume, "volume")
-
-        self.frequency = frequency
-        self.volume = volume
-        self.metrics = Metrics(Clip.default_metrics,
-                               length = length,
-                               sample_rate = sample_rate,
-                               num_channels = num_channels)
-
-    def get_samples(self):
-        samples = np.arange(self.num_samples()) / self.sample_rate()
-        samples = self.volume * np.sin(2 * np.pi * self.frequency * samples)
-        samples = np.stack([samples]*self.num_channels(), axis=1)
-        return samples
-
-    def get_subtitles(self):
-        return []
-
 def black(width, height, length):
     """ A silent solid black clip. """
     return solid([0,0,0], width, height, length)

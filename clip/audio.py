@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from .base import MutatorClip, AudioClip, VideoClip, require_clip
+from .base import Clip, MutatorClip, AudioClip, VideoClip, require_clip
 from .composite import composite, Element, AudioMode, VideoMode
 from .metrics import Metrics
 from .validate import require_float, require_positive
@@ -61,4 +61,29 @@ def join(video_clip, audio_clip):
                              video_mode=VideoMode.IGNORE,
                              audio_mode=AudioMode.REPLACE))
 
+class sine_wave(AudioClip):
+    """ A sine wave with the given frequency. """
+    def __init__(self, frequency, volume, length, sample_rate, num_channels):
+        super().__init__()
+
+        require_float(frequency, "frequency")
+        require_positive(frequency, "frequency")
+        require_float(volume, "volume")
+        require_positive(volume, "volume")
+
+        self.frequency = frequency
+        self.volume = volume
+        self.metrics = Metrics(Clip.default_metrics,
+                               length = length,
+                               sample_rate = sample_rate,
+                               num_channels = num_channels)
+
+    def get_samples(self):
+        samples = np.arange(self.num_samples()) / self.sample_rate()
+        samples = self.volume * np.sin(2 * np.pi * self.frequency * samples)
+        samples = np.stack([samples]*self.num_channels(), axis=1)
+        return samples
+
+    def get_subtitles(self):
+        return []
 
