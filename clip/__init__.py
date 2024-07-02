@@ -39,6 +39,7 @@ from .audio import *
 from .alpha import *
 from .base import *
 from .chain import *
+from .ken_burns import *
 from .clip import *
 from .fade import *
 from .from_file import *
