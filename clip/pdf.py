@@ -4,11 +4,12 @@ import cv2
 import numpy as np
 import pdf2image
 
+from .base import Clip
 from .util import sha256sum_file
 from .validate import require_string, require_int, require_positive, require_float
 from .video import static_frame
 
-def pdf_page(pdf_file, page_num, length, **kwargs):
+def pdf_page(pdf_file, page_num, length, **kwargs) -> Clip:
     """A silent video constructed from a single page of a PDF."""
     require_string(pdf_file, "file name")
     require_int(page_num, "page number")

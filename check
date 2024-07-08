@@ -1,9 +1,0 @@
-#!/bin/bash
-set -e
-if [ $# -gt 0 ]; then
-  python3 test/test_clip.py $@
-else
-  pylint clip/*.py test/*.py || true
-  NUMBA_DISABLE_JIT=1 coverage run --omit=.venv* -m pytest --durations=5
-  coverage report -m --omit "/usr*","/opt*","*config*"
-fi

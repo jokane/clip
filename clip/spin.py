@@ -9,6 +9,7 @@ import numpy as np
 from .base import MutatorClip
 from .metrics import Metrics
 from .validate import require_float, require_non_negative
+# pylint: enable=duplicate-code
 
 class spin(MutatorClip):
     """ Rotate the contents of a clip about the center, a given number of

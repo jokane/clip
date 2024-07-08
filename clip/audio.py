@@ -45,7 +45,7 @@ class silence_audio(MutatorClip):
     def get_samples(self):
         return np.zeros([self.metrics.num_samples(), self.metrics.num_channels])
 
-def join(video_clip, audio_clip):
+def join(video_clip, audio_clip) -> Clip:
     """ Create a new clip that combines the video of one clip with the audio of
     another.  The length will be the length of the longer of the two."""
     require_clip(video_clip, "video clip")

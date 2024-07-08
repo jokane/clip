@@ -2,11 +2,11 @@
 
 import cv2
 
-from .base import require_clip
+from .base import Clip, require_clip
 from .filter import filter_frames
 from .validate import require_float, require_positive, require_int
 
-def scale_by_factor(clip, factor):
+def scale_by_factor(clip, factor) -> Clip:
     """Scale the frames of a clip by a given factor."""
     require_clip(clip, "clip")
     require_float(factor, "scaling factor")
@@ -16,7 +16,7 @@ def scale_by_factor(clip, factor):
     new_height = int(factor * clip.height())
     return scale_to_size(clip, new_width, new_height)
 
-def scale_to_fit(clip, max_width, max_height):
+def scale_to_fit(clip, max_width, max_height) -> Clip:
     """Scale the frames of a clip to fit within the given constraints,
     maintaining the aspect ratio."""
 
@@ -34,7 +34,7 @@ def scale_to_fit(clip, max_width, max_height):
 
     return scale_to_size(clip, int(new_width), int(new_height))
 
-def scale_to_size(clip, width, height):
+def scale_to_size(clip, width, height) -> Clip:
     """Scale the frames of a clip to a given size, possibly distorting them."""
     require_clip(clip, "clip")
     require_int(width, "new width")

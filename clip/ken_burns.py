@@ -10,6 +10,7 @@ import numpy as np
 from .base import MutatorClip
 from .metrics import Metrics
 from .validate import require_int_point, require_non_negative, require_less, require_less_equal
+# pylint: enable=duplicate-code
 
 class ken_burns(MutatorClip):
     """Pan and/or zoom through a clip over time."""

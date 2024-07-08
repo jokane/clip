@@ -1,6 +1,6 @@
 """ Tools for slicing and cropping clips, across time and space respectively. """
 
-from .base import MutatorClip, require_clip
+from .base import Clip, MutatorClip, require_clip
 from .metrics import Metrics
 from .chain import chain
 from .validate import (require_int, require_non_negative, require_less_equal, require_less,
@@ -86,7 +86,7 @@ class slice_clip(MutatorClip):
                     self.subtitles.append((new_start, new_end, subtitle[2]))
         return self.subtitles
 
-def slice_out(clip, start, end):
+def slice_out(clip, start, end) -> Clip:
     """ Remove the part between the given endponts. """
     require_clip(clip, "clip")
     require_float(start, "start time")

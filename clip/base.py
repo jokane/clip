@@ -41,7 +41,9 @@ def require_clip(x, name):
 class Clip(ABC):
     """The base class for all clips.  A finite series of frames, each with
     identical height and width, meant to be played at a given rate, along with
-    an audio clip of the same length."""
+    an audio clip of the same length.
+
+    |internal|"""
 
     def __init__(self):
         self.metrics = None
@@ -214,9 +216,13 @@ class Clip(ABC):
 
         Preset controls how quickly ffmpeg encodes.  Handles the tradeoff
          encoding speed and output quality.  Choose from:
+
             ultrafast superfast veryfast faster fast medium slow slower veryslow
+
         The documentation for these says to "use the slowest preset you have
-        patience for." """
+        patience for."
+
+        """
 
         # First, a simple case: If we're saving to an audio-only format, it's
         # easy.
@@ -388,7 +394,7 @@ class Clip(ABC):
 
 class VideoClip(Clip):
     """ Inherit from this for Clip classes that really only have video, to
-    default to silent audio. """
+    default to silent audio. |internal|"""
     def get_samples(self):
         """Return audio samples appropriate to use as a default audio.  That
         is, silence with the appropriate metrics."""
@@ -400,7 +406,7 @@ class VideoClip(Clip):
 
 class AudioClip(Clip):
     """ Inherit from this for Clip classes that only really have audio, to
-    default to simple black frames for the video. """
+    default to simple black frames for the video. |internal|"""
     def __init__(self):
         super().__init__()
         self.color = [0, 0, 0, 255]
@@ -424,7 +430,7 @@ class AudioClip(Clip):
 
 class MutatorClip(Clip):
     """ Inherit from this for Clip classes that modify another clip.
-    Override only the parts that need to change."""
+    Override only the parts that need to change. |internal|"""
     def __init__(self, clip):
         super().__init__()
         require_clip(clip, "base clip")

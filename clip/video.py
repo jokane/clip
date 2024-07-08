@@ -29,11 +29,11 @@ class solid(Clip):
     get_samples = VideoClip.get_samples
     get_subtitles = VideoClip.get_subtitles
 
-def black(width, height, length):
+def black(width, height, length) -> Clip:
     """ A silent solid black clip. """
     return solid([0,0,0], width, height, length)
 
-def white(width, height, length):
+def white(width, height, length) -> Clip:
     """ A silent white black clip. """
     return solid([255,255,255], width, height, length)
 
@@ -108,7 +108,7 @@ class repeat_frame(VideoClip):
         return []
 
 
-def static_image(filename, length):
+def static_image(filename, length) -> Clip:
     """ Show a single image loaded from a file over and over, silently. """
     the_frame = read_image(filename)
     assert the_frame is not None

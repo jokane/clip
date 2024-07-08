@@ -3,7 +3,7 @@
 import numpy as np
 import scipy.signal
 
-from .base import MutatorClip, require_clip
+from .base import Clip, MutatorClip, require_clip
 from .metrics import Metrics
 from .validate import require_float, require_positive
 
@@ -68,7 +68,7 @@ class resample(MutatorClip):
                    self.new_time(subtitle[1]),
                    subtitle[2])
 
-def timewarp(clip, factor):
+def timewarp(clip, factor) -> Clip:
     """ Speed up a clip by the given factor. """
     require_clip(clip, "clip")
     require_float(factor, "factor")

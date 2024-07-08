@@ -95,7 +95,9 @@ def metrics_and_frame_rate_from_stream_dicts(streams, fname):
 
 def metrics_from_ffprobe_output(ffprobe_output, fname, suppress=None):
     """ Given the output of a run of
+
         ffprobe -of compact -show_entries stream
+
     return a Metrics object based on that data, or complain if
     something strange is in there.
     print(ffprobe_output)

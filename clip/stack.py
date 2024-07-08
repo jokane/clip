@@ -17,9 +17,9 @@ class Align(Enum):
     BOTTOM = 6
     END = 7
 
-def stack_clips(*args, align, min_dim=0, vert, name):
+def stack_clips(*args, align, min_dim=0, vert, name) -> Clip:
     """ Arrange a series of clips in a stack, either vertically or
-    horizontally.  Probably use vstack or hstack to call this. """
+    horizontally.  Probably use vstack or hstack to call this. |internal|"""
 
     # Flatten things out, in case the inputs were wrapped in a list.
     clips = flatten_args(args)
@@ -77,11 +77,11 @@ def stack_clips(*args, align, min_dim=0, vert, name):
     else:
         return composite(elements, height=dim, width=b)
 
-def vstack(*args, align=Align.CENTER, min_width=0):
+def vstack(*args, align=Align.CENTER, min_width=0) -> Clip:
     """ Arrange a series of clips in a vertical stack. """
     return stack_clips(args, align=align, min_dim=min_width, vert=True, name='vstack')
 
-def hstack(*args, align=Align.CENTER, min_height=0):
+def hstack(*args, align=Align.CENTER, min_height=0) -> Clip:
     """ Arrange a series of clips in a horizontal row. """
     return stack_clips(args, align=align, min_dim=min_height, vert=False, name='hstack')
 
