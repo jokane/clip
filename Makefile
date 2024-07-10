@@ -16,7 +16,7 @@ doc: clip/*.py doc/*.rst doc/*.py
 	$(MAKE) -C doc html
 
 clean:
-	rm -rfv doc/_build doc/_user build *.egg-info .coverage .test_files */__pycache__
+	rm -rfv doc/_build doc/_user doc/api build *.egg-info .coverage test/.test_files */__pycache__
 
 install:
 	pip install .

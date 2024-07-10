@@ -4,7 +4,7 @@ Pipfile.lock
 __pycache__
 .coverage
 .venv
-.test_files
+test/.test_files
 build/
 clip.egg-info/
 doc/_build

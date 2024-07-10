@@ -23,6 +23,7 @@ from .ken_burns import *
 from .loop import *
 from .pdf import *
 from .resample import *
+from .rosbag import *
 from .scale import *
 from .spin import *
 from .stack import *
@@ -32,4 +33,3 @@ from .text import *
 from .util import *
 from .video import *
 from .zip import *
-

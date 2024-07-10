@@ -6,15 +6,17 @@
 
 import glob
 import io
+import os
 import sys
 import urllib.request
 import zipfile
 
 import pytest
 
-from clip import *
+sys.path.insert(0, os.path.join(os.path.split(__file__)[0], '..'))
+from clip import * #pylint: disable=wrong-import-position
 
-TEST_FILES_DIR = ".test_files"
+TEST_FILES_DIR = os.path.join(os.path.split(__file__)[0], ".test_files")
 
 def get_test_files():  # pragma: no cover
     """ Download some media files to use for the test, if they don't exist
@@ -42,7 +44,8 @@ def get_test_files():  # pragma: no cover
 
     if not os.path.exists(f"{TEST_FILES_DIR}/bunny_frames"):
         os.mkdir(f"{TEST_FILES_DIR}/bunny_frames")
-        ffmpeg(f'-i {TEST_FILES_DIR}/bunny.webm', f'{TEST_FILES_DIR}/bunny_frames/%04d.png')
+        with temporary_current_directory():
+            ffmpeg(f'-i {TEST_FILES_DIR}/bunny.webm', f'{TEST_FILES_DIR}/bunny_frames/%04d.png')
 
     if not os.path.exists(f"{TEST_FILES_DIR}/bunny.zip"):
         with temporarily_changed_directory(TEST_FILES_DIR):
@@ -1544,6 +1547,43 @@ def test_bgr2rgb():
     b = bgr2rgb(a)
     b.verify(30)
 
+def test_from_rosbag():
+    pass
+    # vids = []
+    # fr = 0
+    # for cam in ['left', 'back']:
+    #     vid = rosbag('2024-06-06__21_37', f'/a14/camera/{cam}/image_raw/compressed')
+    #     fr = max(fr, vid.estimated_frame_rate())
+    #     vids.append(vid)
+
+    # fr = vids[0].estimated_frame_rate()
+
+    # x = hstack(*vids)
+    # x.save('test.mp4', 2*fr)
+
+
+def test_rosbag():
+    # Since there's no rosbag in our standard test files, we'll make one first
+    # -- testing both reading and writing together.
+
+    a = slice_clip(from_file(f"{TEST_FILES_DIR}/bunny.webm"), 0, 2)
+    with temporary_current_directory():
+        save_rosbag(clip=a,
+                    pathname='test.bag',
+                    frame_rate=30,
+                    topic='T')
+
+        b = from_rosbag(pathname='test.bag',
+                        topic='T')
+        b.verify(30)
+
+        assert a.width() == b.width()
+        assert a.height() == b.height()
+
+        # Length will not match exactly because of the duration of the last
+        # frame, which is not stored in the rosbag.
+        assert abs(b.length() - 2.0) < 0.1, b.length()
+        assert abs(b.estimated_frame_rate() - 30) < 1e-3, b.estimated_frame_rate()
 
 # Grab all of the test source files first.  (...instead of checking within
 # each test.)
