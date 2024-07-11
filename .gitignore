@@ -7,7 +7,7 @@ __pycache__
 test/.test_files
 build/
 clip.egg-info/
-doc/_build
-doc/_user
-doc/api
+docs/_build
+docs/_user
+docs/api
 

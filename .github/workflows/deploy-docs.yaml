@@ -37,13 +37,13 @@ jobs:
 
     - name: Build documentation
       run: |
-        make doc
-        touch doc/_build/html/.nojekyll
+        make docs
+        touch docs/_build/html/.nojekyll
 
     - name: Upload pages artifact
       uses: actions/upload-pages-artifact@v3
       with: 
-        path: doc/_build/html
+        path: docs/_build/html
 
     - name: Deploy to GitHub Pages
       id: deployment

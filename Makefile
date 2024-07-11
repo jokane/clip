@@ -1,6 +1,6 @@
-.PHONY: all check lint test doc clean
+.PHONY: all check lint test docs clean
 
-all: doc check install
+all: docs check install
 
 check: lint test
 
@@ -11,12 +11,12 @@ test:
 	NUMBA_DISABLE_JIT=1 coverage run --omit=.venv* -m pytest --durations=5
 	coverage report -m --omit "/usr*","/opt*","*config*"
 
-doc: clip/*.py doc/*.rst doc/*.py
-	python3 doc/generate.py
-	$(MAKE) -C doc html
+docs: clip/*.py docs/*.rst docs/*.py
+	python3 docs/generate.py
+	$(MAKE) -C docs html
 
 clean:
-	rm -rfv doc/_build doc/_user doc/api build *.egg-info .coverage test/.test_files */__pycache__
+	rm -rfv docs/_build docs/_user docs/api build *.egg-info .coverage test/.test_files */__pycache__
 
 install:
 	pip install .
