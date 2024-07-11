@@ -13,6 +13,7 @@ filtering the frames through custom functions.
    :glob:
    :maxdepth: 1
 
+   install
    user
    api
    details
