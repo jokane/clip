@@ -2,7 +2,7 @@
 Clip
 ====
 
-This is a library for manipulating and generating short video clips.
+This is a Python library for creating videos.
 
 It can read video in any format supported by ffmpeg, and provides abstractions
 for things like cropping, superimposing, adding text, trimming, fading in and
