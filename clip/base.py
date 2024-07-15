@@ -6,14 +6,13 @@ from abc import ABC, abstractmethod
 import os
 import pprint
 import sys
-import tempfile
 
 import cv2
 import numpy as np
 import soundfile
 
 from .cache import ClipCache
-from .ffmpeg import ffmpeg
+from .ffmpeg import save_via_ffmpeg
 from .metrics import Metrics
 from .progress import custom_progressbar
 from .util import temporarily_changed_directory, format_seconds_as_hms, read_image
@@ -169,7 +168,8 @@ class Clip(ABC):
 
     def stage(self, directory, cache, frame_rate, fname=""):
         """Get everything for this clip onto to disk in the specified
-        directory:  Symlinks to each frame and a flac file of the audio."""
+        directory:  Symlinks to each frame, a flac file of the audio, and the
+        subtitles as an srt file."""
 
         # Do things in the requested directory.
         with temporarily_changed_directory(directory):
@@ -201,7 +201,7 @@ class Clip(ABC):
                     # Update the progress bar.
                     pb.update(index)
 
-    def save(self, fname, frame_rate, bitrate=None, target_size=None, two_pass=False,
+    def save(self, filename, frame_rate, bitrate=None, target_size=None, two_pass=False,
              preset='slow', cache_dir='/tmp/clipcache/computed', burn_subtitles=False):
         """ Save to a file.
 
@@ -223,15 +223,6 @@ class Clip(ABC):
 
         """
 
-        # First, construct the complete path name. We'll need this during the
-        # ffmpeg step, because that runs in a temporary current directory.
-        full_fname = os.path.join(os.getcwd(), fname)
-
-        # Force the frame cache to be read before we change to the temp
-        # directory.
-        cache = ClipCache(cache_dir)
-        cache.scan_directory()
-
         # Figure out what bitrate to target.
         if bitrate is None and target_size is None:
             # A hopefully sensible high-quality default.
@@ -249,63 +240,45 @@ class Clip(ABC):
         else:
             raise ValueError("Specify either bitrate or target_size, not both.")
 
-        # Assemble all of the parts.
-        with tempfile.TemporaryDirectory() as td:
-            # Fill the temporary directory with the audio and a bunch of
-            # (symlinks to) individual frames.
-            self.stage(directory=td,
-                       cache=cache,
-                       frame_rate=frame_rate,
-                       fname=fname)
+        # Some shared arguments across all ffmpeg calls: single pass,
+        # first pass of two, and second pass of two.
+        # These include filters to:
 
-            # Invoke ffmpeg to assemble all of these into the completed video.
-            with temporarily_changed_directory(td):
-                # Some shared arguments across all ffmpeg calls: single pass,
-                # first pass of two, and second pass of two.
-                # These include filters to:
-                # - Ensure that the width and height are even, padding with a
-                #   black row or column if needed.
-                # - Set the pixel format to yuv420p, which seems to be needed
-                #   to get outputs that play on Apple gadgets.
-                # - Set the output frame rate.
+        args = []
+        args.append('-vcodec libx264')
+        args.append('-f mp4')
+        if bitrate:
+            args.append(f'-vb {bitrate}')
+        if preset:
+            args.append(f'-preset {preset}')
+        args.append('-profile:v high')
 
-                subtitles_exist = os.stat('subtitles.srt').st_size > 0
-                if subtitles_exist:
-                    subtitles_input='-i subtitles.srt -c:s mov_text -metadata:s:s:0 language=eng'
-                else:
-                    subtitles_input=''
-                if subtitles_exist and burn_subtitles:
-                    subtitles_filter = ',subtitles=subtitles.srt'
-                else:
-                    subtitles_filter = ''
-                args = [
-                    f'-framerate {frame_rate}',
-                    f'-i %06d.{cache.frame_format}',
-                    '-i audio.flac',
-                    subtitles_input,
-                    '-vcodec libx264',
-                    '-f mp4',
-                    f'-vb {bitrate}' if bitrate else '',
-                    f'-preset {preset}' if preset else '',
-                    '-profile:v high',
-                    f'-filter_complex "format=yuv420p,pad=width=ceil(iw/2)*2:height=ceil(ih/2)*2,fps={frame_rate}{subtitles_filter}"', #pylint: disable=line-too-long
-                ]
+        filters = []
 
-                num_frames = int(self.length() * frame_rate)
+        # - Set the pixel format to yuv420p, which seems to be needed
+        #   to get outputs that play on Apple gadgets.
+        filters.append('format=yuv420p')
 
-                if not two_pass:
-                    ffmpeg(task=f"Encoding {fname}",
-                           *(args + [f'{full_fname}']),
-                           num_frames=num_frames)
-                else:
-                    ffmpeg(task=f"Encoding {fname}, pass 1",
-                           *(args + ['-pass 1', '/dev/null']),
-                           num_frames=num_frames)
-                    ffmpeg(task=f"Encoding {fname}, pass 2",
-                           *(args + ['-pass 2', f'{full_fname}']),
-                           num_frames=num_frames)
+        # - Ensure that the width and height are even, padding with a
+        #   black row or column if needed.
+        filters.append('pad=width=ceil(iw/2)*2:height=ceil(ih/2)*2')
 
-            print(f'Wrote {self.readable_length()} to {fname}.')
+        # - Set the output frame rate.
+        filters.append(f'fps={frame_rate}')
+
+        # - If requested, burn in the subtitles.
+        if burn_subtitles:
+            filters.append('subtitles=subtitles.srt')
+
+        filters_text=','.join(filters)
+        args.append(f'-filter_complex "{filters_text}"')
+
+        save_via_ffmpeg(clip=self,
+                        filename=filename,
+                        frame_rate=frame_rate,
+                        output_args=args,
+                        two_pass=two_pass,
+                        cache_dir=cache_dir)
 
     def save_subtitles(self, filename):
         """Save the subtitles for this clip to the given file."""
