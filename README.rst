@@ -29,7 +29,7 @@ Loads of other functionality is included.
   `fade in <https://jokane.github.io/clip/_user/fade_in.html>`_,
   `fade out <https://jokane.github.io/clip/_user/fade_out.html>`_,
   or apply
-  `other filters <https://jokane.github.io/clip/_user/zip_file.html>`_.
+  `other filters <https://jokane.github.io/clip/_user/filter_frames.html>`_.
 
 `This video <https://jokane.net/pubs/MoaSheOKa21b.mp4>`_ is an example of many
 of the things the library can do.
