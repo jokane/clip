@@ -1,4 +1,4 @@
-.PHONY: all check lint test docs clean
+.PHONY: all check lint test docs clean clean-docs
 
 all: docs check install
 
@@ -15,8 +15,11 @@ docs: clip/*.py docs/*.rst docs/*.py
 	python3 docs/generate.py
 	$(MAKE) -C docs html
 
-clean:
-	rm -rfv docs/_build docs/_user docs/api build *.egg-info .coverage test/.test_files */__pycache__
+clean: clean-docs
+	rm -rfv build *.egg-info .coverage test/.test_files */__pycache__
+
+clean-docs:
+	rm -rfv docs/_build docs/_user docs/api
 
 install:
 	pip install .

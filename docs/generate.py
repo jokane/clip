@@ -26,13 +26,17 @@ os.chdir(os.path.split(__file__)[0])
 os.makedirs(MAIN_DIR, exist_ok=True)
 
 def is_public(thing, sig):
-    # Determine whether a thing should be in the "public" API documentation
-    # ---a Clip class or a function that returns a clip, and lacking a "hide"
-    # attribute.
+    # Determine whether a thing should be in the "public" API documentation:
+    # -- A Clip class
+    # -- A function that returns a clip
+    # -- A whose name starts with save_
+    # And lacking a "hide" attribute.
     if HIDE_TAG in doc:
         return False
     elif inspect.isclass(thing):
         return issubclass(thing, clip.Clip)
+    elif 'function save_' in str(thing):
+        return True
     else:
         return callable(thing) and sig.return_annotation is clip.Clip
 

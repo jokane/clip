@@ -2,9 +2,9 @@
 User guide
 ==========
 
-These are the functions most likely to be useful to users.
-Each one returns a Clip object.
-[#f1]_
+These are the parts of the library most likely to be useful to users.
+Most are functions that return a Clip object [#f1]_; others are for saving or
+previewing completed clips.
 
 .. toctree::
    :glob:
