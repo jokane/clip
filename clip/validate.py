@@ -1,7 +1,14 @@
 """ Methods to validate data types. """
 
 def is_float(x):
-    """ Can the given value be interpreted as a float? """
+    """Can the given value be interpreted as a float?
+
+    :param x: A value of some kind.
+    :returns: `True` if `x` can be interpreted as a float. `False` otherwise.
+
+    Returns true for floats, integers, and other things for which `float(x)`
+    succeeds, like strings containing nubmers.
+    """
     try:
         float(x)
         return True
@@ -11,11 +18,19 @@ def is_float(x):
         return False
 
 def is_int(x):
-    """ Can the given value be interpreted as an int? """
+    """Is the given value an integer?
+
+    :param x: A value of some kind.
+    :returns: `True` if `x` is an integer. `False` otherwise.
+
+    Returns true only for actual integers.  Notably, this rejects floats, so
+    that if rounding or truncating is going to happen, the user should do it
+    explicitly and therefore be aware of it.
+    """
     return isinstance(x, int)
 
 def is_string(x):
-    """ Is the given value actually a string? """
+    """ Is the given value a string? """
     return isinstance(x, str)
 
 def is_positive(x):
@@ -23,7 +38,7 @@ def is_positive(x):
     return x>0
 
 def is_even(x):
-    """ Is it an even number? """
+    """ Is the given value an even number? """
     return x%2 == 0
 
 def is_non_negative(x):
@@ -45,7 +60,7 @@ def is_color(color):
     return True
 
 def is_int_point(pt):
-    """ Is this a 2d point with integer coordinates. """
+    """ Is this a 2d point with integer coordinates? """
     if len(pt) != 2: return False
     if not is_int(pt[0]): return False
     if not is_int(pt[1]): return False
