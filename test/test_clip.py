@@ -341,6 +341,13 @@ def test_save5():
     with pytest.raises(ValueError):
         x.save('test.mp4', frame_rate=30, bitrate='1024k', target_size=5)
 
+def test_save_audio():
+    # Pure audio output.
+    x = solid([0,0,0], 640, 480, 10)
+    with temporary_current_directory():
+        save_audio(x, 'foo.flac')
+        assert os.path.exists('foo.flac')
+
 def test_subtitles1():
     # There are various get_subtitles implementations in different classes.
     # Make a clip that covers several of them.

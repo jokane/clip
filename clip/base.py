@@ -5,7 +5,6 @@
 from abc import ABC, abstractmethod
 import os
 import pprint
-import re
 import sys
 import tempfile
 
@@ -224,18 +223,8 @@ class Clip(ABC):
 
         """
 
-        # First, a simple case: If we're saving to an audio-only format, it's
-        # easy.
-        if re.search('.(flac|wav)$', fname):
-            assert not burn_subtitles
-            data = self.get_samples()
-            assert data is not None
-            soundfile.write(fname, data, self.sample_rate())
-            return
-
-        # So we need to save video.  First, construct the complete path name.
-        # We'll need this during the ffmpeg step, because that runs in a
-        # temporary current directory.
+        # First, construct the complete path name. We'll need this during the
+        # ffmpeg step, because that runs in a temporary current directory.
         full_fname = os.path.join(os.getcwd(), fname)
 
         # Force the frame cache to be read before we change to the temp
@@ -479,3 +468,4 @@ class FiniteIndexed:
     def time_to_frame_index(self, t):
         """Which frame would be visible at the given time?"""
         return int(t*self.frame_rate)
+
