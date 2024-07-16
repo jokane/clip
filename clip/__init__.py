@@ -25,6 +25,7 @@ from .pdf import *
 from .resample import *
 from .rosbag import *
 from .save_audio import *
+from .save_mp4 import *
 from .scale import *
 from .spin import *
 from .stack import *

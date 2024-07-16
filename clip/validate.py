@@ -29,6 +29,14 @@ def is_int(x):
     """
     return isinstance(x, int)
 
+def is_bool(x):
+    """Is the given value a boolean?
+
+    :param x: A value of some kind.
+    :returns: `True` if `x` is a boolean value.  `False` otherwise.
+    """
+    return isinstance(x, bool)
+
 def is_string(x):
     """ Is the given value a string? """
     return isinstance(x, str)
@@ -91,6 +99,10 @@ def require_int(x, name):
 def require_float(x, name):
     """ Raise an informative exception if x is not a float. """
     require(x, is_float, "float", name, TypeError)
+
+def require_bool(x, name):
+    """ Raise an informative exception is x is not either True or False. """
+    require(x, is_bool, "bool", name, TypeError)
 
 def require_string(x, name):
     """ Raise an informative exception if x is not a string. """

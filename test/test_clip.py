@@ -298,17 +298,17 @@ def test_save1():
     x = solid([0,0,0], 640, 480, 10)
     with temporary_current_directory():
         # Once with an empty cache.
-        x.save('test.mp4', frame_rate=30, cache_dir=os.getcwd())
+        save_mp4(x, 'test.mp4', frame_rate=30, cache_dir=os.getcwd())
         assert os.path.exists('test.mp4')
 
         # Again with the cache filled in.
-        x.save('test.mp4', frame_rate=30, cache_dir=os.getcwd())
+        save_mp4(x, 'test.mp4', frame_rate=30, cache_dir=os.getcwd())
 
 def test_save2():
     # Pure audio output.
     x = solid([0,0,0], 640, 480, 10)
     with temporary_current_directory():
-        x.save('foo.flac', frame_rate=30)
+        save_mp4(x, 'foo.flac', frame_rate=30)
         assert os.path.exists('foo.flac')
 
 def test_save3():
@@ -316,7 +316,7 @@ def test_save3():
     a = from_file(f"{TEST_FILES_DIR}/bunny.webm")
     with temporary_current_directory():
         for ts in [5, 10]:
-            a.save('small_bunny.mp4',
+            save_mp4(a, 'small_bunny.mp4',
                    frame_rate=5,
                    target_size=ts,
                    two_pass=True,
@@ -332,14 +332,21 @@ def test_save4():
     # With a target bitrate.
     x = solid([0,0,0], 640, 480, 2)
     with temporary_current_directory():
-        x.save('test.mp4', frame_rate=30, bitrate='1024k')
+        save_mp4(x, 'test.mp4', frame_rate=30, bitrate=1024*1024)
         assert os.path.exists('test.mp4')
 
 def test_save5():
     # With both file size and bitrate.
     x = solid([0,0,0], 640, 480, 2)
     with pytest.raises(ValueError):
-        x.save('test.mp4', frame_rate=30, bitrate='1024k', target_size=5)
+        save_mp4(x, 'test.mp4', frame_rate=30, bitrate=1024*1024, target_size=5)
+
+def test_save6():
+    # With a preset.
+    x = solid([0,0,0], 640, 480, 2)
+    save_mp4(x, 'test.mp4', frame_rate=30, preset='ultrafast')
+    with pytest.raises(ValueError):
+        save_mp4(x, 'test.mp4', frame_rate=30, preset='mindbogglinglyslow')
 
 def test_save_audio():
     # Pure audio output.
@@ -372,8 +379,8 @@ def test_subtitles1():
     x.verify(frame_rate=30)
 
     with temporary_current_directory():
-        x.save('burned.mp4', frame_rate=30, burn_subtitles=True)
-        x.save('not_burned.mp4', frame_rate=30, burn_subtitles=False)
+        save_mp4(x, 'burned.mp4', frame_rate=30, burn_subtitles=True)
+        save_mp4(x, 'not_burned.mp4', frame_rate=30, burn_subtitles=False)
 
 def test_subtitles2():
     # Compositing merges the subtitles correctly.
@@ -574,7 +581,7 @@ def test_from_file9():
         x = solid([0,0,0], 640, 480, 5)
         x = add_subtitles(x, (2, 3, 'First subtitle'),
                             (3, 4, 'Second subtitle'))
-        x.save('hi.mp4', frame_rate=30)
+        save_mp4(x, 'hi.mp4', frame_rate=30)
 
         x = from_file('hi.mp4')
         caps = list(x.get_subtitles())
@@ -1566,7 +1573,7 @@ def test_from_rosbag():
     # fr = vids[0].estimated_frame_rate()
 
     # x = hstack(*vids)
-    # x.save('test.mp4', 2*fr)
+    # save_mp4(x, 'test.mp4', 2*fr)
 
 
 def test_rosbag():

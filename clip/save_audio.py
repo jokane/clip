@@ -1,4 +1,4 @@
-"""A function to write the audio part a clip in an audio-only format."""
+"""A function to write the audio part of a clip in an audio-only format."""
 
 import soundfile
 

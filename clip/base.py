@@ -5,14 +5,12 @@
 from abc import ABC, abstractmethod
 import os
 import pprint
-import sys
 
 import cv2
 import numpy as np
 import soundfile
 
 from .cache import ClipCache
-from .ffmpeg import save_via_ffmpeg
 from .metrics import Metrics
 from .progress import custom_progressbar
 from .util import temporarily_changed_directory, format_seconds_as_hms, read_image
@@ -201,85 +199,6 @@ class Clip(ABC):
                     # Update the progress bar.
                     pb.update(index)
 
-    def save(self, filename, frame_rate, bitrate=None, target_size=None, two_pass=False,
-             preset='slow', cache_dir='/tmp/clipcache/computed', burn_subtitles=False):
-        """ Save to a file.
-
-        Bitrate controls the target bitrate.  Handles the tradeoff between
-        file size and output quality.
-
-        Target size specifies the file size we want, in MB.
-
-        At most one of bitrate and target_size should be given.  If both are
-        omitted, the default is to target a bitrate of 1024k.
-
-        Preset controls how quickly ffmpeg encodes.  Handles the tradeoff
-         encoding speed and output quality.  Choose from:
-
-            ultrafast superfast veryfast faster fast medium slow slower veryslow
-
-        The documentation for these says to "use the slowest preset you have
-        patience for."
-
-        """
-
-        # Figure out what bitrate to target.
-        if bitrate is None and target_size is None:
-            # A hopefully sensible high-quality default.
-            bitrate = '1024k'
-        elif bitrate is None and target_size is not None:
-            # Compute target bit rate, which should be in bits per second,
-            # from the target filesize.
-            target_bytes = 2**20 * target_size
-            target_bits = 8*target_bytes
-            bitrate = target_bits / self.length()
-            bitrate -= 128*1024 # Audio defaults to 1024 kilobits/second.
-        elif bitrate is not None and target_size is None:
-            # Nothing to do -- just use the bitrate as given.
-            pass
-        else:
-            raise ValueError("Specify either bitrate or target_size, not both.")
-
-        # Some shared arguments across all ffmpeg calls: single pass,
-        # first pass of two, and second pass of two.
-        # These include filters to:
-
-        args = []
-        args.append('-vcodec libx264')
-        args.append('-f mp4')
-        if bitrate:
-            args.append(f'-vb {bitrate}')
-        if preset:
-            args.append(f'-preset {preset}')
-        args.append('-profile:v high')
-
-        filters = []
-
-        # - Set the pixel format to yuv420p, which seems to be needed
-        #   to get outputs that play on Apple gadgets.
-        filters.append('format=yuv420p')
-
-        # - Ensure that the width and height are even, padding with a
-        #   black row or column if needed.
-        filters.append('pad=width=ceil(iw/2)*2:height=ceil(ih/2)*2')
-
-        # - Set the output frame rate.
-        filters.append(f'fps={frame_rate}')
-
-        # - If requested, burn in the subtitles.
-        if burn_subtitles:
-            filters.append('subtitles=subtitles.srt')
-
-        filters_text=','.join(filters)
-        args.append(f'-filter_complex "{filters_text}"')
-
-        save_via_ffmpeg(clip=self,
-                        filename=filename,
-                        frame_rate=frame_rate,
-                        output_args=args,
-                        two_pass=two_pass,
-                        cache_dir=cache_dir)
-
     def save_subtitles(self, filename):
         """Save the subtitles for this clip to the given file."""
         with open(filename, 'w') as f:
@@ -342,16 +261,6 @@ class Clip(ABC):
         else:
             # No. Generate and save to disk for next time.
             return self.compute_and_cache_frame(t, cache, cached_filename)
-
-    def save_play_quit(self, frame_rate, filename="spq.mp4"): # pragma: no cover
-        """ Save the video, play it, and then end the process.  Useful
-        sometimes when debugging, to see a particular clip without running the
-        entire program. """
-        self.save(filename, frame_rate)
-        os.system("mplayer " + filename)
-        sys.exit(0)
-
-    spq = save_play_quit
 
 
 class VideoClip(Clip):
