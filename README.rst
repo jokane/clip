@@ -9,7 +9,7 @@ To extract the first minute of an existing video, you might do something like th
     from clip import *
     original = from_file('original.mp4')
     first_minute = slice_clip(original, 0, 60)
-    first_minute.save('first_minute.mp4', frame_rate=original.frame_rate)
+    save_mp4(first_minute, 'first_minute.mp4', frame_rate=original.frame_rate)
 
 Loads of other functionality is included.
 
