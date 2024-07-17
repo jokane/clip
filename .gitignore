@@ -6,6 +6,7 @@ __pycache__
 .venv
 test/.test_files
 build/
+dist/
 clip.egg-info/
 docs/_build
 docs/_user
