@@ -3,6 +3,7 @@
 # pylint: disable=wildcard-import
 
 from abc import ABC, abstractmethod
+import contextlib
 import os
 import pprint
 
@@ -199,9 +200,20 @@ class Clip(ABC):
                     # Update the progress bar.
                     pb.update(index)
 
-    def save_subtitles(self, filename):
-        """Save the subtitles for this clip to the given file."""
-        with open(filename, 'w') as f:
+    def save_subtitles(self, destination):
+        """Save the subtitles for this clip to the given file.
+
+        :param destination: A string filename or file-like object telling
+                             where to send the subtitles.
+
+        """
+
+        with contextlib.ExitStack() as exst:
+            if isinstance(destination, str):
+                f = exst.enter_context(open(destination, 'w'))
+            else:
+                f = destination
+
             for number, subtitle in enumerate(self.get_subtitles()):
                 print(number+1, file=f)
                 hms0 = format_seconds_as_hms(subtitle[0])

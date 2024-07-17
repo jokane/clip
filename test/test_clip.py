@@ -361,6 +361,15 @@ def test_save_gif():
     with temporary_current_directory():
         save_gif(a, 'test.gif', frame_rate=10)
 
+def test_save_zip():
+    a = slice_clip(from_file(f"{TEST_FILES_DIR}/bunny.webm"), 5, 10)
+    a = join(a, sine_wave(880, 0.1, 10, 44100, 2))
+    a = add_subtitles(a, (2, 3, 'First subtitle'),
+                         (3, 4, 'Second subtitle'))
+    with temporary_current_directory():
+        save_zip(a, 'test1.zip', frame_rate=10)
+        save_zip(a, 'test2.zip', frame_rate=10, include_subtitles=False, include_audio=False)
+
 def test_subtitles1():
     # There are various get_subtitles implementations in different classes.
     # Make a clip that covers several of them.

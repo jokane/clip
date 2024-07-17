@@ -18,6 +18,7 @@ def save_mp4(clip, filename, frame_rate, bitrate=None, target_size=None, two_pas
     :param target_size: The target filesize in megabytes.
     :param preset: A string that controls how quickly ffmpeg encodes.  See below.
     :param two_pass: Should the `ffmpeg` encoding run twice or just once?
+    :param cache_dir: The directory to use for the frame cache.
     :param burn_subtitles: Should the frames be modified to include the subtitle text?
 
 
