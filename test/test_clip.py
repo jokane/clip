@@ -344,9 +344,10 @@ def test_save5():
 def test_save6():
     # With a preset.
     x = solid([0,0,0], 640, 480, 2)
-    save_mp4(x, 'test.mp4', frame_rate=30, preset='ultrafast')
-    with pytest.raises(ValueError):
-        save_mp4(x, 'test.mp4', frame_rate=30, preset='mindbogglinglyslow')
+    with temporary_current_directory():
+        save_mp4(x, 'test.mp4', frame_rate=30, preset='ultrafast')
+        with pytest.raises(ValueError):
+            save_mp4(x, 'test.mp4', frame_rate=30, preset='mindbogglinglyslow')
 
 def test_save_audio():
     # Pure audio output.
@@ -354,6 +355,11 @@ def test_save_audio():
     with temporary_current_directory():
         save_audio(x, 'foo.flac')
         assert os.path.exists('foo.flac')
+
+def test_save_gif():
+    a = from_file(f"{TEST_FILES_DIR}/bunny.webm")
+    with temporary_current_directory():
+        save_gif(a, 'test.gif', frame_rate=10)
 
 def test_subtitles1():
     # There are various get_subtitles implementations in different classes.
@@ -1561,24 +1567,9 @@ def test_bgr2rgb():
     b = bgr2rgb(a)
     b.verify(30)
 
-def test_from_rosbag():
-    pass
-    # vids = []
-    # fr = 0
-    # for cam in ['left', 'back']:
-    #     vid = rosbag('2024-06-06__21_37', f'/a14/camera/{cam}/image_raw/compressed')
-    #     fr = max(fr, vid.estimated_frame_rate())
-    #     vids.append(vid)
-
-    # fr = vids[0].estimated_frame_rate()
-
-    # x = hstack(*vids)
-    # save_mp4(x, 'test.mp4', 2*fr)
-
-
 def test_rosbag():
-    # Since there's no rosbag in our standard test files, we'll make one first
-    # -- testing both reading and writing together.
+    # Since there's no rosbag in our standard test files, we'll make one first.
+    # This tests both reading and writing together.
 
     a = slice_clip(from_file(f"{TEST_FILES_DIR}/bunny.webm"), 0, 2)
     with temporary_current_directory():

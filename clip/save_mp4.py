@@ -12,7 +12,7 @@ def save_mp4(clip, filename, frame_rate, bitrate=None, target_size=None, two_pas
     """ Save a clip to an MP4 file.
 
     :param clip: The clip to save.
-    :param filename: A file name to write to,
+    :param filename: A file name to write to.
     :param frame_rate: Output frame rate in frames per second.
     :param bitrate: The target bitrate in bits per second.
     :param target_size: The target filesize in megabytes.
