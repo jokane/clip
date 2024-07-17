@@ -4,7 +4,7 @@ Installation
 
 To install ``clip``, first clone the source repository::
 
-    $ git clone git@github.com:jokane/clip.git
+    $ git clone https://github.com/jokane/clip.git
 
 Then install the package::
 
