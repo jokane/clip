@@ -45,7 +45,7 @@ def header(title, f):
     print(f"    You probably don't want to modify me directly.", file=f)
     print(file=f)
     print(f".. module:: clip", file=f)
-    print('  :noindex:', file=f)
+    print(' :noindex:', file=f)
 
     if title:
         print(file=f)
@@ -63,7 +63,6 @@ def main():
     with contextlib.ExitStack() as exst:
         f_ref = exst.enter_context(open(os.path.join(MAIN_DIR, 'reference.rst'), 'w'))
         header('API reference', f_ref)
-        print(':noindex:', file=f_ref)
         print(file=f_ref)
 
         f_tag = { tag: exst.enter_context(open(os.path.join(MAIN_DIR, f'{tag}.rst'), 'w')) for tag in tags }
