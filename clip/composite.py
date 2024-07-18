@@ -27,19 +27,27 @@ class VideoMode(Enum):
     :const VideoMode.ADD: Add the pixel values from this element and the
           existing pixel values.
 
-    :const VideoMode.IGNORE: Discard the video from element.
+    :const VideoMode.IGNORE: Discard the video from this element.
 
     Pass one of these to the constructor of :class:`Element`.
-
     """
+
     REPLACE = 1
     BLEND = 2
     ADD = 3
     IGNORE = 4
 
 class AudioMode(Enum):
-    """ When defining and element of a composite, how should the video for this
-    element be composited into the final clip?"""
+    """ When defining and element of a :class:`composite`, how should the audio
+    for this element be composited into the final clip?
+
+    :const AudioMode.REPLACE: Overwrite the existing audio.
+    :const AudioMode.ADD: Add the samples from this element to the existing audio samples.
+    :const AudioMode.IGNORE: Discard the audio from this element.
+
+    Pass one of these to the constructor of :class:`Element`.
+    """
+
     REPLACE = 5
     ADD = 6
     IGNORE = 7
