@@ -67,7 +67,7 @@ def main():
 
         f_tag = { tag: exst.enter_context(open(os.path.join(MAIN_DIR, f'{tag}.rst'), 'w')) for tag in tags }
 
-        for name, thing in sorted(clip.__dict__.items()):
+        for name, thing in sorted(clip.__dict__.items(), key=lambda x: x[0].lower()):
             if name in exclude: continue
 
             doc = thing.__doc__ if thing.__doc__ else ''
