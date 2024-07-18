@@ -38,7 +38,7 @@ class VideoMode(Enum):
     IGNORE = 4
 
 class AudioMode(Enum):
-    """ When defining and element of a :class:`composite`, how should the audio
+    """ When defining an element of a :class:`composite`, how should the audio
     for this element be composited into the final clip?
 
     :const AudioMode.REPLACE: Overwrite the existing audio.
@@ -53,7 +53,33 @@ class AudioMode(Enum):
     IGNORE = 7
 
 class Element:
-    """An element to be included in a composite."""
+    """An element to be included in a :class:`composite`, including a specific
+    clip to include in the composite and details about when, where, and how
+    that clip should be included.
+
+    :param clip: The clip to composite.
+    :param start_time: The time within the composite, in seconds, when this
+            clip should begin.
+    :param position: Where should this clip be positioned?  See below.
+    :param video_mode: A :class:`VideoMode` telling what to do with this clip's
+            video.
+    :param audio_mode: An :class:`AudioMode` telling what to do with this clip's
+            audio.
+
+    The `position`, give either:
+
+        - An integer tuple `(x, y)` indicating where the top left
+          corner of this clip should be positioned.
+
+        - A callable that accepts a double `t` and returns `(x, y)` for the top
+          left corner at time `t`
+
+    Values for position can be negative, indicating the part of the clip is out
+    of view, to the left or above.
+
+    For details about how to use this class, see :class:`composite`.
+
+    """
 
     def __init__(self, clip, start_time, position, video_mode=VideoMode.REPLACE,
                  audio_mode=AudioMode.REPLACE):
@@ -85,9 +111,9 @@ class Element:
         self.audio_mode = audio_mode
 
     def required_dimensions(self):
-        """ Return the (width, height) needed to show this element as fully as
-        possible.  (May not be all of the clip, because the top left is always
-        (0,0), so things at negative coordinates will still be hidden.) """
+        """Return the `(width, height)` needed to show this element as fully as
+        possible.  Note that these dimensions may show all of the clip, things
+        at negative coordinates will still be hidden."""
         if callable(self.position):
             nw, nh = 0, 0
             for t in frame_times(self.clip.length(), 100):
@@ -100,8 +126,11 @@ class Element:
                     self.position[1] + self.clip.height())
 
     def signature(self, t):
-        """ A signature for this element, to be used to create the overall
-        frame signature.  Returns None if this element does not contribute at
+        """ A signature for this element, uniquely describing the visual
+        contribution this element makes to the overall composite at time `t`.
+        Analogous to the :func:`~clip.Clip.frame_signature` of a clip.
+
+        Returns `None` if this element does not contribute any visual change at
         the given time."""
         if self.video_mode==VideoMode.IGNORE:
             return None
@@ -115,11 +144,14 @@ class Element:
             pos = self.position
         return [self.video_mode, pos, self.clip.frame_signature(clip_t)]
 
-    def get_coordinates(self, index, shape):
-        """ Compute the coordinates at which this element should appear at the
-        given index. """
+    def get_coordinates(self, t, shape):
+        """Compute the coordinates at which this element should appear at the
+        given time, based on this element's position and the given shape.
+
+        :return: An integer tuple `(left, right, top, bottom)`.
+        """
         if callable(self.position):
-            pos = self.position(index)
+            pos = self.position(t)
         else:
             pos = self.position
         x = int(pos[0])
@@ -131,21 +163,31 @@ class Element:
         return x0, x1, y0, y1
 
     def request_frame(self, t):
-        """ Note that the given clip will be displayed at the given time."""
+        """Note that the given clip will be displayed at the given time.
+        Passes along the request to the clip itself.
+
+        :param t: A time, in seconds.  Should be between 0 and `self.length()`.
+
+        """
         clip_t = t - self.start_time
         if t < self.start_time or t >= self.start_time + self.clip.length():
             return
         self.clip.request_frame(clip_t)
 
     def get_subtitles(self):
-        """ Return the subtitles of the constituent clip, shifted appropriately. """
+        """Return the subtitles of the constituent clip, shifted appropriately."""
         for subtitle_start_time, subtitle_end_time, text in self.clip.get_subtitles():
             new_start_time = self.start_time+subtitle_start_time
             new_end_time = self.start_time+subtitle_end_time
             yield new_start_time, new_end_time, text
 
     def apply_to_frame(self, under, t):
-        """ Modify the given frame as described by this element. """
+        """Modify the given frame as described by this element.
+
+        :param under: An image frame, presumably from a composite being rendered.
+        :param t: A time, in seconds.  Should be between 0 and `self.length()`.
+
+        """
         # If this element does not apply at this index, make no change.
         clip_t = t - self.start_time
         if t < self.start_time or t >= self.start_time + self.clip.length():
@@ -189,7 +231,21 @@ class Element:
             raise NotImplementedError(self.video_mode) # pragma: no cover
 
 class composite(Clip):
-    """ Given a collection of elements, form a composite clip. |modify|"""
+    """ Combine a collection of clips into one big clip, positioning the
+    constituent clips as directed across space and time.
+
+    :param args: :class:`Element` objects, given as separate objects or as
+            lists.  Each element describes a clip to use in the composite along
+            with directions about when and where it should appear and how its
+            audio and video should be integrated.
+    :param width: The width of the resulting composite.
+    :param height: The height of the resulting composite.
+    :param length: The length of the resulting composite.
+
+    If any of `width`, `length`, or `height` are omitted, it will be set
+    automatically to be large enough for the given elements.
+
+    |modify|"""
     def __init__(self, *args, width=None, height=None, length=None):
         super().__init__()
 
