@@ -405,8 +405,16 @@ class MutatorClip(Clip):
 
 class FiniteIndexed:
     """Mixin for clips derived from a finite, ordered sequence of frames. Keeps
-    track of a frame rat and a number of frames, and provides a method for
-    converting times to frame indices."""
+    track of a frame rate and a number of frames, and provides a method for
+    converting times to frame indices.
+
+    :param num_frames: The positive integer number of frames.
+    :param frame_rate: The clip's frame rate, in frames per second.
+    :param length: The clip's length, in seconds.
+
+    Exactly one of `num_frames` and `frame_rate` should be given; the other
+    should be `None` and will be computed to match."""
+
     def __init__(self, num_frames, frame_rate=None, length=None):
 
         if frame_rate is not None:
@@ -428,6 +436,10 @@ class FiniteIndexed:
         self.frame_rate = frame_rate
 
     def time_to_frame_index(self, t):
-        """Which frame would be visible at the given time?"""
+        """Which frame would be visible at the given time?
+
+        :param t: A time, in seconds.  Should be between 0 and `self.length()`.
+        :return: The index of the frame should appear at time `t`.
+        """
         return int(t*self.frame_rate)
 
