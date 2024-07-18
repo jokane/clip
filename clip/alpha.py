@@ -45,7 +45,7 @@ def alpha_blend(f0, f1):
 class scale_alpha(MutatorClip):
     """ Scale the alpha channel of a given clip by the given factor, which may
     be a float (for a constant factor) or a float-returning function (for a
-    factor that changes across time)."""
+    factor that changes across time). |modify|"""
     def __init__(self, clip, factor):
         super().__init__(clip)
 

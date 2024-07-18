@@ -8,7 +8,7 @@ from .validate import (require_int, require_non_negative, require_less_equal, re
 
 class crop(MutatorClip):
     """Trim the frames of a clip to show only the rectangle between
-    lower_left and upper_right."""
+    lower_left and upper_right. |modify|"""
     def __init__(self, clip, lower_left, upper_right):
         super().__init__(clip)
         require_int(lower_left[0], "lower left")
@@ -40,7 +40,7 @@ class crop(MutatorClip):
 
 class slice_clip(MutatorClip):
     """ Extract the portion of a clip between the given times. Endpoints
-    default to the start and end of the clip."""
+    default to the start and end of the clip. |modify|"""
     def __init__(self, clip, start=0, end=None):
         super().__init__(clip)
         if end is None:
@@ -87,7 +87,7 @@ class slice_clip(MutatorClip):
         return self.subtitles
 
 def slice_out(clip, start, end) -> Clip:
-    """ Remove the part between the given endponts. """
+    """ Remove the part between the given endponts. |modify|"""
     require_clip(clip, "clip")
     require_float(start, "start time")
     require_non_negative(start, "start time")

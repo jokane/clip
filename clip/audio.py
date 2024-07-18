@@ -8,7 +8,7 @@ from .metrics import Metrics
 from .validate import require_float, require_positive
 
 class mono_to_stereo(MutatorClip):
-    """ Change the number of channels from one to two. """
+    """ Change the number of channels from one to two. |modify|"""
     def __init__(self, clip):
         super().__init__(clip)
         if self.clip.metrics.num_channels != 1:
@@ -19,7 +19,7 @@ class mono_to_stereo(MutatorClip):
         return np.concatenate((data, data), axis=1)
 
 class stereo_to_mono(MutatorClip):
-    """ Change the number of channels from two to one. """
+    """ Change the number of channels from two to one. |modify|"""
     def __init__(self, clip):
         super().__init__(clip)
         if self.clip.metrics.num_channels != 2:
@@ -30,7 +30,7 @@ class stereo_to_mono(MutatorClip):
         return (0.5*data[:,0] + 0.5*data[:,1]).reshape(self.num_samples(), 1)
 
 class scale_volume(MutatorClip):
-    """ Scale the volume of audio in a clip.  """
+    """ Scale the volume of audio in a clip. |modify|"""
     def __init__(self, clip, factor):
         super().__init__(clip)
         require_float(factor, "scaling factor")
@@ -41,13 +41,23 @@ class scale_volume(MutatorClip):
         return self.factor * self.clip.get_samples()
 
 class silence_audio(MutatorClip):
-    """ Replace whatever audio we have with silence. """
+    """ Replace whatever audio we have with silence. |modify|"""
     def get_samples(self):
         return np.zeros([self.metrics.num_samples(), self.metrics.num_channels])
 
-def join(video_clip, audio_clip) -> Clip:
-    """ Create a new clip that combines the video of one clip with the audio of
-    another.  The length will be the length of the longer of the two."""
+def join(video_clip, audio_clip):
+    """ A new clip that combines the video of one clip with the audio of
+    another.
+
+    The length of the result will be the length of the longer of the two inputs.
+
+        - If `video_clip` is longer than `audio_clip`, the result will be
+          padded with silence at the end.
+
+        - If `audio_clip` is longer than `video_clip`, the result will be
+          padded with black frames that the end.
+
+    |modify|"""
     require_clip(video_clip, "video clip")
     require_clip(audio_clip, "audio clip")
 
@@ -62,7 +72,7 @@ def join(video_clip, audio_clip) -> Clip:
                              audio_mode=AudioMode.REPLACE))
 
 class sine_wave(AudioClip):
-    """ A sine wave with the given frequency. """
+    """ A sine wave with the given frequency. |ex-nihilo|"""
     def __init__(self, frequency, volume, length, sample_rate, num_channels):
         super().__init__()
 

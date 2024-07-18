@@ -17,9 +17,9 @@ class Align(Enum):
     BOTTOM = 6
     END = 7
 
-def stack_clips(*args, align, min_dim=0, vert, name) -> Clip:
-    """ Arrange a series of clips in a stack, either vertically or
-    horizontally.  Probably use vstack or hstack to call this. |internal|"""
+def stack_clips(*args, align, min_dim=0, vert, name):
+    """Arrange a series of clips in a stack, either vertically or
+    horizontally.  Probably use vstack or hstack to call this."""
 
     # Flatten things out, in case the inputs were wrapped in a list.
     clips = flatten_args(args)
@@ -77,11 +77,18 @@ def stack_clips(*args, align, min_dim=0, vert, name) -> Clip:
     else:
         return composite(elements, height=dim, width=b)
 
-def vstack(*args, align=Align.CENTER, min_width=0) -> Clip:
-    """ Arrange a series of clips in a vertical stack. """
+def vstack(*args, align=Align.CENTER, min_width=0):
+    """Arrange a series of clips in a vertical stack.
+
+    :param args: The clips to stack, given as a list or as separate arguments.
+    :param align: How should the clips be aligned if the have different widths?
+    :param min_width: A minimum width for the result, in pixels.
+
+    |modify|"""
+
     return stack_clips(args, align=align, min_dim=min_width, vert=True, name='vstack')
 
-def hstack(*args, align=Align.CENTER, min_height=0) -> Clip:
-    """ Arrange a series of clips in a horizontal row. """
+def hstack(*args, align=Align.CENTER, min_height=0):
+    """ Arrange a series of clips in a horizontal row. |modify|"""
     return stack_clips(args, align=align, min_dim=min_height, vert=False, name='hstack')
 

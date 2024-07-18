@@ -9,7 +9,7 @@ from .validate import (require_color, require_float, require_non_negative, requi
 from .util import read_image
 
 class solid(Clip):
-    """A video clip in which each frame has the same solid color."""
+    """A video clip in which each frame has the same solid color. |ex-nihilo|"""
     def __init__(self, color, width, height, length):
         super().__init__()
         require_color(color, "solid color")
@@ -38,7 +38,7 @@ def white(width, height, length) -> Clip:
     return solid([255,255,255], width, height, length)
 
 class static_frame(VideoClip):
-    """ Show a single image over and over, silently. """
+    """Show a single image over and over, silently."""
     def __init__(self, the_frame, frame_name, length):
         super().__init__()
         try:
@@ -79,7 +79,7 @@ class static_frame(VideoClip):
         return []
 
 class repeat_frame(VideoClip):
-    """Show the same frame, from another clip, over and over."""
+    """Show the same frame, from another clip, over and over. |modify|"""
 
     def __init__(self, clip, when, length):
         super().__init__()
@@ -108,8 +108,8 @@ class repeat_frame(VideoClip):
         return []
 
 
-def static_image(filename, length) -> Clip:
-    """ Show a single image loaded from a file over and over, silently. """
+def static_image(filename, length):
+    """ Show a single image loaded from a file over and over, silently. |from-source|"""
     the_frame = read_image(filename)
     assert the_frame is not None
     return static_frame(the_frame, filename, length)

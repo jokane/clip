@@ -260,7 +260,7 @@ def subtitles_from_file(fname, cache):
 
 class from_file(Clip, FiniteIndexed):
     """A clip read from a file such as an mp4, flac, or other format readable
-    by ffmpeg."""
+    by ffmpeg. |from-source|"""
 
     def __init__(self, fname, suppress=None, cache_dir=None):
         Clip.__init__(self)

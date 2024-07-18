@@ -9,7 +9,7 @@ def save_gif(clip, filename, frame_rate, cache_dir='/tmp/clipcache/computed'):
 
     :param clip: The clip to save.
     :param filename: A file name to write to.
-    :param cache_dir: The directory to use for the frame cache."""
+    :param cache_dir: The directory to use for the frame cache.|save|"""
 
     require_clip(clip, "clip")
     require_string(filename, "filename")

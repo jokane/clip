@@ -1,12 +1,12 @@
 """ A tool for looping a clip over and over. """
 
-from .base import Clip, require_clip
+from .base import require_clip
 from .crop_slice import slice_clip
 from .chain import chain
 from .validate import require_float, require_positive
 
-def loop(clip, length) -> Clip:
-    """Repeat a clip as needed to fill the given length."""
+def loop(clip, length):
+    """Repeat a clip as needed to fill the given length. |modify|"""
     require_clip(clip, "clip")
     require_float(length, "length")
     require_positive(length, "length")

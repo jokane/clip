@@ -6,8 +6,8 @@ from .base import Clip, require_clip
 from .filter import filter_frames
 from .validate import require_float, require_positive, require_int
 
-def scale_by_factor(clip, factor) -> Clip:
-    """Scale the frames of a clip by a given factor."""
+def scale_by_factor(clip, factor):
+    """Scale the frames of a clip by a given factor. |modify|"""
     require_clip(clip, "clip")
     require_float(factor, "scaling factor")
     require_positive(factor, "scaling factor")
@@ -18,7 +18,7 @@ def scale_by_factor(clip, factor) -> Clip:
 
 def scale_to_fit(clip, max_width, max_height) -> Clip:
     """Scale the frames of a clip to fit within the given constraints,
-    maintaining the aspect ratio."""
+    maintaining the aspect ratio. |modify|"""
 
     aspect1 = clip.width() / clip.height()
     aspect2 = max_width / max_height
@@ -35,7 +35,8 @@ def scale_to_fit(clip, max_width, max_height) -> Clip:
     return scale_to_size(clip, int(new_width), int(new_height))
 
 def scale_to_size(clip, width, height) -> Clip:
-    """Scale the frames of a clip to a given size, possibly distorting them."""
+    """Scale the frames of a clip to a given size, possibly distorting them.
+    |modify|"""
     require_clip(clip, "clip")
     require_int(width, "new width")
     require_positive(width, "new width")

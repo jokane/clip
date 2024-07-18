@@ -7,7 +7,7 @@ from .validate import (require_iterable, require_float, require_non_negative, re
                        require_less_equal, require_string)
 
 class add_subtitles(MutatorClip):
-    """ Add one or more subtitles to a clip. """
+    """ Add one or more subtitles to a clip. |modify|"""
     def __init__(self, clip, *args):
         super().__init__(clip)
         for i, subtitle in enumerate(args):

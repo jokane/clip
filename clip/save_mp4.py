@@ -47,7 +47,7 @@ def save_mp4(clip, filename, frame_rate, bitrate=None, target_size=None, two_pas
 
     Using `two_pass` makes things slower because the encoding process happens
     twice, but can improve the results, particularly when using `target_size`.
-    Default is to use `two_pass` only when a `target_size` is given.
+    Default is to use `two_pass` only when a `target_size` is given.|save|
     """
 
     require_clip(clip, "clip")

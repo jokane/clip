@@ -18,7 +18,7 @@ from .validate import require_string, require_float, require_positive, require_b
 from .progress import custom_progressbar
 
 class zip_file(VideoClip, FiniteIndexed):
-    """ A video clip from images stored in a zip file."""
+    """ A video clip from images stored in a zip file. |from-source|"""
 
     def __init__(self, fname, frame_rate):
         VideoClip.__init__(self)
@@ -68,7 +68,7 @@ def save_zip(clip, filename, frame_rate, include_audio=True, include_subtitles=N
     :param filename: A file name to write to.
     :param frame_rate: Output frame rate in frames per second.
     :param include_audio: Should the audio be included?
-    :param include_subtitles: Should the subtitles be included?
+    :param include_subtitles: Should the subtitles be included? |save|
     """
 
     require_clip(clip, "clip")

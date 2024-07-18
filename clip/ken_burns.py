@@ -13,7 +13,7 @@ from .validate import require_int_point, require_non_negative, require_less, req
 # pylint: enable=duplicate-code
 
 class ken_burns(MutatorClip):
-    """Pan and/or zoom through a clip over time."""
+    """Pan and/or zoom through a clip over time. |modify|"""
     def __init__(self, clip, width, height, start_top_left, start_bottom_right,
                  end_top_left, end_bottom_right):
         super().__init__(clip)

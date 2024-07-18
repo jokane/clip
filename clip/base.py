@@ -36,11 +36,9 @@ def require_clip(x, name):
 
 
 class Clip(ABC):
-    """The base class for all clips.  A finite series of frames, each with
-    identical height and width, meant to be played at a given rate, along with
-    an audio clip of the same length.
-
-    |internal|"""
+    """The base class for all clips.  A series of frames with a certain duration,
+    each with identical height and width, along with an audio clip of the same
+    length."""
 
     def __init__(self):
         self.metrics = None
@@ -233,7 +231,7 @@ class Clip(ABC):
         if not success:
             self.compute_and_cache_frame(t, cache, cached_filename)
 
-        # Done!
+        # Do    :noindex:ne!
         return cached_filename
 
     def compute_and_cache_frame(self, t, cache, cached_filename):
@@ -277,7 +275,7 @@ class Clip(ABC):
 
 class VideoClip(Clip):
     """ Inherit from this for Clip classes that really only have video, to
-    default to silent audio. |internal|"""
+    default to silent audio."""
     def get_samples(self):
         """Return audio samples appropriate to use as a default audio.  That
         is, silence with the appropriate metrics."""
@@ -288,8 +286,8 @@ class VideoClip(Clip):
 
 
 class AudioClip(Clip):
-    """ Inherit from this for Clip classes that only really have audio, to
-    default to simple black frames for the video. |internal|"""
+    """Inherit from this for Clip classes that only really have audio, to
+    default to simple black frames for the video."""
     def __init__(self):
         super().__init__()
         self.color = [0, 0, 0, 255]
@@ -312,8 +310,8 @@ class AudioClip(Clip):
         return self.frame
 
 class MutatorClip(Clip):
-    """ Inherit from this for Clip classes that modify another clip.
-    Override only the parts that need to change. |internal|"""
+    """Inherit from this for Clip classes that modify another clip.
+    Override only the parts that need to change."""
     def __init__(self, clip):
         super().__init__()
         require_clip(clip, "base clip")

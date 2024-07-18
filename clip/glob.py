@@ -12,7 +12,8 @@ from .util import read_image
 
 class image_glob(VideoClip, FiniteIndexed):
     """Video from a collection of identically-sized image files that match a
-    unix-style pattern, at a given frame rate or timed to a given length."""
+    unix-style pattern, at a given frame rate or timed to a given length.
+    |from-source|"""
     def __init__(self, pattern, frame_rate=None, length=None):
         VideoClip.__init__(self)
 

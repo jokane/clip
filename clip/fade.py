@@ -52,7 +52,7 @@ class fade_base(MutatorClip, ABC):
         """ Return samples; implemented in fade_in and fade_out below."""
 
 class fade_in(fade_base):
-    """ Fade in from silent black or silent transparency. """
+    """ Fade in from silent black or silent transparency. |modify|"""
     def alpha(self, t):
         return min(1, t/self.fade_length)
 
@@ -64,7 +64,7 @@ class fade_in(fade_base):
         return a
 
 class fade_out(fade_base):
-    """ Fade out to silent black or silent transparency. """
+    """ Fade out to silent black or silent transparency. |modify|"""
     def alpha(self, t):
         return min(1, (self.length()-t)/self.fade_length)
 

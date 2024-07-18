@@ -41,7 +41,7 @@ class ImageMessage():
 
 
 class from_rosbag(VideoClip):
-    """Read images from given topic in a rosbag and treat them as a silent video."""
+    """Read images from given topic in a rosbag and treat them as a silent video. |from-source|"""
     def __init__(self, pathname, topic):
         super().__init__()
         self.pathname = pathname
@@ -91,7 +91,7 @@ class from_rosbag(VideoClip):
         pass
 
 def save_rosbag(clip, pathname, frame_rate, topic='/camera/compressed', frame_id='/camera'):
-    """Save (the video portion of) a clip as a ROS2 rosbag."""
+    """Save (the video portion of) a clip as a ROS2 rosbag. |save|"""
     path = pathlib.Path(pathname)
     typestore = rosbags.typesys.get_typestore(rosbags.typesys.Stores.ROS2_HUMBLE)
 

@@ -3,12 +3,12 @@
 import numpy as np
 import scipy.signal
 
-from .base import Clip, MutatorClip, require_clip
+from .base import MutatorClip, require_clip
 from .metrics import Metrics
 from .validate import require_float, require_positive
 
 class resample(MutatorClip):
-    """ Change the sample rate and/or length. """
+    """ Change the sample rate and/or length. |modify|"""
     def __init__(self, clip, sample_rate=None, length=None):
 
         super().__init__(clip)
@@ -68,8 +68,8 @@ class resample(MutatorClip):
                    self.new_time(subtitle[1]),
                    subtitle[2])
 
-def timewarp(clip, factor) -> Clip:
-    """ Speed up a clip by the given factor. """
+def timewarp(clip, factor):
+    """ Speed up a clip by the given factor. |modify|"""
     require_clip(clip, "clip")
     require_float(factor, "factor")
     require_positive(factor, "factor")
@@ -77,7 +77,7 @@ def timewarp(clip, factor) -> Clip:
     return resample(clip, length=clip.length()/factor)
 
 class reverse(MutatorClip):
-    """ Reverse both the video and audio in a clip. """
+    """ Reverse both the video and audio in a clip. |modify|"""
     def frame_signature(self, t):
         return self.clip.frame_signature(self.length() - t)
     def get_frame(self, t):

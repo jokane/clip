@@ -1,15 +1,15 @@
 """ For chaining together a series of clips. """
 
-from .base import Clip, require_clip
+from .base import require_clip
 from .fade import fade_in, fade_out
 from .composite import composite, AudioMode, VideoMode, Element
 from .util import flatten_args
 from .validate import require_float, require_non_negative, require_equal
 
-def chain(*args, length=None, fade_time = 0) -> Clip:
+def chain(*args, length=None, fade_time = 0):
     """ Concatenate a series of clips.  The clips may be given individually, in
     lists or other iterables, or a mixture of both.  Optionally overlap them a
-    little and fade between them."""
+    little and fade between them. |modify|"""
     # Construct our list of clips.  Flatten each list; keep each individual
     # clip.
     clips = flatten_args(args)
@@ -49,8 +49,8 @@ def chain(*args, length=None, fade_time = 0) -> Clip:
     # Let composite do all the work.
     return composite(*elements, length=length)
 
-def fade_between(clip1, clip2) -> Clip:
-    """ Fade from one clip to another.  Both must have the same length. """
+def fade_between(clip1, clip2):
+    """ Fade from one clip to another.  Both must have the same length. |modify|"""
     require_clip(clip1, "first clip")
     require_clip(clip2, "second clip")
     require_equal(clip1.length(), clip2.length(), "clip lengths")

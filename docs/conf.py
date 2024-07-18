@@ -5,7 +5,12 @@
 
 import sys
 import os
+
+
 sys.path.insert(0, os.path.join(os.path.split(__file__)[0], '..'))
+sys.path.insert(0, os.path.join(os.path.split(__file__)[0], '.'))
+
+import generate
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
@@ -18,11 +23,10 @@ author = "Jason O'Kane"
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
 extensions = ['sphinx.ext.autodoc',
-              'sphinx_rtd_theme',
-              'sphinx_automodapi.automodapi']
+              'sphinx_rtd_theme']
 
 templates_path = ['_templates']
-exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
+exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store', '_generated']
 
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
@@ -31,8 +35,9 @@ html_theme = 'sphinx_rtd_theme'
 html_theme_options = {'collapse_navigation': False,
                        'navigation_depth': 1,
                       'prev_next_buttons_location': None }
-html_static_path = ['_static']
+html_static_path = ['static']
 
-rst_prolog = """
-.. |internal| replace:: ​
-"""
+
+
+rst_prolog = '\n'.join(f'.. |{tag}| replace:: ​' for tag in generate.tags)
+

@@ -166,7 +166,7 @@ class Element:
             raise NotImplementedError(self.video_mode) # pragma: no cover
 
 class composite(Clip):
-    """ Given a collection of elements, form a composite clip."""
+    """ Given a collection of elements, form a composite clip. |modify|"""
     def __init__(self, *args, width=None, height=None, length=None):
         super().__init__()
 

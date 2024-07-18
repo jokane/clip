@@ -22,7 +22,7 @@ def get_font(font, size):
 get_font.cache = {}
 
 class draw_text(VideoClip):
-    """ A clip consisting of just a bit of text. """
+    """ A clip consisting of just a bit of text. |ex-nihilo|"""
     def __init__(self, text, font_filename, font_size, color, length):
         super().__init__()
 

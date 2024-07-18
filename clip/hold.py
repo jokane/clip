@@ -7,7 +7,8 @@ from .video import repeat_frame
 from .validate import require_float, require_positive
 
 def hold_at_start(clip, target_length) -> Clip:
-    """Extend a clip by repeating its first frame, to fill a target length."""
+    """Extend a clip by repeating its first frame, to fill a target length.
+    |modify|"""
     require_clip(clip, "clip")
     require_float(target_length, "target length")
     require_positive(target_length, "target length")
@@ -20,7 +21,8 @@ def hold_at_start(clip, target_length) -> Clip:
                  length=target_length)
 
 def hold_at_end(clip, target_length) -> Clip:
-    """Extend a clip by repeating its last frame, to fill a target length."""
+    """Extend a clip by repeating its last frame, to fill a target length.
+    |modify|"""
     require_clip(clip, "clip")
     require_float(target_length, "target length")
     require_positive(target_length, "target length")

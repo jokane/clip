@@ -8,7 +8,5 @@ test/.test_files
 build/
 dist/
 clip.egg-info/
-docs/_build
-docs/_user
-docs/api
+docs/_*
 

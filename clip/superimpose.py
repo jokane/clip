@@ -6,7 +6,7 @@ from .composite import VideoMode, AudioMode, composite, Element
 
 def superimpose_center(under_clip, over_clip, start_time, audio_mode=AudioMode.ADD) -> Clip:
     """Superimpose one clip on another, in the center of each frame, starting at
-    a given time."""
+    a given time. |modify|"""
     require_clip(under_clip, "under clip")
     require_clip(over_clip, "over clip")
     require_float(start_time, "start time")

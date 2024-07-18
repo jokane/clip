@@ -14,6 +14,6 @@ filtering the frames through custom functions.
    :maxdepth: 1
 
    install
-   user
-   api
+   guide
+   reference
    details

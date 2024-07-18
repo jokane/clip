@@ -9,21 +9,43 @@ from .metrics import Metrics
 from .validate import require_callable, require_int, require_positive
 
 class filter_frames(MutatorClip):
-    """ A clip formed by passing the frames of another clip through some
-    function.  The function can take either one or two arguments.  If it's one
-    argument, that will be the frame itself.  If it's two arguments, it wil lbe
-    the frame and its index.  In either case, it should return the output
-    frame.  Output frames may have a different size from the input ones, but
-    must all be the same size across the whole clip.  Audio remains unchanged.
+    """A clip formed by passing the frames of another clip through some function.
 
-    Optionally, provide an optional name to make the frame signatures more readable.
+    :param clip: The clip to filter.
+    :param func: The filter function.
+    :param name: A name for the filter.
+    :param size: The size of the output frames, on None
 
-    Set size to None to infer the width and height of the result by executing
-    the filter function.  Set size to a tuple (width, height) if you know them,
-    to avoid generating a sample frame (which can be slow, for example, if that
-    frame relies on a from_file clip).  Set size to "same" to assume the size
-    is the same as the source clip.
-    """
+    For `func`, provide a callable that takes either one or two arguments.
+
+        - If `func` takes one argument, the argument will be the frame itself.
+
+        - If `func` takes two arguments, the arguments frame and its time index.
+
+    In either case, `func` should return the output frame.
+
+    The `name` is an optional string.  If a name is given, it is included in
+    the frame signatures.  This can help with debugging.
+
+    Output frames may have a different size from the input ones, but must all
+    be the same size across the whole clip.  The `size` parameter specifies the
+    size of the output frames.  For `size`, use either `None`, a
+    `(width,height)` tuple, or the string `"same"`.
+
+        - Set `size` to `None` to infer the width and height of the result by
+          executing the filter function on a sample frame.  This can be slow
+          if, for example, `clip` is (or relies upon) `from_file` clip or other
+          time-intensive source.
+
+        - Set size to a tuple of two positive integers `(width, height)` if you
+          know them.  This avoids generating a sample frame.
+
+        - Set size to `"same"` to assume the size is the same as the source
+          clip. This avoids generating a sample frame.
+
+    Audio remains unchanged from the original `clip`.
+
+    |modify|"""
 
     def __init__(self, clip, func, name=None, size=None):
         super().__init__(clip)

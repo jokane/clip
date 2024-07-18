@@ -14,7 +14,7 @@ def save_audio(clip, filename):
     The file format is determined by the extension of the given filename.  The
     list of supported formats is determined by what is supported by the
     `libsndfile` library, but the most common format like WAV and FLAC are
-    likely to work.
+    likely to work.|save|
     """
     require_clip(clip, "clip")
     require_string(filename, "filename")
