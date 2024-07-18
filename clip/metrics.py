@@ -9,12 +9,23 @@ from .validate import *
 
 @dataclass
 class Metrics:
-    """ A object describing the dimensions of a Clip. """
-    width: int
-    height: int
-    sample_rate: int
-    num_channels: int
-    length: float
+    """A object describing the dimensions of a Clip.
+
+    :param src: Another `Metrics` object, from which to draw defaults when
+            other parameters below are omitted.  One reasonable choice is
+            :attr:`Clip.default_metrics`.  Another is to use the metrics of
+            another clip.  If this is `None`, then all of the other parameters
+            must be given.
+    :param width: The width of the clip, in pixels.  A positive integer.
+    :param height: The height of the clip, in pixels.  A positive integer.
+    :param sample_rate: The sample rate for the audio of the clip, in samples
+            per second.  A positive integer.
+    :param num_channels: The number of audio channels.  A positive integer,
+            usually `1` or `2`.
+    :param length: The length of the clip, in seconds.  A positive float.
+
+
+    """
 
     def __init__(self, src=None, width=None, height=None,
                  sample_rate=None, num_channels=None, length=None):
@@ -27,7 +38,8 @@ class Metrics:
         self.verify()
 
     def verify(self):
-        """ Make sure we have valid metrics. """
+        """Make sure we have valid metrics.  If not, raise either `TypeError` or
+        `ValueError` depending on what's wrong."""
         require_int(self.width, "width")
         require_int(self.height, "height")
         require_int(self.sample_rate, "sample rate")
@@ -40,7 +52,14 @@ class Metrics:
         require_positive(self.length, "length")
 
     def verify_compatible_with(self, other, check_video=True, check_audio=True, check_length=False):
-        """ Make sure two Metrics objects match each other.  Complain if not. """
+        """Make sure two Metrics objects match each other.  Raise an exception if not.
+
+        :param other: Another :class:`Metrics` object to compare to this one.
+        :param check_video: Set this to `False` to ignore differences in the frame sizes.
+        :param check_audio: Set this to `False` to ignore differences in audio
+                sample rate and number of channels.
+        :param check_length: Set this to `False` to ignore differences in the clip lengths
+        """
         assert isinstance(other, Metrics)
 
         if check_video:
@@ -55,11 +74,11 @@ class Metrics:
             require_equal(self.length, other.length, "lengths")
 
     def num_samples(self):
-        """Length of the clip, in audio samples."""
+        """:return: The length of the clip, in audio samples."""
         return int(self.length * self.sample_rate)
 
     def readable_length(self):
-        """A human-readable description of the length."""
+        """:return: A human-readable description of the length."""
         secs = self.length
         mins, secs = divmod(secs, 60)
         hours, mins = divmod(mins, 60)

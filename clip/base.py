@@ -43,6 +43,21 @@ class Clip(ABC):
     Represents a series of frames with a certain duration, each with identical
     height and width, along with audio of the same duration.
 
+
+    .. attribute:: metrics
+
+        Each clip instance must have an attribute called `metrics`, an instance
+        of :class:`Metrics`, specifying the dimensions of the clip.  This
+        should be assigned to `self.metrics` in the constructor.
+
+    .. attribute:: Clip.default_metrics
+
+        A class-level :class:`Metrics` object, accessed as
+        `Clip.default_metrics`, representing global default values to use when
+        details are not otherwise specified. These can make code a little
+        cleaner in a lot of places.  For example, many silent clips will use
+        the default sample rate for their dummy audio.
+
     """
 
     def __init__(self):
@@ -83,10 +98,6 @@ class Clip(ABC):
         """Return an iterable of subtitles, each a `(start_time, end_time, text)`
         triple."""
 
-
-    # Default metrics to use when not otherwise specified.  These can make code
-    # a little cleaner in a lot of places.  For example, many silent clips will
-    # use the default sample rate for their dummy audio. """
     default_metrics = Metrics(width = 640,
                               height = 480,
                               sample_rate = 48000,

@@ -20,8 +20,13 @@ from .base import frame_times, Clip, VideoClip
 from .progress import custom_progressbar
 from .metrics import Metrics
 
-class ImageMessage():
-    """A compressed image message, read from a rosbag."""
+class ROSImageMessage():
+    """A compressed image message, read from a rosbag.  Used by :class:`from_rosbag`.
+
+    :param reader: A `Reader` object from the `rosbags` package.
+    :param tup: A tuple `(connection, topic, rawdata)` supplied by `reader`.
+
+    """
     def __init__(self, reader, tup):
         # Ignoring the timestamp stored in the rosbag, because the one in the
         # message header should be more accurate.
@@ -53,7 +58,7 @@ class from_rosbag(VideoClip):
                                              default_typestore=typestore)
         reader.open()
         connections = [x for x in reader.connections if x.topic == topic]
-        self.messages = list(map(lambda x: ImageMessage(reader, x),
+        self.messages = list(map(lambda x: ROSImageMessage(reader, x),
                                  reader.messages(connections=connections)))
 
         self.sample_frame = self.messages[0].image()
