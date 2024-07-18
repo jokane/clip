@@ -45,7 +45,7 @@ def save_via_ffmpeg(clip, filename, frame_rate, output_args, cache_dir, two_pass
         clip.stage(directory=td,
                    cache=cache,
                    frame_rate=frame_rate,
-                   fname=filename)
+                   filename=filename)
 
         # In the temporary directory, invoke ffmpeg to assemble the completed
         # video.

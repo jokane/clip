@@ -18,7 +18,7 @@ class VideoMode(Enum):
     """ When defining an element of a :class:`composite`, how should the pixels from
     this element be combined with any existing pixels that it covers, to form
     the final clip?
-    
+
     :const VideoMode.REPLACE: Overwrite the existing pixels.
 
     :const VideoMode.BLEND: Use the alpha channel to blend pixels from this

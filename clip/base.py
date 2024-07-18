@@ -123,7 +123,7 @@ class Clip(ABC):
 
     def request_all_frames(self, frame_rate):
         """Submit a request for every frame in this clip.
-        
+
         :param frame_rate: The desired frame rate, in frames per second.
 
         """
@@ -371,7 +371,6 @@ class AudioClip(Clip):
 
     def request_frame(self, t):
         """Does nothing."""
-        pass
 
     def get_frame(self, t):
         """Return a solid black frame."""
