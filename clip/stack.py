@@ -8,14 +8,29 @@ from .util import flatten_args
 from .validate import is_int
 
 class Align(Enum):
-    """ When stacking clips, how should each be placed? """
+    """
+    When stacking clips, how should each be placed?
+
+    For horizontal stacks, choose from:
+
+        - `Align.TOP`
+        - `Align.CENTER`
+        - `Algin.BOTTOM`
+
+    For vertical stacks, choose from:
+
+        - `Align.LEFT`
+        - `Align.CENTER`
+        - `Align.RIGHT`
+
+    Pass these to :func:`clip.hstack` or :func:`clip.vstack`.
+
+    """
     CENTER = 1
     LEFT = 2
     TOP = 3
-    START = 4
-    RIGHT = 5
-    BOTTOM = 6
-    END = 7
+    RIGHT = 4
+    BOTTOM = 5
 
 def stack_clips(*args, align, min_dim=0, vert, name):
     """Arrange a series of clips in a stack, either vertically or
