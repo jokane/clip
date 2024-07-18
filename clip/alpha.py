@@ -8,7 +8,17 @@ from .validate import require_callable, require_float, is_float
 
 @numba.jit(nopython=True) # pragma: no cover
 def alpha_blend(f0, f1):
-    """ Blend two equally-sized RGBA images and return the result. """
+    """ Blend two equally-sized RGBA images, respecting the alpha channels of each.
+
+    :param f0: An image.
+    :param f1: Another image.
+    :return: The result of alpha-blending `f0` onto `f1`.
+
+    Note that this process, as currently implemented, is irritatingly slow,
+    mostly because of the need to convert the images from `unit8` format to
+    `float64` format and back.  Someday, we'll replace this with something
+    better."""
+
     # https://stackoverflow.com/questions/28900598/how-to-combine-two-colors-with-varying-alpha-values
     # assert f0.shape == f1.shape, f'{f0.shape}!={f1.shape}'
     # assert f0.dtype == np.uint8
