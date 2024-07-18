@@ -15,8 +15,23 @@ from .util import flatten_args
 
 
 class VideoMode(Enum):
-    """ When defining an element of a composite, how should the video for this
-    element be composited into the final clip?"""
+    """ When defining an element of a :class:`composite`, how should the pixels from
+    this element be combined with any existing pixels that it covers, to form
+    the final clip?
+    
+    :const VideoMode.REPLACE: Overwrite the existing pixels.
+
+    :const VideoMode.BLEND: Use the alpha channel to blend pixels from this
+          element into the existing pixels.
+
+    :const VideoMode.ADD: Add the pixel values from this element and the
+          existing pixel values.
+
+    :const VideoMode.IGNORE: Discard the video from element.
+
+    Pass one of these to the constructor of :class:`Element`.
+
+    """
     REPLACE = 1
     BLEND = 2
     ADD = 3

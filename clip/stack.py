@@ -13,15 +13,15 @@ class Align(Enum):
 
     For horizontal stacks, choose from:
 
-        - `Align.TOP`
-        - `Align.CENTER`
-        - `Algin.BOTTOM`
+        :const Align.TOP:
+        :const Align.CENTER:
+        :const Algin.BOTTOM:
 
     For vertical stacks, choose from:
 
-        - `Align.LEFT`
-        - `Align.CENTER`
-        - `Align.RIGHT`
+        :const Align.LEFT:
+        :const Align.CENTER:
+        :const Align.RIGHT:
 
     Pass these to :func:`clip.hstack` or :func:`clip.vstack`.
 
