@@ -14,22 +14,23 @@ To extract the first minute of an existing video, you might do something like th
 Loads of other functionality is included.
 
 - Import different sorts of source material, including
-  `most video and audio files readable by FFMPEG <https://jokane.github.io/clip/_user/from_file.html>`_,
-  `static images <https://jokane.github.io/clip/_user/static_image.html>`_,
-  `zipped archives of image sequences <https://jokane.github.io/clip/_user/zip_file.html>`_,
-  `PDF documents <https://jokane.github.io/clip/_user/pdf_page.html>`_, and
-  `rosbags <https://jokane.github.io/clip/_user/from_rosbag.html>`_.
+  `most video and audio files readable by FFMPEG <https://jokane.github.io/clip/reference.html#clip.from_file>`_,
+  `static images <https://jokane.github.io/clip/reference.html#clip.static_image>`_,
+  `zipped archives of image sequences <https://jokane.github.io/clip/reference.html#clip.zip_file>`_,
+  `PDF documents <https://jokane.github.io/clip/reference.html#clip.pdf_page>`_, and
+  `rosbags <https://jokane.github.io/clip/reference.html#clip.from_rosbag>`_.
  
 - Combine source material by
-  `sequencing multiple clips <https://jokane.github.io/clip/_user/chain.html>`_,
-  stacking multiple simultaneous clips `horizontally <https://jokane.github.io/clip/_user/hstack.html>`_ or `vertically <https://jokane.github.io/clip/_user/vstack.html>`_, or
-  `other customized composite operations <https://jokane.github.io/clip/_user/composite.html>`_.
+  `sequencing multiple clips <https://jokane.github.io/clip/reference.html#clip.chain>`_,
+  stacking multiple simultaneous clips `horizontally <https://jokane.github.io/clip/reference.html#clip.hstack>`_
+  or `vertically <https://jokane.github.io/clip/reference.html#clip.vstack>`_, or
+  `other customized composite operations <https://jokane.github.io/clip/reference.html#clip.composite>`_.
 
-- `Add text <https://jokane.github.io/clip/_user/draw_text.html>`_,
-  `fade in <https://jokane.github.io/clip/_user/fade_in.html>`_,
-  `fade out <https://jokane.github.io/clip/_user/fade_out.html>`_,
+- `Add text <https://jokane.github.io/clip/reference.html#clip.draw_text>`_,
+  `fade in <https://jokane.github.io/clip/reference.html#clip.fade_in>`_,
+  `fade out <https://jokane.github.io/clip/reference.html#clip.fade_out>`_,
   or apply
-  `other filters <https://jokane.github.io/clip/_user/filter_frames.html>`_.
+  `other filters <https://jokane.github.io/clip/reference.html#clip.filter_frames>`_.
 
 `This video <https://jokane.net/pubs/MoaSheOKa21b.mp4>`_ is an example of many
 of the things the library can do.
