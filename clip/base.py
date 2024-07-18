@@ -36,9 +36,14 @@ def require_clip(x, name):
 
 
 class Clip(ABC):
-    """The base class for all clips.  A series of frames with a certain duration,
-    each with identical height and width, along with an audio clip of the same
-    length."""
+    """The base class for all clips.  It defines a number of abstract methods
+    that must be implemented in subclasses, along with a few helper methods
+    that are available for all clips.
+
+    Represents a series of frames with a certain duration, each with identical
+    height and width, along with audio of the same duration.
+
+    """
 
     def __init__(self):
         self.metrics = None
@@ -46,13 +51,24 @@ class Clip(ABC):
     @abstractmethod
     def frame_signature(self, t):
         """A string that uniquely describes the appearance of this clip at the
-        given time."""
+        given time.
+
+        :param t: A time, in seconds.  Should be between 0 and `self.length()`.
+        """
 
     @abstractmethod
     def request_frame(self, t):
-        """Called during the rendering process, before any get_frame calls, to
-        indicate that a frame at the given t will be needed in the future.  Can
-        help if frames are generated in batches, such as in from_file."""
+        """Called during the rendering process, before any `get_frame()` calls,
+        to indicate that a frame at the given time will be needed in the
+        future.
+
+        :param t: A time, in seconds.  Should be between 0 and `self.length()`.
+
+        This is used to provide some advance notice to a clip that a
+        `get_frame()` is coming later.  Can help if frames are generated in
+        batches, such as in :class:`from_file`.
+
+        """
 
     @abstractmethod
     def get_frame(self, t):
@@ -64,7 +80,7 @@ class Clip(ABC):
 
     @abstractmethod
     def get_subtitles(self):
-        """Return an iterable of subtitles, each a (start_time, end_time, text)
+        """Return an iterable of subtitles, each a `(start_time, end_time, text)`
         triple."""
 
 
@@ -90,7 +106,7 @@ class Clip(ABC):
         return self.metrics.height
 
     def num_channels(self):
-        """Number of channels in the clip, i.e. mono or stereo."""
+        """Number of channels in the clip, i.e. `1` for mono or `2` for stereo."""
         return self.metrics.num_channels
 
     def sample_rate(self):
@@ -106,13 +122,22 @@ class Clip(ABC):
         return self.metrics.readable_length()
 
     def request_all_frames(self, frame_rate):
-        """Submit a request for every frame in this clip."""
+        """Submit a request for every frame in this clip.
+        
+        :param frame_rate: The desired frame rate, in frames per second.
+
+        """
         fts = list(frame_times(self.length(), frame_rate))
         for t in fts:
             self.request_frame(t)
 
     def preview(self, frame_rate, cache_dir='/tmp/clipcache/computed'):
-        """Render the video part and display it in a window on screen."""
+        """Render the video part and display it in a window on screen.
+
+        :param frame_rate: The desired frame rate, in frames per second.
+        :param cache_dir: The directory to use for the frame cache.
+
+        """
         cache = ClipCache(cache_dir)
 
         with custom_progressbar("Previewing", self.length()) as pb:
@@ -126,9 +151,17 @@ class Clip(ABC):
         cv2.destroyWindow("")
 
     def verify(self, frame_rate, verbose=False):
-        """ Fully realize this clip, ensuring that no exceptions occur and
-        that the right sizes of video frames and audio samples are returned.
-        Useful for testing. """
+        """Call the appropriate methods to fully realize this clip, checking
+        that the right sizes and formats of images are returned by
+        `get_frame()`, the right length of format of audio is returned by
+        `get_samples()`, and the right kinds of subtitles are returned by
+        `get_subtitles()`.
+
+        Useful for debugging and testing.
+
+        :param frame_rate: The desired frame rate, in frames per second.
+        :param verbose: Set this to `True` to get lots of diagnostic output.
+        """
 
         self.metrics.verify()
 
@@ -163,10 +196,23 @@ class Clip(ABC):
             assert subtitle[0] < subtitle[1]
             assert is_string(subtitle[2])
 
-    def stage(self, directory, cache, frame_rate, fname=""):
+    def stage(self, directory, cache, frame_rate, filename=""):
         """Get everything for this clip onto to disk in the specified
-        directory:  Symlinks to each frame, a flac file of the audio, and the
-        subtitles as an srt file."""
+        directory:
+
+            - For each frame, a symlink into a cache directory, named in numerical order.
+            - FLAC file of the audio called `audio.flac`
+            - Subtitles as an SRT file call `subtitles.srt`
+
+        :param directory: The directory in which to stage things.
+        :param cache: A :class:`ClipCache` to use to get the frames, or to
+                store the frames if they need to be generated.
+        :param frame_rate: Output frame rate in frames per second.
+        :param filename: An optional name for the file to which the staged
+                frames will be saved.  Used here only to make the progress bar
+                more informative.
+
+        """
 
         # Do things in the requested directory.
         with temporarily_changed_directory(directory):
@@ -181,7 +227,7 @@ class Clip(ABC):
             self.save_subtitles(subtitles_fname)
 
             # Video.
-            task = f"Staging {fname}" if fname else "Staging"
+            task = f"Staging {filename}" if filename else "Staging"
             self.request_all_frames(frame_rate)
 
             fts = list(frame_times(self.length(), frame_rate))
@@ -222,7 +268,14 @@ class Clip(ABC):
 
     def get_cached_filename(self, cache, t):
         """Make sure the frame is in the cache given, computing it if
-        necessary, and return its filename."""
+        necessary, and return its filename.
+
+        :param cache: A :class:`ClipCache` to retreive or store the frame.
+        :param t: A time, in seconds.  Should be between 0 and `self.length()`.
+
+        :return: The full path to a file containing the frame at time `t`.
+
+        """
         # Look for the frame we need in the cache.
         cached_filename, success = cache.lookup(self.frame_signature(t),
                                                 cache.frame_format)
@@ -231,11 +284,19 @@ class Clip(ABC):
         if not success:
             self.compute_and_cache_frame(t, cache, cached_filename)
 
-        # Do    :noindex:ne!
+        # Done!
         return cached_filename
 
     def compute_and_cache_frame(self, t, cache, cached_filename):
-        """Call get_frame to compute one frame, and put it in the cache."""
+        """Call `get_frame()` to compute one frame, save it to a file, and note
+        in the cache that this new file now exists.
+
+        :param t: A time, in seconds.  Should be between 0 and `self.length()`.
+        :param cache: A :class:`ClipCache` to store the frame after computing it.
+        :param cached_filename: The full path, within the cache directory,
+                where the frame should be saved.
+
+        """
         # Get the frame.
         frame = self.get_frame(t)
 
@@ -259,7 +320,13 @@ class Clip(ABC):
 
     def get_frame_cached(self, cache, t):
         """Return a frame, from the cache if possible, computed from scratch
-        if needed."""
+        if needed.
+
+        :param t: A time, in seconds.  Should be between 0 and `self.length()`.
+        :param cache: A :class:`ClipCache` in which to look, and in which to
+                store the frame if it needs to be computed.
+
+        """
         # Look for the frame we need in the cache.
         cached_filename, success = cache.lookup(self.frame_signature(t),
                                                 cache.frame_format)

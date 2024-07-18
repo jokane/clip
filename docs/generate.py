@@ -58,7 +58,8 @@ def header(title, f):
 def main():
     os.chdir(os.path.split(__file__)[0])
     os.makedirs(MAIN_DIR, exist_ok=True)
-
+    
+    print('Generating documentation...')
     with contextlib.ExitStack() as exst:
         f_ref = exst.enter_context(open(os.path.join(MAIN_DIR, 'reference.rst'), 'w'))
         header('API reference', f_ref)
@@ -74,7 +75,7 @@ def main():
 
             thing_tags = [tag for tag in tags if f'|{tag}|' in doc]
 
-            print(name, ' '.join([f'#{tag}' for tag in thing_tags]))
+            print('  ', name, ' '.join([f'#{tag}' for tag in thing_tags]))
 
             basename = f'{name}.rst'
             filename = os.path.join(MAIN_DIR, basename)

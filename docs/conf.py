@@ -41,3 +41,4 @@ html_static_path = ['static']
 
 rst_prolog = '\n'.join(f'.. |{tag}| replace:: ​' for tag in generate.tags)
 
+autodoc_member_order = 'bysource'
