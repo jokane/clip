@@ -287,13 +287,15 @@ class VideoClip(Clip):
 
 class AudioClip(Clip):
     """Inherit from this for Clip classes that only really have audio, to
-    default to simple black frames for the video."""
+    default to simple black frames for the video.  Then only `get_samples()` and
+    `get_subtitles()` need to be defined."""
     def __init__(self):
         super().__init__()
         self.color = [0, 0, 0, 255]
         self.frame = None
 
     def frame_signature(self, t):
+        """A signature indicating a solid black frame."""
         return ['solid', {
             'width': self.metrics.width,
             'height': self.metrics.height,
@@ -301,9 +303,11 @@ class AudioClip(Clip):
         }]
 
     def request_frame(self, t):
+        """Does nothing."""
         pass
 
     def get_frame(self, t):
+        """Return a solid black frame."""
         if self.frame is None:
             self.frame = np.zeros([self.metrics.height, self.metrics.width, 4], np.uint8)
             self.frame[:] = self.color
