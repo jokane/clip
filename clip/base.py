@@ -400,18 +400,23 @@ class MutatorClip(Clip):
         self.metrics = clip.metrics
 
     def frame_signature(self, t):
+        """ By default, re-use the signatures of the original clip."""
         return self.clip.frame_signature(t)
 
     def request_frame(self, t):
+        """ By default, pass the request unchanged to the original clip."""
         self.clip.request_frame(t)
 
     def get_frame(self, t):
+        """ By default, re-use the frames of the original clip."""
         return self.clip.get_frame(t)
 
     def get_subtitles(self):
+        """ By default, re-use the subtitles of the original clip."""
         return self.clip.get_subtitles()
 
     def get_samples(self):
+        """ By default, re-use the audio of the original clip."""
         return self.clip.get_samples()
 
 class FiniteIndexed:
