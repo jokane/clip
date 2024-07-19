@@ -39,7 +39,7 @@ class solid(Clip):
 
 def black(width, height, length):
     """ A silent solid black clip. |ex-nihilo|
-    
+
     :param width: The width of the clip in pixels. A positive integer.
     :param height: The height of the clip in pixels.  A positive integer.
     :param length: The length of the clip in seconds.  A positive float.
@@ -49,7 +49,7 @@ def black(width, height, length):
 
 def white(width, height, length):
     """ A silent solid white clip. |ex-nihilo|
-    
+
     :param width: The width of the clip in pixels. A positive integer.
     :param height: The height of the clip in pixels.  A positive integer.
     :param length: The length of the clip in seconds.  A positive float.

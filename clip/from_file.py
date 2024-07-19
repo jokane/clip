@@ -156,7 +156,8 @@ def metrics_from_ffprobe_output(ffprobe_output, filename, suppress=None):
         elif len(streams)==1:
             streams_by_type[t] = streams[0]
         else:
-            warnings.warn(f'In {filename} there are {len(streams)} {t} streams.  Using the first one.')
+            warnings.warn(f'In {filename} there are {len(streams)} {t} streams.  \
+                    Using the first one.')
             streams_by_type[t] = streams[0]
 
     return metrics_and_frame_rate_from_stream_dicts(streams_by_type, filename)
@@ -165,7 +166,7 @@ def audio_samples_from_file(filename, cache, expected_sample_rate, expected_num_
                             expected_num_samples):
     """Extract audio data from a file, which may be either a pure audio format
     or a video file containing an audio stream.
-    
+
     :param filename: The name of the file to read.
     :param cache: A :class:`ClipCache` that might have the audio we want, or
             into which it can be stored.
@@ -243,7 +244,7 @@ def audio_samples_from_file(filename, cache, expected_sample_rate, expected_num_
 
 def parse_subtitles(srt_text, subtitles_filename=None):
     """Parse a string of SRT subtitles into the form used in this library.
-    
+
     :param srt_text: A string containing subtitle text in SRT format.
     :param subtitles_filename: An optional filename to include if an exception
             must be raised.
@@ -297,7 +298,7 @@ def subtitles_from_file(filename, cache):
 class from_file(Clip, FiniteIndexed):
     """A clip read from a file such as an mp4, flac, or other format readable
     by ffmpeg.
-    
+
     :param filename: The source file to import.
     :param supress: A list containing some (possibly empty) subset of
             `"video"`, `"audio"`, and `"subtitle"`.  Streams of those types

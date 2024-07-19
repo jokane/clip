@@ -2,10 +2,11 @@
 
 import cv2
 
-from .base import Clip, require_clip, require_color
+from .base import require_clip
 from .filter import filter_frames
 from .composite import composite, Element, VideoMode
 from .video import solid
+from .validate import require_color
 
 def to_monochrome(clip):
     """ Convert a clip's video to monochrome. |modify|
