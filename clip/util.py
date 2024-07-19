@@ -11,11 +11,18 @@ import numpy as np
 
 from .validate import is_iterable
 
-def flatten_args(args):
+def flatten_args(stuff):
     """ Given a list of arguments, flatten one layer of lists and other
-    iterables. """
+    iterables.
+
+    :param stuff: A list of any sort of stuff.
+    :return: A list containing a flattened version of the `stuff`.  For
+            anything iterable in the `stuff`, replace that iterable with the
+            items it yields.
+
+    """
     ret = []
-    for x in args:
+    for x in stuff:
         if is_iterable(x):
             ret += x
         else:
@@ -24,9 +31,10 @@ def flatten_args(args):
 
 @contextlib.contextmanager
 def temporarily_changed_directory(directory):
-    """Create a context in which the current directory has been changed to the
-    given one, which should exist already.  When the context ends, change the
-    current directory back."""
+    """A context in which the current directory has been changed to the
+    given one, which should exist already.
+
+    When the context ends, change the current directory back."""
     previous_current_directory = os.getcwd()
     os.chdir(directory)
     try:
@@ -37,9 +45,11 @@ def temporarily_changed_directory(directory):
 
 @contextlib.contextmanager
 def temporary_current_directory():
-    """Create a context in which the current directory is a new temporary
-    directory.  When the context ends, the current directory is restored and
-    the temporary directory is vaporized."""
+    """A context in which the current directory is a new temporary
+    directory.
+
+    When the context ends, the current directory is restored and the temporary
+    directory is vaporized."""
     with tempfile.TemporaryDirectory() as td:
         with temporarily_changed_directory(td):
             try:
@@ -48,7 +58,14 @@ def temporary_current_directory():
                 pass
 
 def sha256sum_file(filename):
-    """ Return a short hexadecmial hash of the contents of a file. """
+    """ Hash the contents of a file.
+
+    :param filename: The name of a file to read.
+    :return: A short hexadecmial hash of the contents of a file.
+
+    This implementation uses `sha256`.
+
+    """
     # https://stackoverflow.com/questions/22058048/hashing-a-file-in-python
     h = hashlib.sha256()
     b = bytearray(128*1024)
@@ -59,9 +76,13 @@ def sha256sum_file(filename):
     return h.hexdigest()
 
 def format_seconds_as_hms(seconds):
-    """Return a string representing the given time in 00:01:23,456 format.
-    This specific format is important for saving subtitles in the format that
-    ffmpeg likes to see."""
+    """Format a float number of seconds in the format that `ffmpeg` likes to
+    see for subtitles.
+
+    :param seconds: A float number of seconds.
+    :return: The given time in `00:01:23,456` format.
+
+    """
     seconds, fraction = divmod(seconds, 1)
     minutes, seconds = divmod(seconds, 60)
     hours, minutes = divmod(minutes, 60)
@@ -72,8 +93,14 @@ def format_seconds_as_hms(seconds):
     return f'{hours:02}:{minutes:02}:{seconds:02},{millis:03}'
 
 def parse_hms_to_seconds(hms):
-    """Parse a string in 00:01:23,456 into a floating point number of
-    seconds."""
+    """Parse a string in the format that `ffmpeg` uses for subtitles into a
+    float number of seconds.
+
+    :param hms: The given time in `00:01:23,456` format.
+    :return: A float number of seconds for the input string.
+
+    """
+
     if match := re.match(r"(\d\d):(\d\d):(\d\d),(\d\d\d)", hms):
         hours = float(match.group(1))
         mins = float(match.group(2))
@@ -83,13 +110,19 @@ def parse_hms_to_seconds(hms):
     else:
         raise ValueError(f'Cannot parse {hms} as hours, minutes, seconds, and milliseconds.')
 
-def read_image(fname):
-    """Read an image from disk, make sure it has the correct RGBA uint8 format,
-    and return it."""
-    if not os.path.exists(fname):
-        raise FileNotFoundError(f"Trying to open {fname}, which does not exist. "
+def read_image(filename):
+    """Read an image from disk.  If needed, convert it to the correct RGBA
+    uint8 format.
+
+    :param filename: The name of the file to read.
+    :return: The image data from that file, in RGBA uint8 format.
+
+    """
+
+    if not os.path.exists(filename):
+        raise FileNotFoundError(f"Trying to open {filename}, which does not exist. "
                                 f"(Current working directory is {os.getcwd()}")
-    frame = cv2.imread(fname, cv2.IMREAD_UNCHANGED)
+    frame = cv2.imread(filename, cv2.IMREAD_UNCHANGED)
     assert frame is not None
     if frame.shape[2] == 3:
         frame = cv2.cvtColor(frame, cv2.COLOR_RGB2RGBA)
