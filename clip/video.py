@@ -9,7 +9,15 @@ from .validate import (require_color, require_float, require_non_negative, requi
 from .util import read_image
 
 class solid(Clip):
-    """A video clip in which each frame has the same solid color. |ex-nihilo|"""
+    """A silent video clip in which each frame has the same solid color. |ex-nihilo|
+
+    :param bg_color: A color `(r,g,b)`.  Each element must be an integer in the
+            range [0,255].
+    :param width: The width of the clip in pixels. A positive integer.
+    :param height: The height of the clip in pixels.  A positive integer.
+    :param length: The length of the clip in seconds.  A positive float.
+
+    """
     def __init__(self, color, width, height, length):
         super().__init__()
         require_color(color, "solid color")
@@ -29,16 +37,39 @@ class solid(Clip):
     get_samples = VideoClip.get_samples
     get_subtitles = VideoClip.get_subtitles
 
-def black(width, height, length) -> Clip:
-    """ A silent solid black clip. """
+def black(width, height, length):
+    """ A silent solid black clip. |ex-nihilo|
+    
+    :param width: The width of the clip in pixels. A positive integer.
+    :param height: The height of the clip in pixels.  A positive integer.
+    :param length: The length of the clip in seconds.  A positive float.
+
+    """
     return solid([0,0,0], width, height, length)
 
-def white(width, height, length) -> Clip:
-    """ A silent white black clip. """
+def white(width, height, length):
+    """ A silent solid white clip. |ex-nihilo|
+    
+    :param width: The width of the clip in pixels. A positive integer.
+    :param height: The height of the clip in pixels.  A positive integer.
+    :param length: The length of the clip in seconds.  A positive float.
+
+    """
     return solid([255,255,255], width, height, length)
 
 class static_frame(VideoClip):
-    """Show a single image over and over, silently."""
+    """Show a single image over and over, silently.
+
+    :param the_frame: The image to display.
+    :param frame_name: A unique name for the frame, to be used in frame signatures.
+    :param length: The length of the clip in seconds.  A positive float.
+
+    This is for cases where you have an image already in memory.  If you want
+    to load an image file, see :func:`static_image`.  If the frame you want to
+    repeat is part of another clip, see :class:`repeat_frame`.  See also
+    :class:`pdf_page`.
+
+    """
     def __init__(self, the_frame, frame_name, length):
         super().__init__()
         try:
@@ -79,7 +110,13 @@ class static_frame(VideoClip):
         return []
 
 class repeat_frame(VideoClip):
-    """Show the same frame, from another clip, over and over. |modify|"""
+    """Show the same frame, from another clip, over and over. |modify|
+
+    :param clip: A clip from which to borrow a frame.
+    :param when: A time, in seconds.  Should be between 0 and `self.length()`.
+    :param length: The length of the clip in seconds.  A positive float.
+
+    """
 
     def __init__(self, clip, when, length):
         super().__init__()
@@ -109,7 +146,12 @@ class repeat_frame(VideoClip):
 
 
 def static_image(filename, length):
-    """ Show a single image loaded from a file over and over, silently. |from-source|"""
+    """ Show a single image loaded from a file over and over, silently. |from-source|
+
+    :param filename: The name of the file to read.
+    :param length: The length of the clip in seconds.  A positive float.
+
+    """
     the_frame = read_image(filename)
     assert the_frame is not None
     return static_frame(the_frame, filename, length)
