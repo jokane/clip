@@ -46,7 +46,16 @@ class ROSImageMessage():
 
 
 class from_rosbag(VideoClip):
-    """Read images from given topic in a rosbag and treat them as a silent video. |from-source|"""
+    """Read images from given topic in a rosbag and treat them as a silent video. |from-source|
+
+    :param pathname: The name of a ROS1 bag file or a ROS2 bag directory.
+
+    :param topic: The name of a topic in the bag file, of type
+            `sensor_msgs/CompressedImage`.
+
+    .. automethod:: from_rosbag.estimated_frame_rate
+
+    """
     def __init__(self, pathname, topic):
         super().__init__()
         self.pathname = pathname
@@ -96,7 +105,16 @@ class from_rosbag(VideoClip):
         pass
 
 def save_rosbag(clip, pathname, frame_rate, topic='/camera/compressed', frame_id='/camera'):
-    """Save (the video portion of) a clip as a ROS2 rosbag. |save|"""
+    """Save the video portion of a clip as a ROS2 rosbag, in a topic of type
+    `sensor_msgs/CompressedImage`. |save|
+
+    :param pathname: The name of the directory to write to.
+    :param frame_rate: The desired frame rate.
+    :param topic: The topic name.
+    :param frame_id: The frame_id to use in the message headers.
+
+    """
+
     path = pathlib.Path(pathname)
     typestore = rosbags.typesys.get_typestore(rosbags.typesys.Stores.ROS2_HUMBLE)
 
