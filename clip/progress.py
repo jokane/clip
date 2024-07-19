@@ -4,8 +4,16 @@ import math
 import progressbar
 
 def custom_progressbar(task, steps):
-    """Return a progress bar (for use as a context manager) customized for
-    our purposes."""
+    """A context manager that provides a progress bar.
+
+    :param task: A short string identifying the process whose progress is being
+            shown.
+    :param steps: An integer or float, indicating the number of steps in the
+            process.
+
+    When progress occurs, pass the current step number to the `update()` method
+    of the returned object.
+    """
     digits = int(math.log10(steps))+1
     widgets = [
         '|',
