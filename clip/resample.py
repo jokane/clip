@@ -8,7 +8,15 @@ from .metrics import Metrics
 from .validate import require_float, require_positive
 
 class resample(MutatorClip):
-    """ Change the sample rate and/or length. |modify|"""
+    """ Change the sample rate and/or length.
+
+    :param clip: A clip to modify.
+    :param sample_rate: The desired sample rate.
+    :param length: The desired length.
+
+    Use `None` for `sample_rate` or `length` to leave that part unchanged.
+
+    |modify|"""
     def __init__(self, clip, sample_rate=None, length=None):
 
         super().__init__(clip)
@@ -69,7 +77,12 @@ class resample(MutatorClip):
                    subtitle[2])
 
 def timewarp(clip, factor):
-    """ Speed up a clip by the given factor. |modify|"""
+    """ Speed up a clip by the given factor. |modify|
+
+    :param clip: A clip to modify.
+    :param factor: A float factor by while to scale the clip's speed.
+
+    """
     require_clip(clip, "clip")
     require_float(factor, "factor")
     require_positive(factor, "factor")
@@ -77,7 +90,11 @@ def timewarp(clip, factor):
     return resample(clip, length=clip.length()/factor)
 
 class reverse(MutatorClip):
-    """ Reverse both the video and audio in a clip. |modify|"""
+    """ Reverse both the video and audio in a clip.|modify|
+
+    :param clip: A clip to modify.
+
+    """
     def frame_signature(self, t):
         return self.clip.frame_signature(self.length() - t)
     def get_frame(self, t):
