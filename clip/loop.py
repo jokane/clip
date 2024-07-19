@@ -6,7 +6,12 @@ from .chain import chain
 from .validate import require_float, require_positive
 
 def loop(clip, length):
-    """Repeat a clip as needed to fill the given length. |modify|"""
+    """Repeat a clip as needed to fill the given length. |modify|
+
+    :param clip: A clip to modify.
+    :param length: The target length, in seconds.
+
+    """
     require_clip(clip, "clip")
     require_float(length, "length")
     require_positive(length, "length")
