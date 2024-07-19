@@ -8,8 +8,14 @@ from .composite import composite, Element, VideoMode, AudioMode
 from .validate import require_int, require_positive
 
 def letterbox(clip, width, height):
-    """ Fix the clip within given dimensions, adding black bands on the
-    top/bottom or left/right if needed. |modify|"""
+    """Fix the clip within given dimensions, adding black bands on the
+    top/bottom or left/right if needed. |modify|
+
+    :param clip: A clip to modify.
+    :param width: The desired width.  A positive integer.
+    :param height: The desired height.  A positive integer.
+
+    """
     require_clip(clip, "clip")
     require_int(width, "width")
     require_positive(width, "width")
@@ -30,9 +36,13 @@ def letterbox(clip, width, height):
                       height=height)
 
 def to_default_metrics(clip):
-    """Adjust a clip so that its metrics match the default metrics: Scale video
-    and resample to match frame rate and sample rate.  Useful if assorted clips
-    from various sources will be chained together. |modify|"""
+    """Adjust a clip so that its metrics match the default metrics: Letterbox
+    video and resample to match frame rate and sample rate.  Useful if assorted
+    clips from various sources will be chained together. |modify|
+
+    :param clip: A clip to modify.
+
+    """
 
     require_clip(clip, "clip")
 
