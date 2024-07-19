@@ -19,7 +19,7 @@ clean: clean-docs
 	rm -rfv build *.egg-info .coverage test/.test_files */__pycache__ dist
 
 clean-docs:
-	rm -rfv docs/_build docs/_user docs/api
+	rm -rfv docs/_build docs/_generated docs/__pycache__
 
 install:
 	pip install .
