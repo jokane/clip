@@ -6,10 +6,18 @@ from .composite import composite, AudioMode, VideoMode, Element
 from .util import flatten_args
 from .validate import require_float, require_non_negative, require_equal
 
-def chain(*args, length=None, fade_time = 0):
-    """ Concatenate a series of clips.  The clips may be given individually, in
-    lists or other iterables, or a mixture of both.  Optionally overlap them a
-    little and fade between them. |modify|"""
+def chain(*args, length=None, fade_time=0):
+    """ Concatenate a series of clips. Optionally overlap them a
+    little and fade between them. |modify|
+
+    :param args: The clips to concatenate, given as separate arguments or as
+            lists.
+    :param length: The length of the resulting clip, in seconds.  Use `None` to
+            compute the natural length to show all of the given clips.
+    :param fade_time: The amount of time, in seconds, to overlap between
+            successive clips, during which we'll fade from one to the next.
+
+    """
     # Construct our list of clips.  Flatten each list; keep each individual
     # clip.
     clips = flatten_args(args)
@@ -50,7 +58,12 @@ def chain(*args, length=None, fade_time = 0):
     return composite(*elements, length=length)
 
 def fade_between(clip1, clip2):
-    """ Fade from one clip to another.  Both must have the same length. |modify|"""
+    """ Fade from one clip to another.  Both must have the same length.
+
+    :param clip1: The first clip.
+    :param clip2: The second clip.
+
+    """
     require_clip(clip1, "first clip")
     require_clip(clip2, "second clip")
     require_equal(clip1.length(), clip2.length(), "clip lengths")
