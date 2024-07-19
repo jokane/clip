@@ -232,9 +232,9 @@ class Element:
 
 class composite(Clip):
     """ Combine a collection of clips into one big clip, positioning the
-    constituent clips as directed across space and time.
+    constituent clips as directed across space and time. |modify|
 
-    :param args: :class:`Element` objects, given as separate objects or as
+    :param args: :class:`Element` objects, given as separate arguments or as
             lists.  Each element describes a clip to use in the composite along
             with directions about when and where it should appear and how its
             audio and video should be integrated.
@@ -245,7 +245,8 @@ class composite(Clip):
     If any of `width`, `length`, or `height` are omitted, it will be set
     automatically to be large enough for the given elements.
 
-    |modify|"""
+    """
+
     def __init__(self, *args, width=None, height=None, length=None):
         super().__init__()
 
