@@ -8,7 +8,14 @@ from .base import MutatorClip
 from .validate import require_float, require_non_negative, require_less_equal
 
 class fade_base(MutatorClip, ABC):
-    """Fade in from or out to silent black or silent transparency."""
+    """An abstract class to fade in from or out to silent black or silent
+    transparency.  Used by :func:`fade_in` and :func:`fade_out`.
+
+    :param clip: The original clip.
+    :param fade_length: The amount of time the fade should last, in seconds.
+    :param transparent: Are we fading to/from transparent or black?
+
+    """
 
     def __init__(self, clip, fade_length, transparent=False):
         super().__init__(clip)
@@ -20,9 +27,13 @@ class fade_base(MutatorClip, ABC):
 
     @abstractmethod
     def alpha(self, t):
-        """ At the given time, what scaling factor should we apply?"""
+        """ At the given time, what scaling factor should we apply? An abstract
+        method to allow subclasses to determine things like whether we are
+        fading in or out, and whether it's at the beginning or the end."""
 
     def frame_signature(self, t):
+        """A signature determined by the the original clip and `alpha` at a
+        given time."""
         sig = self.clip.frame_signature(t)
         alpha = self.alpha(t)
         if alpha > 254/255:
@@ -35,6 +46,8 @@ class fade_base(MutatorClip, ABC):
             return [f'faded to black by {alpha}', sig]
 
     def get_frame(self, t):
+        """Actually perform the fading: Scale the cooresponding frame of the
+        original clip by `self.alpha(t)`."""
         alpha = self.alpha(t)
         assert alpha >= 0.0, f'Got alpha={alpha} at time {t}'
         assert alpha <= 1.0, f'Got alpha={alpha} at time {t}'
@@ -47,12 +60,14 @@ class fade_base(MutatorClip, ABC):
         else:
             return (alpha * frame).astype(np.uint8)
 
-    @abstractmethod
-    def get_samples(self):
-        """ Return samples; implemented in fade_in and fade_out below."""
-
 class fade_in(fade_base):
-    """ Fade in from silent black or silent transparency. |modify|"""
+    """ Fade in from silent black or silent transparency. |modify|
+
+    :param clip: The original clip.
+    :param fade_length: The amount of time the fade should last, in seconds.
+    :param transparent: Are we fading from transparent or black?
+
+    """
     def alpha(self, t):
         return min(1, t/self.fade_length)
 
@@ -64,7 +79,13 @@ class fade_in(fade_base):
         return a
 
 class fade_out(fade_base):
-    """ Fade out to silent black or silent transparency. |modify|"""
+    """ Fade out to from silent black or silent transparency. |modify|
+
+    :param clip: The original clip.
+    :param fade_length: The amount of time the fade should last, in seconds.
+    :param transparent: Are we fading to transparent or black?
+
+    """
     def alpha(self, t):
         return min(1, (self.length()-t)/self.fade_length)
 
