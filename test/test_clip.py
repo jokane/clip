@@ -1299,6 +1299,9 @@ def test_hold_at_start1():
     b.verify(x.frame_rate)
     assert b.length() == 5
 
+    c = hold_at_start(a, 0.5)
+    assert c.length() == 0.5
+
 def test_hold_at_start2():
     # When length is not an exact number of frames.
     x = from_file(f"{TEST_FILES_DIR}/bunny.webm")
