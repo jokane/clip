@@ -21,7 +21,14 @@ from .validate import *
 def frame_times(clip_length, frame_rate):
     """ Return the timestamps at which frames should occur for a clip of the
     given length at the given frame rate.  Specifically, generate a timestamp
-    at the midpoint of the time interval for each frame. """
+    at the midpoint of the time interval for each frame.
+
+    :param clip_length: The length of the clip, in seconds.
+    :param frame_rate: The desired frame rate, in frames per second.
+
+    :return: A generator that yields appropriate times for all of the frames in
+            the given range at the given rate.
+    """
 
     frame_length = 1 / frame_rate
     t = 0.5 * frame_length
@@ -31,7 +38,7 @@ def frame_times(clip_length, frame_rate):
         t += frame_length
 
 def require_clip(x, name):
-    """ Raise an informative exception if x is not a Clip. """
+    """ Raise an informative exception if `x` is not a Clip. """
     require(x, lambda x: isinstance(x, Clip), "Clip", name, TypeError)
 
 
