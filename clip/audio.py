@@ -8,7 +8,12 @@ from .metrics import Metrics
 from .validate import require_float, require_positive
 
 class mono_to_stereo(MutatorClip):
-    """ Change the number of channels from one to two. |modify|"""
+    """ Change the number of channels from one to two. |modify|
+
+    :param clip: A clip to modify, having exactly one audio channel.
+    :return: A new clip, the same as the original, but with the audio channel
+            duplicated.
+    """
     def __init__(self, clip):
         super().__init__(clip)
         if self.clip.metrics.num_channels != 1:
@@ -19,7 +24,13 @@ class mono_to_stereo(MutatorClip):
         return np.concatenate((data, data), axis=1)
 
 class stereo_to_mono(MutatorClip):
-    """ Change the number of channels from two to one. |modify|"""
+    """ Change the number of channels from two to one. |modify|
+
+    :param clip: A clip to modify, having exactly two audio channels.
+    :return: A new clip, the same as the original, but with the two audio
+            channels averaged into just one.
+
+    """
     def __init__(self, clip):
         super().__init__(clip)
         if self.clip.metrics.num_channels != 2:
@@ -30,7 +41,14 @@ class stereo_to_mono(MutatorClip):
         return (0.5*data[:,0] + 0.5*data[:,1]).reshape(self.num_samples(), 1)
 
 class scale_volume(MutatorClip):
-    """ Scale the volume of audio in a clip. |modify|"""
+    """ Scale the volume of audio in a clip. |modify|
+
+    :param clip: A clip to modify.
+    :param factor: A float.
+    :return: A new clip, the same as the original, but with each of its audio
+            sample multiplied by `factor`.
+
+    """
     def __init__(self, clip, factor):
         super().__init__(clip)
         require_float(factor, "scaling factor")
@@ -41,23 +59,36 @@ class scale_volume(MutatorClip):
         return self.factor * self.clip.get_samples()
 
 class silence_audio(MutatorClip):
-    """ Replace whatever audio we have with silence. |modify|"""
+    """ Replace whatever audio we have with silence. |modify|
+
+    :param clip: A clip to modify.
+    :return: A new clip, the same as the original, but with silent audio.
+
+    The sample rate and number of channels remain unchanged.
+
+    """
     def get_samples(self):
         return np.zeros([self.metrics.num_samples(), self.metrics.num_channels])
 
 def join(video_clip, audio_clip):
     """ A new clip that combines the video of one clip with the audio of
-    another.
+    another. |modify|
 
-    The length of the result will be the length of the longer of the two inputs.
+    :param video_clip: A clip whose video you care about.
+    :param audio_clip: A clip whose audio you care about.
+    :return: A clip with the video from `video_clip` and the audio from
+            `audio_clip`.
 
-        - If `video_clip` is longer than `audio_clip`, the result will be
-          padded with silence at the end.
+            The length of the result will be the length of the
+            longer of the two inputs.
 
-        - If `audio_clip` is longer than `video_clip`, the result will be
-          padded with black frames that the end.
+                - If `video_clip` is longer than `audio_clip`, the result will be
+                  padded with silence at the end.
 
-    |modify|"""
+                - If `audio_clip` is longer than `video_clip`, the result will be
+                  padded with black frames that the end.
+
+    """
     require_clip(video_clip, "video clip")
     require_clip(audio_clip, "audio clip")
 
@@ -72,7 +103,14 @@ def join(video_clip, audio_clip):
                              audio_mode=AudioMode.REPLACE))
 
 class sine_wave(AudioClip):
-    """ A sine wave with the given frequency. |ex-nihilo|"""
+    """ A sine wave with the given frequency. |ex-nihilo|
+
+    :param frequency: The desired frequency, in hertz.
+    :param volume: The desired volume, between 0 and 1.
+    :param length: The desired length, in seconds.
+    :param num_channels: The number of channels, usually `1` or `2`.
+
+    """
     def __init__(self, frequency, volume, length, sample_rate, num_channels):
         super().__init__()
 

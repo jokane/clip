@@ -227,7 +227,7 @@ def test_readable_length2():
     x = solid([0,0,0], 640, 480, 60*60+1)
     assert x.readable_length()[:2] == '1:'
 
-def test_sine_wave():
+def test_sine_wave1():
     x = sine_wave(880, 0.1, 5, 48000, 2)
     x.verify(20)
 
@@ -351,7 +351,17 @@ def test_save6():
 
 def test_save_audio():
     # Pure audio output.
-    x = solid([0,0,0], 640, 480, 10)
+    c = sine_wave(261.63, 0.1, 6, 48000, 2)
+    e = sine_wave(329.63, 0.1, 5, 48000, 2)
+    g = sine_wave(392.63, 0.1, 4, 48000, 2)
+    c2 = sine_wave(523.25, 0.1, 3, 48000, 2)
+    x = composite(Element(c, 0, (0,0), audio_mode = AudioMode.ADD),
+                  Element(e, 1, (0,0), audio_mode = AudioMode.ADD),
+                  Element(g, 2, (0,0), audio_mode = AudioMode.ADD),
+                  Element(c2, 3, (0,0), audio_mode = AudioMode.ADD))
+    x = fade_out(x, 0.1)
+    x.verify(20)
+
     with temporary_current_directory():
         save_audio(x, 'foo.flac')
         assert os.path.exists('foo.flac')
