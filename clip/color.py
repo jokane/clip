@@ -7,19 +7,33 @@ from .filter import filter_frames
 from .composite import composite, Element, VideoMode
 from .video import solid
 
-def to_monochrome(clip) -> Clip:
-    """ Convert a clip's video to monochrome. """
+def to_monochrome(clip):
+    """ Convert a clip's video to monochrome. |modify|
+
+    :param clip: A clip to modify.
+    :return: A new clip, the same as the original, but with its video
+            converted to monochrome.
+
+    """
+
     def mono(frame):
         return cv2.cvtColor(cv2.cvtColor(frame, cv2.COLOR_BGRA2GRAY), cv2.COLOR_GRAY2BGRA)
+
     return filter_frames(clip=clip,
                          func=mono,
                          name='to_monochrome',
                          size='same')
 
-def bgr2rgb(clip) -> Clip:
+def bgr2rgb(clip):
     """Swap the first and third color channels.  Useful if, instead of saving,
     you are sending the frames to something, like PIL, that expects RGB instead
-    of BGR."""
+    of BGR. |modify|
+
+    :param clip: A clip to modify.
+    :return: A new clip, the same as the original, but with its red and blue
+            swapped.
+
+    """
     def swap_channels(frame):
         return cv2.cvtColor(frame, cv2.COLOR_BGRA2RGBA)
 
@@ -27,8 +41,16 @@ def bgr2rgb(clip) -> Clip:
                          func=swap_channels,
                          name='bgr2rgb')
 
-def background(clip, bg_color) -> Clip:
-    """ Blend a clip onto a same-sized background of the given color. """
+def background(clip, bg_color):
+    """ Blend a clip onto a same-sized background of the given color. |modify|
+
+    :param clip: A clip to modify.
+    :param bg_color: A color `(r,g,b)`.  Each element must be an integer in the
+            range [0,255].
+    :return: A new clip, the same as the original, but with its video blended
+            atop a solid background of the given `bg_color`.
+
+    """
     require_clip(clip, 'clip')
     require_color(bg_color, 'background color')
 
