@@ -13,7 +13,34 @@ from .validate import require_int_point, require_non_negative, require_less, req
 # pylint: enable=duplicate-code
 
 class ken_burns(MutatorClip):
-    """Pan and/or zoom through a clip over time. |modify|"""
+    """Pan and/or zoom through a clip over time. |modify|
+
+    Crops and scales each frame of the input clip, smoothly moving the visible
+    portion from a starting rectangle to an ending rectangle across the full
+    duration of the input clip.
+
+    :param clip: A clip to modify.
+    :param width: The desired output width.  A positive integer.
+    :param height: The desired output height.  A positive integer.
+    :param start_top_left: Integer coordinates of the top-left corner of the
+            visible rectangle at the start, as an `(x,y)` tuple.
+    :param start_bottom_right: Integer coordinates of the bottom-right corner
+            of the visible rectangle at the start, as an `(x,y)` tuple.
+    :param end_top_left: Integer coordinates of the top-left corner of the
+            visible rectangle at the end, as an `(x,y)` tuple.
+    :param end_bottom_right: Integer coordinates of the bottom-right corner
+            of the visible rectangle at the end, as an `(x,y)` tuple.
+
+    To prevent distortion, all three of these rectangles must have the same
+    aspect ratio:
+
+        - The output clip, given by `width` and `height`.
+        - The visible rectangle at the start.
+        - The visible rectangle at the end.
+
+    An exception is raised if these three are not at least approximately equal.
+
+    """
     def __init__(self, clip, width, height, start_top_left, start_bottom_right,
                  end_top_left, end_bottom_right):
         super().__init__(clip)
