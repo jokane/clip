@@ -20,8 +20,15 @@ from .validate import *
 from .util import temporary_current_directory, parse_hms_to_seconds
 
 def get_duration_from_ffprobe_stream(stream):
-    """Given a dictionary of ffprobe-returned attributes of a stream, try to
-    figure out the duration of that stream."""
+    """Determine the duration of a stream found by `ffprobe`.
+
+    :param stream: A dictionary built from the key-value pairs in an `ffprobe`
+            stream.
+    :return: A float number of seconds of duration for that stream.
+
+    Raises `ValueError` if no duration is found.
+
+    """
 
     if 'duration' in stream and is_float(stream['duration']):
         return float(stream['duration'])
@@ -40,9 +47,18 @@ def get_duration_from_ffprobe_stream(stream):
     raise ValueError(f"Could not find a duration in ffprobe stream. {stream}")
 
 def metrics_and_frame_rate_from_stream_dicts(streams, filename):
-    """Given a dict representing the audio, video, and subtitles elements of
-    a clip, return the appropriate metrics object, the float framerate, and
-    booleans telling whether video, audio, and subtitles exist."""
+    """Given a dict containing the audio, video, and subtitles streams of
+    a clip, return the appropriate :class:`Metrics` object, the float frame rate, and
+    booleans telling whether video, audio, and subtitles exist.
+
+    :param streams: A dictionary with
+            `"audio"`, or `"subtitle"`.  Each value a dictionary built from the
+            key-value pairs in an `ffprobe`
+
+    :param filename: The name of the file described by `streams`.  Used only
+            for error messages.
+
+    """
     video_stream = streams['video']
     audio_stream = streams['audio']
     subtitle_stream = streams['subtitle']
