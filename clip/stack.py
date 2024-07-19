@@ -34,7 +34,20 @@ class Align(Enum):
 
 def stack_clips(*args, align, min_dim=0, vert, name):
     """Arrange a series of clips in a stack, either vertically or
-    horizontally.  Probably use vstack or hstack to call this."""
+    horizontally.  Probably use :func:`vstack` or :func:`hstack` to call
+    this.
+
+    :param args: The clips to stack, given as a list or as separate arguments.
+            As a bonus, if any of the args is an integer instead of a clip,
+            padding of that amount will be inserted.
+    :param align: How should the clips be aligned?  See :class:`Align`.
+    :param min_dim: A minimum height (if we are stacking horizonally) or width
+            (if we are stacking vertically.)
+    :param vert: `True` if we stacking vertically; `False` if we are stacking
+            horizontally.
+    :param name: A name to use in error messages.  Probably `"vstack"` or
+            `"hstack"`.
+    """
 
     # Flatten things out, in case the inputs were wrapped in a list.
     clips = flatten_args(args)
@@ -93,17 +106,29 @@ def stack_clips(*args, align, min_dim=0, vert, name):
         return composite(elements, height=dim, width=b)
 
 def vstack(*args, align=Align.CENTER, min_width=0):
-    """Arrange a series of clips in a vertical stack.
+    """Arrange a series of clips in a vertical column. |modify|
 
     :param args: The clips to stack, given as a list or as separate arguments.
-    :param align: How should the clips be aligned if the have different widths?
+            As a bonus, if any of the args is an integer instead of a clip,
+            padding of that amount will be inserted.
+    :param align: How should the clips be aligned if they have different
+            widths? See :class:`Align`.
     :param min_width: A minimum width for the result, in pixels.
 
-    |modify|"""
+    """
 
     return stack_clips(args, align=align, min_dim=min_width, vert=True, name='vstack')
 
 def hstack(*args, align=Align.CENTER, min_height=0):
-    """ Arrange a series of clips in a horizontal row. |modify|"""
+    """ Arrange a series of clips in a horizontal row. |modify|
+
+    :param args: The clips to stack, given as a list or as separate arguments.
+            As a bonus, if any of the args is an integer instead of a clip,
+            padding of that amount will be inserted.
+    :param align: How should the clips be aligned if they have different
+            widths? See :class:`Align`.
+    :param min_height: A minimum height for the result, in pixels.
+
+    """
     return stack_clips(args, align=align, min_dim=min_height, vert=False, name='hstack')
 
