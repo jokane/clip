@@ -13,7 +13,19 @@ from .util import read_image
 class image_glob(VideoClip, FiniteIndexed):
     """Video from a collection of identically-sized image files that match a
     unix-style pattern, at a given frame rate or timed to a given length.
-    |from-source|"""
+    |from-source|
+
+    :param pattern: A wildcard pattern, of the form used by the standard
+            library function `glob.glob`, identifying a set of image files.
+            These will be the frames of the clip, in sorted order.
+    :param frame_rate: The clip's frame rate, in frames per second.
+    :param length: The clip's length, in seconds.
+
+    Exactly one of `num_frames` and `frame_rate` should be given; the other
+    should be `None` and will be computed to match.
+
+    """
+
     def __init__(self, pattern, frame_rate=None, length=None):
         VideoClip.__init__(self)
 
