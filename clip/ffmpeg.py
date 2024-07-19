@@ -73,11 +73,22 @@ def save_via_ffmpeg(clip, filename, frame_rate, output_args, cache_dir, two_pass
     print(f'Wrote {clip.readable_length()} to {filename}.')
 
 class FFMPEGException(Exception):
-    """Raised when ffmpeg fails for some reason."""
+    """Raised when `ffmpeg` fails."""
 
 def ffmpeg(*args, task=None, num_frames=None):
-    """Run ffmpeg with the given arguments.  Optionally, maintain a progress
-    bar as it goes."""
+    """Run `ffmpeg` with the given arguments.
+
+    :param args: String arguments to pass to `ffmpeg`.  These will have `-y`
+            and `-vstats_file` added at the front, to allow overwriting and
+            progress monitoring, respectively.
+    :param task: A short string identifying the work that's being done.  Shown
+            in the progress bar.  Use `None` to disable the progress bar.
+    :param num_frames: The number of video frames to be processed.  Used to
+            maintain the progress bar.
+
+    Raises :class:`FFMEGException` if `ffmpeg` exits with an error code.
+
+    """
 
     with tempfile.NamedTemporaryFile() as stats:
         command = f"ffmpeg -y -vstats_file {stats.name} {' '.join(args)} 2> errors"
