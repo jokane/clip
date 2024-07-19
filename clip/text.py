@@ -10,9 +10,18 @@ from .validate import require_string, require_float, require_positive, require_c
 
 
 def get_font(font, size):
-    """Return a TrueType font for use on Pillow images, with caching to
-    prevent loading the same font again and again.  (The performance
-    improvement seems to be small but non-zero.)"""
+    """Return a TrueType font for use on `Pillow` images.
+
+    :param font: The filename of the desired font.
+    :param size: The desired size, in pixels.
+
+    :return: A `Pillow` ImageFont.
+
+    This differs from calling `ImageFont.truetype()` directly only by caching
+    to prevent loading the same font again and again. The performance
+    improvement from this caching seems to be small but non-zero.
+
+    """
     if (font, size) not in get_font.cache:
         try:
             get_font.cache[(font, size)] = ImageFont.truetype(font, size)
@@ -22,7 +31,19 @@ def get_font(font, size):
 get_font.cache = {}
 
 class draw_text(VideoClip):
-    """ A clip consisting of just a bit of text. |ex-nihilo|"""
+    """ A clip consisting of just a bit of text.  |ex-nihilo|
+
+    :param text: The string of text to draw.
+    :param font_filename: The filename of a TrueType font.
+    :param color: A color `(r,g,b)`.  Each element must be an integer in the
+            range [0,255].
+    :param size: The desired size, in pixels.
+    :param length: The length of the clip in seconds.  A positive float.
+
+    The resulting clip will be the right size to contain the desired text,
+    which will be draw in the given color on a transparent background.
+
+    """
     def __init__(self, text, font_filename, font_size, color, length):
         super().__init__()
 
