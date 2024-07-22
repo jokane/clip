@@ -12,9 +12,19 @@ from .validate import require_float, require_non_negative
 # pylint: enable=duplicate-code
 
 class spin(MutatorClip):
-    """ Rotate the contents of a clip about the center, a given number of
-    times. Rotational velocity is computed to complete the requested rotations
-    within the length of the original clip. |modify|"""
+    """ Rotate the contents of a clip about its center.  |modify|
+
+    :param clip: The clip to modify.
+    :param total_rotations: A positive float indicating how many total
+            rotations to make throughout the original clip's duration.
+
+    The resulting clip will be a square, large enough to show all of the
+    original clip at every point of its rotation.
+
+    The angular velocity is computed so that the result will complete the
+    requested rotations within the length of the original clip.
+
+    """
     def __init__(self, clip, total_rotations):
         super().__init__(clip)
 
