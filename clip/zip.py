@@ -18,17 +18,26 @@ from .validate import require_string, require_float, require_positive, require_b
 from .progress import custom_progressbar
 
 class zip_file(VideoClip, FiniteIndexed):
-    """ A video clip from images stored in a zip file. |from-source|"""
+    """ A video clip from images stored in a zip file. |from-source|
 
-    def __init__(self, fname, frame_rate):
+    :param filename: The name of the zip file to read.
+    :param frame_rate: The rate, in frames per second, at which the images in
+            the zip file should be displayed.
+
+    The resulting clip will be silent and have no subtitles.
+
+    """
+
+    def __init__(self, filename, frame_rate):
         VideoClip.__init__(self)
 
-        require_string(fname, "file name")
-        if not os.path.isfile(fname):
-            raise FileNotFoundError(f"Cannot open {fname}, which does not exist or is not a file.")
+        require_string(filename, "file name")
+        if not os.path.isfile(filename):
+            raise FileNotFoundError(f"Cannot open {filename}, which does not exist or \
+                    is not a file.")
 
-        self.fname = fname
-        self.zf = zipfile.ZipFile(fname, 'r') #pylint: disable=consider-using-with
+        self.filename = filename
+        self.zf = zipfile.ZipFile(filename, 'r') #pylint: disable=consider-using-with
 
         image_formats = ['tga', 'jpg', 'jpeg', 'png'] # (Note: Many others could be added here.)
         pattern = ".(" + "|".join(image_formats) + ")$"
@@ -48,7 +57,7 @@ class zip_file(VideoClip, FiniteIndexed):
 
     def frame_signature(self, t):
         index = self.time_to_frame_index(t)
-        return ['zip file member', self.fname, self.info_list[index].filename]
+        return ['zip file member', self.filename, self.info_list[index].filename]
 
     def request_frame(self, t):
         pass
