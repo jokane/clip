@@ -48,6 +48,9 @@ def temporary_current_directory():
     """A context in which the current directory is a new temporary
     directory.
 
+    When the context begins, a new temporary directory is created.  This new
+    directory becomes the current directory.
+
     When the context ends, the current directory is restored and the temporary
     directory is vaporized."""
     with tempfile.TemporaryDirectory() as td:
