@@ -17,7 +17,7 @@ from .metrics import Metrics
 from .validate import require_string, require_float, require_positive, require_bool
 from .progress import custom_progressbar
 
-class zip_file(VideoClip, FiniteIndexed):
+class from_zip(VideoClip, FiniteIndexed):
     """ A video clip from images stored in a zip file. |from-source|
 
     :param filename: The name of the zip file to read.

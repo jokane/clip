@@ -1367,13 +1367,13 @@ def test_image_glob5():
     with pytest.raises(ValueError):
         image_glob(f"{TEST_FILES_DIR}/bunny_frames/*.png")
 
-def test_zip_file1():
-    a = zip_file(f"{TEST_FILES_DIR}/bunny.zip", frame_rate=15)
+def test_from_zip1():
+    a = from_zip(f"{TEST_FILES_DIR}/bunny.zip", frame_rate=15)
     a.verify(30)
 
-def test_zip_file2():
+def test_from_zip2():
     with pytest.raises(FileNotFoundError):
-        zip_file(f"{TEST_FILES_DIR}/bunny.zap", frame_rate=15)
+        from_zip(f"{TEST_FILES_DIR}/bunny.zap", frame_rate=15)
 
 def test_to_default_metrics():
     a = from_file(f"{TEST_FILES_DIR}/bunny.webm")
