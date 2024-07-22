@@ -2,17 +2,12 @@
 Installation
 ============
 
-To install ``clip``, first clone the source repository::
+You can install ``clip``, directly from github:
 
-    $ git clone https://github.com/jokane/clip.git
-
-Then install the package::
-
-    $ pip3 install ./clip
+    $ pip install -U git+https://github.com/jokane/clip
 
 To use ``clip`` to read and write video files, you must also install ``ffmpeg``
 separately::
 
     $ sudo apt install ffmpeg
-
 
