@@ -2,12 +2,17 @@
 
 import cv2
 
-from .base import Clip, require_clip
+from .base import require_clip
 from .filter import filter_frames
 from .validate import require_float, require_positive, require_int
 
 def scale_by_factor(clip, factor):
-    """Scale the frames of a clip by a given factor. |modify|"""
+    """Scale size of the frames of a clip by a given factor. |modify|
+
+    :param clip: The clip to modify.
+    :param factor: A positive float scaling factor.
+
+    """
     require_clip(clip, "clip")
     require_float(factor, "scaling factor")
     require_positive(factor, "scaling factor")
@@ -16,9 +21,15 @@ def scale_by_factor(clip, factor):
     new_height = int(factor * clip.height())
     return scale_to_size(clip, new_width, new_height)
 
-def scale_to_fit(clip, max_width, max_height) -> Clip:
+def scale_to_fit(clip, max_width, max_height):
     """Scale the frames of a clip to fit within the given constraints,
-    maintaining the aspect ratio. |modify|"""
+    maintaining the aspect ratio. |modify|
+
+    :param clip: The clip to modify.
+    :param max_width: The maximum width of the result.  A positive integer.
+    :param max_height: The maximum height of the result.  A positive integer.
+
+    """
 
     aspect1 = clip.width() / clip.height()
     aspect2 = max_width / max_height
@@ -34,9 +45,15 @@ def scale_to_fit(clip, max_width, max_height) -> Clip:
 
     return scale_to_size(clip, int(new_width), int(new_height))
 
-def scale_to_size(clip, width, height) -> Clip:
+def scale_to_size(clip, width, height):
     """Scale the frames of a clip to a given size, possibly distorting them.
-    |modify|"""
+    |modify|
+
+    :param clip: The clip to modify.
+    :param max_width: The width of the result.  A positive integer.
+    :param max_height: The height of the result.  A positive integer.
+
+    """
     require_clip(clip, "clip")
     require_int(width, "new width")
     require_positive(width, "new width")
