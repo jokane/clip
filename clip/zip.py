@@ -62,13 +62,15 @@ class zip_file(VideoClip, FiniteIndexed):
         return frame
 
 def save_zip(clip, filename, frame_rate, include_audio=True, include_subtitles=None):
-    """Save a clip to a zip archive of numbered images.
+    """Save a clip to a zip archive of numbered images. |save|
 
     :param clip: The clip to save.
     :param filename: A file name to write to.
     :param frame_rate: Output frame rate in frames per second.
     :param include_audio: Should the audio be included?
-    :param include_subtitles: Should the subtitles be included? |save|
+    :param include_subtitles: Should the subtitles be included? Use `None` to
+            include a subtitles file only if there are more than zero subtitles
+            in the clip.
     """
 
     require_clip(clip, "clip")
