@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='clip',
-    version='0.4.1',
+    version='0.5.0',
     author="Jason O'Kane",
     author_email='jokane@tamu.edu',
     description='A package for creating video clips.',
