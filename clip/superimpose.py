@@ -1,12 +1,22 @@
 """ A tool for pasting one clip on top of another. """
 
-from .base import Clip, require_clip
+from .base import require_clip
 from .validate import require_float, require_non_negative
 from .composite import VideoMode, AudioMode, composite, Element
 
-def superimpose_center(under_clip, over_clip, start_time, audio_mode=AudioMode.ADD) -> Clip:
+def superimpose_center(under_clip, over_clip, start_time, audio_mode=AudioMode.ADD):
     """Superimpose one clip on another, in the center of each frame, starting at
-    a given time. |modify|"""
+    a given time. |modify|
+
+    :param under_clip: The main clip.
+    :param over_clip: Another clip to show atop the main clip.
+    :param start_time: The time at which `over_clop` should begin.  A
+            non-negative float.
+    :param audio_clip: A :class:`AudioMode` telling what to do with the audio
+            in `over_clip`.
+
+
+    """
     require_clip(under_clip, "under clip")
     require_clip(over_clip, "over clip")
     require_float(start_time, "start time")
