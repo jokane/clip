@@ -90,7 +90,7 @@ def timewarp(clip, factor):
     return resample(clip, length=clip.length()/factor)
 
 class reverse(MutatorClip):
-    """ Reverse both the video and audio in a clip.|modify|
+    """ Reverse both the video and audio in a clip. |modify|
 
     :param clip: A clip to modify.
 

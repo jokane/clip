@@ -9,7 +9,7 @@ from .ffmpeg import save_via_ffmpeg
 
 def save_mp4(clip, filename, frame_rate, bitrate=None, target_size=None, two_pass=None,
          preset='slow', cache_dir='/tmp/clipcache/computed', burn_subtitles=False):
-    """ Save a clip to an MP4 file.
+    """ Save a clip to an MP4 file. |save|
 
     :param clip: The clip to save.
     :param filename: A file name to write to.
@@ -47,7 +47,7 @@ def save_mp4(clip, filename, frame_rate, bitrate=None, target_size=None, two_pas
 
     Using `two_pass` makes things slower because the encoding process happens
     twice, but can improve the results, particularly when using `target_size`.
-    Default is to use `two_pass` only when a `target_size` is given.|save|
+    Default is to use `two_pass` only when a `target_size` is given.
     """
 
     require_clip(clip, "clip")
@@ -136,9 +136,9 @@ def save_mp4(clip, filename, frame_rate, bitrate=None, target_size=None, two_pas
                     cache_dir=cache_dir)
 
 def save_play_quit(clip, frame_rate, filename="spq.mp4"): # pragma: no cover
-    """ Save the video, play it, and then end the process.  Useful
+    """ Save the video as an MP4, play it, and then end the process.  Useful
     sometimes when debugging, to see a particular clip without running the
     entire program. """
-    clip.save(filename, frame_rate)
+    save_mp4(clip, filename, frame_rate)
     os.system("mplayer " + filename)
     sys.exit(0)

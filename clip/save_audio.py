@@ -6,7 +6,7 @@ from .base import require_clip
 from .validate import require_string
 
 def save_audio(clip, filename):
-    """Save the audio part of a clip to an audio format.
+    """Save the audio part of a clip to an audio format. |save|
 
     :param clip: The clip to save.
     :param filename: A file name to write the audio to.
@@ -14,7 +14,7 @@ def save_audio(clip, filename):
     The file format is determined by the extension of the given filename.  The
     list of supported formats is determined by what is supported by the
     `libsndfile` library, but the most common format like WAV and FLAC are
-    likely to work.|save|
+    likely to work.
     """
     require_clip(clip, "clip")
     require_string(filename, "filename")
