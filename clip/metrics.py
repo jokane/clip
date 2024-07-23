@@ -75,7 +75,7 @@ class Metrics:
 
     def num_samples(self):
         """:return: The length of the clip, in audio samples."""
-        return int(self.length * self.sample_rate)
+        return round(self.length * self.sample_rate)
 
     def readable_length(self):
         """:return: A human-readable description of the length."""
