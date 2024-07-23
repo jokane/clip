@@ -227,9 +227,18 @@ def test_readable_length2():
     x = solid([0,0,0], 640, 480, 60*60+1)
     assert x.readable_length()[:2] == '1:'
 
+def test_from_audio_samples():
+    samples = np.zeros([1509122, 1])
+    x = from_audio_samples(samples, sample_rate=22050)
+    print(x.samples.shape)
+    print((x.num_samples(), x.num_channels()))
+    x.verify(frame_rate=30)
+
+
 def test_sine_wave1():
     x = sine_wave(880, 0.1, 5, 48000, 2)
     x.verify(20)
+
 
 def test_mutator():
     a = black(640, 480, 5)

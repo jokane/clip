@@ -102,6 +102,37 @@ def join(video_clip, audio_clip):
                              video_mode=VideoMode.IGNORE,
                              audio_mode=AudioMode.REPLACE))
 
+class from_audio_samples(AudioClip):
+    """An audio clip formed formed from a given array of samples. |from-source|
+
+    :param samples: The audio data.  A numpy array with shape `(num_samples, num_channels)`.
+    :param sample_rate: The sample rate in samples per second.  A positive integer.
+
+    The number of channels is determined by the `shape` of the given samples
+    array. The length of the clip is computed from the `shape` and the sample
+    rate.
+
+    """
+
+    def __init__(self, samples, sample_rate):
+        super().__init__()
+        require_float(sample_rate, "sample rate")
+        require_positive(sample_rate, "sample rate")
+
+        self.samples = samples
+
+        self.metrics = Metrics(Clip.default_metrics,
+                               length=len(self.samples)/sample_rate,
+                               sample_rate=sample_rate,
+                               num_channels=self.samples.shape[1])
+
+    def get_samples(self):
+        return self.samples
+
+    def get_subtitles(self):
+        return []
+
+
 class sine_wave(AudioClip):
     """ A sine wave with the given frequency. |ex-nihilo|
 
