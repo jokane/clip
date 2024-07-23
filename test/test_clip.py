@@ -933,6 +933,13 @@ def test_join2():
     with pytest.raises(AssertionError):
         join(x, y)
 
+def test_join3():
+    # Don't complain if the sample rate for the video does not match the sample
+    # rate for the audio.
+    x = sine_wave(440, 0.25, 3, 48001, 2)
+    y = solid([0,255,0], 640, 480, 5)
+    join(y, x)
+
 def test_filter_frames1():
     a = black(640, 480, 3)
 
