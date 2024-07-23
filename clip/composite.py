@@ -266,10 +266,23 @@ class composite(Clip):
             require_float(length, "length")
             require_positive(length, "length")
 
-        # Check for mismatches in the rates.
-        e0 = self.elements[0]
-        for (i, e) in enumerate(self.elements[1:]):
-            require_equal(e0.clip.sample_rate(), e.clip.sample_rate(), "sample rates")
+        # Check for mismatches in the sample rate and number of audio channels.
+        # Anything that has audio not being ignored should have the same sample
+        # rate and same number of channels.
+        #
+        # While we're doing this, figure out the appropriate sample rate and
+        # number of channels for the composite.
+        elements_with_audio = [ e for e in self.elements if e.audio_mode != AudioMode.IGNORE ]
+        if len(elements_with_audio) > 0:
+            e0 = elements_with_audio[0]
+            sample_rate = e0.clip.sample_rate()
+            num_channels = e0.clip.num_channels()
+            for (i, e) in enumerate(self.elements[1:]):
+                require_equal(sample_rate, e.clip.sample_rate(), "sample rates")
+                require_equal(num_channels, e.clip.num_channels(), "number of audio channels")
+        else:
+            sample_rate = Clip.default_metrics.sample_rate
+            num_channels = Clip.default_metrics.num_channels
 
         # Compute the width, height, and length of the result.  If we're
         # given any of these, use that.  Otherwise, make it big enough for
@@ -290,10 +303,11 @@ class composite(Clip):
             length = max(map(lambda e: e.start_time + e.clip.length(), self.elements))
 
         self.metrics = Metrics(
-          src=e0.clip.metrics,
           width=width,
           height=height,
-          length=length
+          length=length,
+          sample_rate=sample_rate,
+          num_channels=num_channels
         )
 
 
