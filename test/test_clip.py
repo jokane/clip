@@ -797,17 +797,6 @@ def test_composite2():
           Element(y, 6, [0, 0])
         )
 
-def test_composite4():
-    # Sample rates don't match.
-    x = sine_wave(880, 0.1, 5, 48000, 2)
-    y = sine_wave(880, 0.1, 5, 48001, 2)
-
-    with pytest.raises(ValueError):
-        composite(
-          Element(x, 0, [0, 0]),
-          Element(y, 5, [0, 0])
-        )
-
 def test_composite5():
     # Automatically computed length.
     x = solid([0,0,0], 640, 480, 5)
@@ -917,6 +906,53 @@ def test_composite11():
 
     assert b.frame_signature(0) == c.frame_signature(0)
 
+def test_composite12():
+    # Numbers of channels don't match.
+    x = sine_wave(880, 0.1, 5, 48000, 2)
+    y = sine_wave(880, 0.1, 5, 48000, 1)
+
+    with pytest.raises(ValueError):
+        composite(Element(x, 0, [0, 0]),
+                  Element(y, 5, [0, 0]))
+
+def test_composite13():
+    # Numbers of channels don't match, but that's OK because we're ignoring one
+    # of the audio streams.
+    x = sine_wave(880, 0.1, 5, 48000, 2)
+    y = sine_wave(880, 0.1, 5, 48000, 1)
+
+    composite(Element(x, 0, [0, 0], audio_mode=AudioMode.IGNORE),
+              Element(y, 5, [0, 0]))
+
+def test_composite14():
+    # Sample rates don't match.
+    x = sine_wave(880, 0.1, 5, 48000, 1)
+    y = sine_wave(880, 0.1, 5, 48001, 1)
+
+    with pytest.raises(ValueError):
+        composite(Element(x, 0, [0, 0]),
+                  Element(y, 5, [0, 0]))
+
+def test_composite15():
+    # Sample rates don't match, but that's OK because we're ignoring one of the
+    # audio streams.
+    x = sine_wave(880, 0.1, 5, 48000, 1)
+    y = sine_wave(880, 0.1, 5, 48001, 1)
+
+    composite(Element(x, 0, [0, 0], audio_mode=AudioMode.IGNORE),
+              Element(y, 5, [0, 0]))
+
+def test_composite16():
+    # If there's no audio at all, use the default sample rate and number of
+    # channels.
+    x = sine_wave(880, 0.1, 5, 48000, 1)
+    y = sine_wave(880, 0.1, 5, 48001, 1)
+
+    z = composite(Element(x, 0, [0, 0], audio_mode=AudioMode.IGNORE),
+              Element(y, 5, [0, 0], audio_mode=AudioMode.IGNORE))
+
+    assert z.sample_rate() == Clip.default_metrics.sample_rate
+    assert z.num_channels() == Clip.default_metrics.num_channels
 
 def test_join1():
     # Normal case.
