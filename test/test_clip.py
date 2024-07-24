@@ -1482,7 +1482,8 @@ def test_spin():
     b = spin(a, 2)
     b.verify(30)
 
-def test_vstack():
+def test_vstack1():
+    # Different alignments, both correct and incorrect.
     a = static_image(f"{TEST_FILES_DIR}/flowers.png", 3)
     b = static_image(f"{TEST_FILES_DIR}/water.png", 5)
 
@@ -1498,7 +1499,15 @@ def test_vstack():
     with pytest.raises(NotImplementedError):
         vstack(a, b, align=Align.TOP)
 
-def test_hstack():
+def test_vstack2():
+    # List arguments are flattended correctly.
+    a = static_image(f"{TEST_FILES_DIR}/flowers.png", 3)
+    b = static_image(f"{TEST_FILES_DIR}/water.png", 5)
+
+    vstack([a, b], align=Align.LEFT)
+
+def test_hstack1():
+    # Different alignments, both correct and incorrect.
     a = static_image(f"{TEST_FILES_DIR}/flowers.png", 3)
     b = static_image(f"{TEST_FILES_DIR}/water.png", 5)
 
@@ -1513,6 +1522,13 @@ def test_hstack():
 
     with pytest.raises(NotImplementedError):
         hstack(a, b, align=Align.LEFT)
+
+def test_hstack2():
+    # List arguments are flattended correctly.
+    a = static_image(f"{TEST_FILES_DIR}/flowers.png", 3)
+    b = static_image(f"{TEST_FILES_DIR}/water.png", 5)
+
+    hstack([a, b], align=Align.TOP)
 
 def test_stack_clips():
     a = static_image(f"{TEST_FILES_DIR}/flowers.png", 3)
