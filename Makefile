@@ -5,7 +5,7 @@ all: docs check install
 check: lint test
 
 lint:
-	pylint clip/*.py test/*.py
+	pylint clip/*.py test/*.py examples/*.py
 
 test:
 	NUMBA_DISABLE_JIT=1 coverage run --omit=.venv* -m pytest --durations=5
