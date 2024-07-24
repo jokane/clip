@@ -1545,10 +1545,15 @@ def test_stack_clips():
         stack_clips(a, 1.2, b, align=Align.LEFT, vert=True, name='vstack')
 
 def test_background():
+    # Note: Need to ensure that the default audio of the solid background is
+    # ignored; otherwise, we might get a sample rate mismatch from composite.
     font = f"{TEST_FILES_DIR}/ethnocentric_rg_it.otf"
     a = draw_text("Hello!", font, font_size=200, color=[255,0,255], length=5)
-    b = background(a, (255,0,0))
-    b.verify(30 )
+    b = sine_wave(880, 0.1, 5, 48001, 2)
+    c = join(a, b)
+    d = background(c, (255,0,0))
+
+    d.verify(30)
 
 def test_superimpose_center():
     a = static_image(f"{TEST_FILES_DIR}/flowers.png", 3)
