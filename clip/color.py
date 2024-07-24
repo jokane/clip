@@ -4,7 +4,7 @@ import cv2
 
 from .base import require_clip
 from .filter import filter_frames
-from .composite import composite, Element, VideoMode
+from .composite import composite, Element, AudioMode, VideoMode
 from .video import solid
 from .validate import require_color
 
@@ -60,7 +60,8 @@ def background(clip, bg_color):
                                    clip.height(),
                                    clip.length()),
                              0,
-                             (0,0)),
+                             (0,0),
+                             audio_mode=AudioMode.IGNORE),
                       Element(clip,
                               0,
                               (0,0),
