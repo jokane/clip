@@ -11,7 +11,14 @@ import clip
 
 class text_to_speech(clip.from_audio_samples):
     """A clip of the given string spoken aloud, including both audio and
-    subtitles."""
+    subtitles.
+
+    :param text: The text to be spoken.  A string.
+    :param words_per_minute: The requested number of words per minute to speak.
+            A positive integer, or `None` to use the library default which is
+            apparently 200.
+
+    """
 
     def __init__(self, text, words_per_minute=None):
         self.text = text
