@@ -376,9 +376,11 @@ def test_save_audio():
         assert os.path.exists('foo.flac')
 
 def test_save_gif():
+    # Save to gif works correctly, even if there are subtitles.
     a = from_file(f"{TEST_FILES_DIR}/bunny.webm")
+    b = add_subtitles(a, (0, a.length(), "It's a bunny!"))
     with temporary_current_directory():
-        save_gif(a, 'test.gif', frame_rate=10)
+        save_gif(b, 'test.gif', frame_rate=10)
 
 def test_save_zip():
     a = slice_clip(from_file(f"{TEST_FILES_DIR}/bunny.webm"), 5, 10)
