@@ -1,4 +1,13 @@
-"""An example that uses a text-to-speech library to generate spoken word from a string input."""
+"""
+
+An example that uses a text-to-speech library to generate spoken word from a
+string input.
+
+Install `pyttsx4` before running:
+
+        pip install pyttsx4
+
+"""
 import io
 import re
 import textwrap
