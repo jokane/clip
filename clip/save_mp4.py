@@ -132,6 +132,8 @@ def save_mp4(clip, filename, frame_rate, bitrate=None, target_size=None, two_pas
                     filename=filename,
                     frame_rate=frame_rate,
                     output_args=args,
+                    use_audio=True,
+                    use_subtitles=True,
                     two_pass=two_pass,
                     cache_dir=cache_dir)
 

@@ -32,6 +32,8 @@ def save_gif(clip, filename, frame_rate, cache_dir='/tmp/clipcache/computed'):
                     filename=filename,
                     frame_rate=frame_rate,
                     output_args=args,
+                    use_audio=False,
+                    use_subtitles=False,
                     two_pass=False,
                     cache_dir=cache_dir)
 

@@ -13,7 +13,8 @@ from .cache import ClipCache
 from .progress import custom_progressbar
 from .util import temporarily_changed_directory
 
-def save_via_ffmpeg(clip, filename, frame_rate, output_args, cache_dir, two_pass):
+def save_via_ffmpeg(clip, filename, frame_rate, output_args, use_audio, use_subtitles, cache_dir, \
+        two_pass):
     """Use ffmpeg to save a clip with the given arguments describing the
     desired output.
 
@@ -22,6 +23,8 @@ def save_via_ffmpeg(clip, filename, frame_rate, output_args, cache_dir, two_pass
     :param frame_rate: The frame rate to use for the final output.
     :param output_args: A list of string arguments to pass to `ffmpeg`.  These
         will appear after arguments setting up the inputs.
+    :param use_audio: Should the audio be included in the ffmpeg input?
+    :param use_subtitles: Should the subtitles be included in the ffmpeg input?
     :param two_pass: Should `ffmpeg` run twice or just once?
     """
 
@@ -54,8 +57,9 @@ def save_via_ffmpeg(clip, filename, frame_rate, output_args, cache_dir, two_pass
             input_args = []
             input_args.append(f'-framerate {frame_rate}')
             input_args.append(f'-i %06d.{cache.frame_format}')
-            input_args.append('-i audio.flac')
-            if os.stat('subtitles.srt').st_size > 0:
+            if use_audio:
+                input_args.append('-i audio.flac')
+            if use_subtitles and os.stat('subtitles.srt').st_size > 0:
                 input_args.append('-i subtitles.srt -c:s mov_text -metadata:s:s:0 language=eng')
 
             if not two_pass:
