@@ -22,8 +22,8 @@ def custom_progressbar(task, steps):
         progressbar.Bar(),
         progressbar.Percentage(),
         '| ',
-        progressbar.SimpleProgress(format=f'%(value_s){digits}s/%(max_value_s){digits}s'),
-        ' |',
+        # progressbar.SimpleProgress(format=f'%(value_s){digits}s/%(max_value_s){digits}s'),
+        # ' |',
         progressbar.ETA(
             format_not_started='',
             format_finished='%(elapsed)8s',
