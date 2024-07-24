@@ -117,7 +117,7 @@ def vstack(*args, align=Align.CENTER, min_width=0):
 
     """
 
-    return stack_clips(args, align=align, min_dim=min_width, vert=True, name='vstack')
+    return stack_clips(*args, align=align, min_dim=min_width, vert=True, name='vstack')
 
 def hstack(*args, align=Align.CENTER, min_height=0):
     """ Arrange a series of clips in a horizontal row. |modify|
@@ -130,5 +130,5 @@ def hstack(*args, align=Align.CENTER, min_height=0):
     :param min_height: A minimum height for the result, in pixels.
 
     """
-    return stack_clips(args, align=align, min_dim=min_height, vert=False, name='hstack')
+    return stack_clips(*args, align=align, min_dim=min_height, vert=False, name='hstack')
 
