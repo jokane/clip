@@ -1,5 +1,4 @@
 """ A customized progress bar. """
-import math
 
 import progressbar
 
@@ -14,7 +13,6 @@ def custom_progressbar(task, steps):
     When progress occurs, pass the current step number to the `update()` method
     of the returned object.
     """
-    digits = int(math.log10(steps))+1
     widgets = [
         '|',
         f'{task:^25s}',
@@ -22,8 +20,6 @@ def custom_progressbar(task, steps):
         progressbar.Bar(),
         progressbar.Percentage(),
         '| ',
-        # progressbar.SimpleProgress(format=f'%(value_s){digits}s/%(max_value_s){digits}s'),
-        # ' |',
         progressbar.ETA(
             format_not_started='',
             format_finished='%(elapsed)8s',
