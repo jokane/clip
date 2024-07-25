@@ -35,4 +35,4 @@ from .superimpose import *
 from .text import *
 from .util import *
 from .video import *
-from .zip import *
+from .zip_clip import *
