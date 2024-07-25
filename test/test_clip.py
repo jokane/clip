@@ -227,6 +227,15 @@ def test_readable_length2():
     x = solid([0,0,0], 640, 480, 60*60+1)
     assert x.readable_length()[:2] == '1:'
 
+def test_is_silent1():
+    x = solid([0,0,0], 640, 480, 10)
+    assert x.is_silent()
+
+def test_is_silent2():
+    x = sine_wave(880, 0.1, 5, 48000, 2)
+    assert not x.is_silent()
+
+
 def test_from_audio_samples():
     samples = np.zeros([1509122, 1])
     x = from_audio_samples(samples, sample_rate=22050)

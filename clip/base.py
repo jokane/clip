@@ -357,6 +357,10 @@ class Clip(ABC):
             # No. Generate and save to disk for next time.
             return self.compute_and_cache_frame(t, cache, cached_filename)
 
+    def is_silent(self):
+        """Return True if the audio in this clip is all zero, or False otherwise."""
+        return not np.any(self.get_samples())
+
 
 class VideoClip(Clip):
     """ Inherit from this for Clip classes that really only have video, to
