@@ -12,6 +12,7 @@ import cv2
 import numpy as np
 import soundfile
 
+from .audio import patch_audio_length
 from .base import Clip, FiniteIndexed, ClipCache
 from .util import read_image
 from .ffmpeg import ffmpeg
@@ -225,14 +226,7 @@ def audio_samples_from_file(filename, cache, expected_sample_rate, expected_num_
               f" samples instead of {expected_num_samples}.")
 
         # If there's a small mismatch, just patch it.
-        # - Too short?
-        if data.shape[0] < expected_num_samples:
-            new_data = np.zeros([expected_num_samples, expected_num_channels], dtype=np.float64)
-            new_data[0:data.shape[0],:] = data
-            data = new_data
-        # - Too long?
-        if data.shape[0] > expected_num_samples:
-            data = data[:expected_num_samples,:]
+        data = patch_audio_length(data, expected_num_samples)
 
         return data
 

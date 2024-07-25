@@ -47,9 +47,18 @@ def get_test_files():  # pragma: no cover
         with temporary_current_directory():
             ffmpeg(f'-i {TEST_FILES_DIR}/bunny.webm', f'{TEST_FILES_DIR}/bunny_frames/%04d.png')
 
+    if not os.path.exists(f"{TEST_FILES_DIR}/audio.flac"):
+        ffmpeg(f'-i {TEST_FILES_DIR}/bunny.webm',
+               '-vn',
+               f'{TEST_FILES_DIR}/audio.flac')
+
     if not os.path.exists(f"{TEST_FILES_DIR}/bunny.zip"):
         with temporarily_changed_directory(TEST_FILES_DIR):
-            os.system("zip bunny.zip bunny_frames/*.png")
+            os.system("zip bunny.zip bunny_frames/*.png audio.flac")
+
+    if not os.path.exists(f"{TEST_FILES_DIR}/bunny-silent.zip"):
+        with temporarily_changed_directory(TEST_FILES_DIR):
+            os.system("zip bunny-silent.zip bunny_frames/*.png")
 
     exists = os.path.exists(f"{TEST_FILES_DIR}/ethnocentric_rg.otf")
     exists = exists and os.path.exists(f"{TEST_FILES_DIR}/ethnocentric_rg_it.otf")
@@ -1431,10 +1440,35 @@ def test_image_glob5():
         image_glob(f"{TEST_FILES_DIR}/bunny_frames/*.png")
 
 def test_from_zip1():
-    a = from_zip(f"{TEST_FILES_DIR}/bunny.zip", frame_rate=15)
-    a.verify(30)
+    # Basic successful case with audio.
+    frame_rate = from_file(f"{TEST_FILES_DIR}/bunny.webm").frame_rate
+    a = from_zip(f"{TEST_FILES_DIR}/bunny.zip", frame_rate=frame_rate)
+    assert not a.is_silent()
+    a.verify(frame_rate)
 
 def test_from_zip2():
+    # Basic successful case without audio.
+    frame_rate = from_file(f"{TEST_FILES_DIR}/bunny.webm").frame_rate
+    a = from_zip(f"{TEST_FILES_DIR}/bunny-silent.zip", frame_rate=frame_rate)
+    assert a.is_silent()
+    a.verify(frame_rate)
+
+def test_from_zip3():
+    # Audio and video lengths mismatch just a little.  Patch the audio length
+    # and move on with life.
+    frame_rate = from_file(f"{TEST_FILES_DIR}/bunny.webm").frame_rate
+    a = from_zip(f"{TEST_FILES_DIR}/bunny.zip", frame_rate=frame_rate+0.001)
+    assert not a.is_silent()
+    a.verify(frame_rate)
+
+def test_from_zip4():
+    # Audio and video lengths mismatch badly.  Abort.
+    frame_rate = from_file(f"{TEST_FILES_DIR}/bunny.webm").frame_rate
+    with pytest.raises(ValueError):
+        from_zip(f"{TEST_FILES_DIR}/bunny.zip", frame_rate=2*frame_rate)
+
+def test_from_zip5():
+    # File doesn't exist.
     with pytest.raises(FileNotFoundError):
         from_zip(f"{TEST_FILES_DIR}/bunny.zap", frame_rate=15)
 

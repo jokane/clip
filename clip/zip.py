@@ -12,63 +12,106 @@ from PIL import Image
 import numpy as np
 import soundfile
 
-from .base import Clip, VideoClip, FiniteIndexed, require_clip, frame_times
+from .audio import patch_audio_length
+from .base import Clip, FiniteIndexed, require_clip, frame_times
 from .metrics import Metrics
 from .validate import require_string, require_float, require_positive, require_bool
 from .progress import custom_progressbar
 
-class from_zip(VideoClip, FiniteIndexed):
+class from_zip(Clip, FiniteIndexed):
     """ A video clip from images stored in a zip file. |from-source|
 
     :param filename: The name of the zip file to read.
     :param frame_rate: The rate, in frames per second, at which the images in
             the zip file should be displayed.
 
-    The resulting clip will be silent and have no subtitles.
+    If the zip file contains a file called `audio.flac`, that file will be used
+    for the audio of the resulting clip.  In this case, the video and audio
+    parts must have approximately the same length.
+
+    The resulting clip will have no subtitles.
 
     """
 
     def __init__(self, filename, frame_rate):
-        VideoClip.__init__(self)
+        Clip.__init__(self)
 
         require_string(filename, "file name")
         if not os.path.isfile(filename):
             raise FileNotFoundError(f"Cannot open {filename}, which does not exist or \
                     is not a file.")
 
+        # Open the zip archive.
         self.filename = filename
         self.zf = zipfile.ZipFile(filename, 'r') #pylint: disable=consider-using-with
+        info_list = self.zf.infolist()
 
+        # Find all of the images.
         image_formats = ['tga', 'jpg', 'jpeg', 'png'] # (Note: Many others could be added here.)
         pattern = ".(" + "|".join(image_formats) + ")$"
 
-        info_list = self.zf.infolist()
-        info_list = filter(lambda x: re.search(pattern, x.filename), info_list)
-        info_list = sorted(info_list, key=lambda x: x.filename)
-        self.info_list = info_list
-        FiniteIndexed.__init__(self, len(self.info_list), frame_rate)
+        image_info_list = filter(lambda x: re.search(pattern, x.filename), info_list)
+        image_info_list = sorted(image_info_list, key=lambda x: x.filename)
+        self.image_info_list = image_info_list
+        FiniteIndexed.__init__(self, len(self.image_info_list), frame_rate)
+        video_length = len(self.image_info_list)/frame_rate
 
+        # Look for audio.  If it exists, we need to extract it now, instead of
+        # waiting for get_samples, to determine the metrics.
+        try:
+            audio_info = self.zf.getinfo('audio.flac')
+        except KeyError:
+            audio_info = None
+
+        if audio_info:
+            audio_bytes = self.zf.read(audio_info)
+            bio = io.BytesIO(audio_bytes)
+            with soundfile.SoundFile(bio) as sf:
+                self.samples = sf.read(always_2d=True)
+                sample_rate = sf.samplerate
+        else:
+            sample_rate = Clip.default_metrics.sample_rate
+            num_channels = Clip.default_metrics.num_channels
+            self.samples = np.zeros([round(sample_rate*video_length), num_channels])
+
+        audio_length = self.samples.shape[0]/sample_rate
+
+        if abs(video_length - audio_length) > 1:
+            raise ValueError(f'In {filename} at frame rate {frame_rate}, video and audio lengths\
+                    do not match.  Video is {video_length}s; audio is {audio_length}.')
+
+        num_samples = round(sample_rate*video_length)
+        self.samples = patch_audio_length(self.samples, num_samples)
+
+        # Figure out the metrics.
         sample_frame = self.get_frame(0)
 
-        self.metrics = Metrics(src = Clip.default_metrics,
-                               width=sample_frame.shape[1],
-                               height=sample_frame.shape[0],
-                               length = len(self.info_list)/frame_rate)
+        self.metrics = Metrics(width = sample_frame.shape[1],
+                               height = sample_frame.shape[0],
+                               sample_rate = sample_rate,
+                               num_channels = self.samples.shape[1],
+                               length = video_length)
 
     def frame_signature(self, t):
         index = self.time_to_frame_index(t)
-        return ['zip file member', self.filename, self.info_list[index].filename]
+        return ['zip file member', self.filename, self.image_info_list[index].filename]
 
     def request_frame(self, t):
         pass
 
     def get_frame(self, t):
         index = self.time_to_frame_index(t)
-        data = self.zf.read(self.info_list[index])
+        data = self.zf.read(self.image_info_list[index])
         pil_image = Image.open(io.BytesIO(data)).convert('RGBA')
         frame = np.array(pil_image)
         frame = cv2.cvtColor(frame, cv2.COLOR_RGBA2BGRA)
         return frame
+
+    def get_samples(self):
+        return self.samples
+
+    def get_subtitles(self):
+        return []
 
 def save_zip(clip, filename, frame_rate, include_audio=True, include_subtitles=None):
     """Save a clip to a zip archive of numbered images. |save|

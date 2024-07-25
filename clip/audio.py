@@ -7,6 +7,27 @@ from .composite import composite, Element, AudioMode, VideoMode
 from .metrics import Metrics
 from .validate import require_float, require_positive
 
+def patch_audio_length(data, num_samples):
+    """Given a numpy array of audio samples, return an array that has exactly
+    the requested length.  Adds zeros or truncates, as needed.
+
+    :param data: A numpy array representing audio data.
+    :param num_samples: The desired number of samples.
+
+    """
+
+    # - Too short?
+    if data.shape[0] < num_samples:
+        new_data = np.zeros([num_samples, data.shape[1]], dtype=np.float64)
+        new_data[0:data.shape[0],:] = data
+        data = new_data
+
+    # - Too long?
+    if data.shape[0] > num_samples:
+        data = data[:num_samples,:]
+
+    return data
+
 class mono_to_stereo(MutatorClip):
     """ Change the number of channels from one to two. |modify|
 
