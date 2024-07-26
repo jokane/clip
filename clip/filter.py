@@ -45,7 +45,7 @@ class filter_frames(MutatorClip):
           clip. This avoids generating a sample frame.
 
     Audio remains unchanged from the original `clip`.
-    
+
     """
 
     def __init__(self, clip, func, name=None, size=None):

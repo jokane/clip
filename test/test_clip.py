@@ -396,6 +396,12 @@ def test_save6():
         with pytest.raises(ValueError):
             save_mp4(x, 'test.mp4', frame_rate=30, preset='mindbogglinglyslow')
 
+def test_save7():
+    # Filename with a space.
+    x = solid([0,0,0], 640, 480, 2)
+    with temporary_current_directory():
+        save_mp4(x, 'name with space.mp4', 2)
+
 def test_save_audio():
     # Pure audio output.
     c = sine_wave(261.63, 0.1, 6, 48000, 2)
@@ -413,12 +419,18 @@ def test_save_audio():
         save_audio(x, 'foo.flac')
         assert os.path.exists('foo.flac')
 
-def test_save_gif():
+def test_save_gif1():
     # Save to gif works correctly, even if there are subtitles.
     a = from_file(f"{TEST_FILES_DIR}/bunny.webm")
     b = add_subtitles(a, (0, a.length(), "It's a bunny!"))
     with temporary_current_directory():
         save_gif(b, 'test.gif', frame_rate=10)
+
+def test_save_gif2():
+    # Filename with a space.
+    x = solid([0,0,0], 640, 480, 2)
+    with temporary_current_directory():
+        save_gif(x, 'name with space.gif', 2)
 
 def test_save_zip():
     a = slice_clip(from_file(f"{TEST_FILES_DIR}/bunny.webm"), 5, 10)
@@ -428,6 +440,7 @@ def test_save_zip():
     with temporary_current_directory():
         save_zip(a, 'test1.zip', frame_rate=10)
         save_zip(a, 'test2.zip', frame_rate=10, include_subtitles=False, include_audio=False)
+        save_zip(a, 'space name.zip', frame_rate=10, include_subtitles=False, include_audio=False)
 
 def test_subtitles1():
     # There are various get_subtitles implementations in different classes.
@@ -1772,6 +1785,11 @@ def test_rosbag():
     with temporary_current_directory():
         save_rosbag(clip=a,
                     pathname='test.bag',
+                    frame_rate=30,
+                    topic='T')
+
+        save_rosbag(clip=a,
+                    pathname='name with space.bag',
                     frame_rate=30,
                     topic='T')
 
