@@ -76,6 +76,10 @@ He seems tired."""
         with temporarily_changed_directory(TEST_FILES_DIR):
             os.system("zip bunny-subtitled.zip subtitles.srt bunny_frames/*.png")
 
+    if not os.path.exists(f"{TEST_FILES_DIR}/name with space.webm"):
+        shutil.copyfile(f"{TEST_FILES_DIR}/bunny.webm",
+                        f"{TEST_FILES_DIR}/name with space.webm")
+
     exists = os.path.exists(f"{TEST_FILES_DIR}/ethnocentric_rg.otf")
     exists = exists and os.path.exists(f"{TEST_FILES_DIR}/ethnocentric_rg_it.otf")
     if not exists:
@@ -658,6 +662,12 @@ def test_from_file9():
         print(caps)
         assert len(caps) == 2
         x.verify(30)
+
+def test_from_file10():
+    # If the filename has a space.
+    a = from_file(f"{TEST_FILES_DIR}/name with space.webm")
+    a.verify(a.frame_rate)
+
 
 def test_parse_subtitles():
     with pytest.raises(ValueError):
