@@ -41,6 +41,11 @@ class image_glob(VideoClip, FiniteIndexed):
         self.filenames = list(map(lambda x: os.path.join(os.getcwd(), x), self.filenames))
         FiniteIndexed.__init__(self, len(self.filenames), frame_rate, length)
 
+        # Get the modification times, which we'll use in the frame signatures.
+        self.stamps = [os.path.getmtime(x) for x in self.filenames]
+        print(self.stamps)
+
+        # Use a sample frame to get the metrics.
         sample_frame = cv2.imread(self.filenames[0])
         assert sample_frame is not None
 
@@ -50,7 +55,8 @@ class image_glob(VideoClip, FiniteIndexed):
                                length = len(self.filenames)/self.frame_rate)
 
     def frame_signature(self, t):
-        return self.filenames[self.time_to_frame_index(t)]
+        index = self.time_to_frame_index(t)
+        return f'{self.filenames[index]} as of {self.stamps[index]}'
 
     def request_frame(self, t):
         pass

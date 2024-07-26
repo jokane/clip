@@ -1463,7 +1463,7 @@ def test_image_glob6():
         os.system('ls -l')
 
         x = image_glob('brian.jpg', frame_rate=1)
-        
+
         os.utime('brian.jpg', (1000000, 1000000))
         os.system('ls -l')
 
@@ -1475,8 +1475,8 @@ def test_image_glob6():
         print(sig1)
         print(sig2)
 
-        assert(sig1 != sig2)
-        
+        assert sig1 != sig2
+
 
 def test_from_zip1():
     # Basic successful case with audio.
