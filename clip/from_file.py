@@ -240,9 +240,9 @@ def audio_samples_from_file(filename, cache, expected_sample_rate, expected_num_
         full_filename = os.path.join(os.getcwd(), filename)
         with temporary_current_directory():
             audio_filename = 'audio.flac'
-            ffmpeg( f'-i {full_filename}',
+            ffmpeg( f'-i "{full_filename}"',
                     '-vn',
-                    f'{audio_filename}')
+                    f'"{audio_filename}"')
             os.rename(audio_filename, cached_filename)
             cache.insert(cached_filename)
 
@@ -294,9 +294,9 @@ def subtitles_from_file(filename, cache):
     if not exists:
         print(f'Extracting subtitles from {filename}')
         with temporary_current_directory():
-            ffmpeg( f'-i {filename}',
+            ffmpeg( f'-i "{filename}"',
                    '-map 0:s:0',
-                    f'{subtitles_filename}')
+                    f'"{subtitles_filename}"')
 
     # Read the subtitles in from the file.
     with open(subtitles_filename, 'r') as f:
@@ -372,7 +372,7 @@ class from_file(Clip, FiniteIndexed):
         else:
             # No.  Get the metrics, then store in the cache for next time.
             print(f"Probing dimensions for {self.filename}")
-            with subprocess.Popen(f'ffprobe -hide_banner -v error {self.filename} '
+            with subprocess.Popen(f'ffprobe -hide_banner -v error "{self.filename}" '
                                   '-of compact -show_entries stream', shell=True,
                                   stdout=subprocess.PIPE) as proc:
                 deets = proc.stdout.read().decode('utf-8')
@@ -447,15 +447,13 @@ class from_file(Clip, FiniteIndexed):
             num_frames_expected = end_index - start_index
 
             # Extract the frames into the current temporary directory.
-            ffmpeg(
-                f'-ss {start_time}',
-                f'-t {length}',
-                f'-i {self.filename}',
-                f'-r {self.frame_rate}',
-                '%06d.png',
-                task=f'Exploding {os.path.basename(self.filename)}',
-                num_frames=num_frames_expected
-            )
+            ffmpeg(f'-ss {start_time}',
+                   f'-t {length}',
+                   f'-i "{self.filename}"',
+                   f'-r {self.frame_rate}',
+                   '%06d.png',
+                   task=f'Exploding {os.path.basename(self.filename)}',
+                   num_frames=num_frames_expected)
 
             # Add each frame that was extracted to the cache.
             for filename in sorted(glob.glob('*.png')):
