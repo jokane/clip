@@ -1455,6 +1455,29 @@ def test_image_glob5():
     with pytest.raises(ValueError):
         image_glob(f"{TEST_FILES_DIR}/bunny_frames/*.png")
 
+def test_image_glob6():
+    # Caching notices changes to an image.
+    with temporary_current_directory():
+        shutil.copyfile(f"{TEST_FILES_DIR}/brian.jpg", "./brian.jpg")
+        os.utime('brian.jpg', (0, 0))
+        os.system('ls -l')
+
+        x = image_glob('brian.jpg', frame_rate=1)
+        
+        os.utime('brian.jpg', (1000000, 1000000))
+        os.system('ls -l')
+
+        y = image_glob('brian.jpg', frame_rate=1)
+
+        sig1 = x.frame_signature(0.5)
+        sig2 = y.frame_signature(0.5)
+
+        print(sig1)
+        print(sig2)
+
+        assert(sig1 != sig2)
+        
+
 def test_from_zip1():
     # Basic successful case with audio.
     frame_rate = from_file(f"{TEST_FILES_DIR}/bunny.webm").frame_rate
