@@ -9,7 +9,8 @@ from .metrics import Metrics
 from .validate import require_callable, require_int, require_positive
 
 class filter_frames(MutatorClip):
-    """A clip formed by passing the frames of another clip through some function.
+    """A clip formed by passing the frames of another clip through some
+    function. |modify
 
     :param clip: The clip to filter.
     :param func: The filter function.
@@ -44,8 +45,8 @@ class filter_frames(MutatorClip):
           clip. This avoids generating a sample frame.
 
     Audio remains unchanged from the original `clip`.
-
-    |modify|"""
+    
+    """
 
     def __init__(self, clip, func, name=None, size=None):
         super().__init__(clip)
