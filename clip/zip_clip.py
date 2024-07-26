@@ -14,6 +14,7 @@ import soundfile
 
 from .audio import patch_audio_length
 from .base import Clip, FiniteIndexed, require_clip, frame_times
+from .from_file import parse_subtitles
 from .metrics import Metrics
 from .validate import require_string, require_float, require_positive, require_bool
 from .progress import custom_progressbar
@@ -83,6 +84,7 @@ class from_zip(Clip, FiniteIndexed):
         num_samples = round(sample_rate*video_length)
         self.samples = patch_audio_length(self.samples, num_samples)
 
+
         # Figure out the metrics.
         sample_frame = self.get_frame(0)
 
@@ -111,7 +113,16 @@ class from_zip(Clip, FiniteIndexed):
         return self.samples
 
     def get_subtitles(self):
-        return []
+        try:
+            info = self.zf.getinfo('subtitles.srt')
+        except KeyError:
+            yield from []
+            return
+
+        srt_text = self.zf.read(info).decode('utf-8')
+
+        yield from parse_subtitles(srt_text)
+
 
 def save_zip(clip, filename, frame_rate, include_audio=True, include_subtitles=None):
     """Save a clip to a zip archive of numbered images. |save|

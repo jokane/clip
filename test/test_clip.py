@@ -61,15 +61,13 @@ def get_test_files():  # pragma: no cover
             os.system("zip bunny-silent.zip bunny_frames/*.png")
 
     if not os.path.exists(f"{TEST_FILES_DIR}/subtitles.srt"):
-        srt = """
-1
+        srt = """1
 00:00:01,000 --> 00:00:05,000
 Look it's a bunny!
 
 2
 00:00:03,000 --> 00:00:10,000
-He seems tired.
-"""
+He seems tired."""
 
         with open(f"{TEST_FILES_DIR}/subtitles.srt", 'w') as f:
             print(srt, file=f)
@@ -1463,7 +1461,7 @@ def test_from_zip1():
     a = from_zip(f"{TEST_FILES_DIR}/bunny.zip", frame_rate=frame_rate)
     assert not a.is_silent()
     a.verify(frame_rate)
-    assert len(a.get_subtitles()) == 0
+    assert len(list(a.get_subtitles())) == 0
 
 def test_from_zip2():
     # Basic successful case without audio.
@@ -1471,7 +1469,7 @@ def test_from_zip2():
     a = from_zip(f"{TEST_FILES_DIR}/bunny-silent.zip", frame_rate=frame_rate)
     assert a.is_silent()
     a.verify(frame_rate)
-    assert len(a.get_subtitles()) == 0
+    assert len(list(a.get_subtitles())) == 0
 
 def test_from_zip3():
     # Audio and video lengths mismatch just a little.  Patch the audio length
@@ -1480,7 +1478,7 @@ def test_from_zip3():
     a = from_zip(f"{TEST_FILES_DIR}/bunny.zip", frame_rate=frame_rate+0.001)
     assert not a.is_silent()
     a.verify(frame_rate)
-    assert len(a.get_subtitles()) == 0
+    assert len(list(a.get_subtitles())) == 0
 
 def test_from_zip4():
     # Audio and video lengths mismatch badly.  Abort.
@@ -1496,7 +1494,7 @@ def test_from_zip5():
 def test_from_zip6():
     # Subtitles are read.
     a = from_zip(f"{TEST_FILES_DIR}/bunny-subtitled.zip", frame_rate=15)
-    assert len(a.get_subtitles()) == 2
+    assert len(list(a.get_subtitles())) == 2
 
 def test_to_default_metrics():
     a = from_file(f"{TEST_FILES_DIR}/bunny.webm")

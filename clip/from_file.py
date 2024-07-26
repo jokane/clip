@@ -298,11 +298,11 @@ def subtitles_from_file(filename, cache):
                    '-map 0:s:0',
                     f'{subtitles_filename}')
 
-    # Read the subtitles in the from the file.
+    # Read the subtitles in from the file.
     with open(subtitles_filename, 'r') as f:
         srt_text = f.read().strip()
 
-    # Sendd 'em back.
+    # Send 'em back.
     yield from parse_subtitles(srt_text)
 
 class from_file(Clip, FiniteIndexed):
