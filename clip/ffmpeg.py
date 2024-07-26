@@ -64,14 +64,14 @@ def save_via_ffmpeg(clip, filename, frame_rate, output_args, use_audio, use_subt
 
             if not two_pass:
                 ffmpeg(task=f"Encoding {filename}",
-                       *(input_args + output_args + [f'{full_fname}']),
+                       *(input_args + output_args + [f'"{full_fname}"']),
                        num_frames=num_frames)
             else:
                 ffmpeg(task=f"Encoding {filename}, pass 1",
                        *(input_args + output_args + ['-pass 1', '/dev/null']),
                        num_frames=num_frames)
                 ffmpeg(task=f"Encoding {filename}, pass 2",
-                       *(input_args + output_args + ['-pass 2', f'{full_fname}']),
+                       *(input_args + output_args + ['-pass 2', f'"{full_fname}"']),
                        num_frames=num_frames)
 
     print(f'Wrote {clip.readable_length()} to {filename}.')
