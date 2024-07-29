@@ -174,12 +174,24 @@ def test_require_iterable():
         require_iterable(1, 'some list')
 
 
-def test_ffmpeg():
+def test_ffmpeg1():
     with pytest.raises(FFMPEGException), temporary_current_directory():
         ffmpeg('-i /dev/zero', '/dev/null')
 
+def test_ffmpeg2():
     with pytest.raises(FFMPEGException), temporary_current_directory():
         ffmpeg('-i /dev/zero', '/dev/null', task="Testing", num_frames=100)
+
+def test_ffmpeg3():
+    # A useful error message if ffmpeg is not available.
+    old_env = os.environ.copy()
+    try:
+        os.environ['PATH'] = ''
+        with pytest.raises(FileNotFoundError):
+            ffmpeg('-i /dev/zero', '/dev/null', task="", num_frames=100)
+    finally:
+        os.environ.clear()
+        os.environ.update(old_env)
 
 def test_temporary_current_directory():
     with temporary_current_directory():
