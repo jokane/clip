@@ -94,6 +94,9 @@ def ffmpeg(*args, task=None, num_frames=None):
 
     """
 
+    if shutil.which('ffmpeg') is None:
+        raise FileNotFoundError('Could not find the FFMEG executable.  Is FFMPEG installed?')
+
     with tempfile.NamedTemporaryFile() as stats:
         command = f"ffmpeg -y -vstats_file {stats.name} {' '.join(args)} 2> errors"
         with subprocess.Popen(command, shell=True) as proc:
