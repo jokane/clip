@@ -433,10 +433,11 @@ def test_save_audio():
 
 def test_save_gif1():
     # Save to gif works correctly, even if there are subtitles.
-    a = from_file(f"{TEST_FILES_DIR}/bunny.webm")
+    a = slice_clip(from_file(f"{TEST_FILES_DIR}/bunny.webm"), 0, 5)
     b = add_subtitles(a, (0, a.length(), "It's a bunny!"))
     with temporary_current_directory():
-        save_gif(b, 'test.gif', frame_rate=10)
+        save_gif(b, 'with.gif', frame_rate=10, burn_subtitles=True)
+        save_gif(b, 'without.gif', frame_rate=10, burn_subtitles=False)
 
 def test_save_gif2():
     # Filename with a space.
