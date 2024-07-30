@@ -1605,6 +1605,28 @@ def test_from_zip6():
     a = from_zip(f"{TEST_FILES_DIR}/bunny-subtitled.zip", frame_rate=15)
     assert len(list(a.get_subtitles())) == 2
 
+def test_from_zip7():
+    frame_rate = from_file(f"{TEST_FILES_DIR}/bunny.webm").frame_rate
+    with temporary_current_directory():
+        shutil.copyfile(f"{TEST_FILES_DIR}/bunny.zip", "bunny.zip")
+        os.utime('bunny.zip', (0, 0))
+        os.system('ls -l')
+
+        x = from_zip('bunny.zip', frame_rate)
+
+        os.utime('bunny.zip', (1000000, 1000000))
+        os.system('ls -l')
+
+        y = from_zip('bunny.zip', frame_rate)
+
+        sig1 = x.frame_signature(0.5)
+        sig2 = y.frame_signature(0.5)
+
+        print(sig1)
+        print(sig2)
+
+        assert sig1 != sig2
+
 def test_to_default_metrics():
     a = from_file(f"{TEST_FILES_DIR}/bunny.webm")
     a = slice_clip(a, 0, 1.0)
