@@ -1863,6 +1863,19 @@ def test_rosbag():
         assert a.width() == b.width()
         assert a.height() == b.height()
 
+        os.utime('test.bag', (1000000, 1000000))
+        c = from_rosbag(pathname='test.bag',
+                        topic='T')
+
+        sig1 = b.frame_signature(0.5)
+        sig2 = c.frame_signature(0.5)
+
+        print(sig1)
+        print(sig2)
+
+        assert sig1 != sig2
+
+
         # Length will not match exactly because of the duration of the last
         # frame, which is not stored in the rosbag.
         assert abs(b.length() - 2.0) < 0.1, b.length()
