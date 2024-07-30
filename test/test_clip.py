@@ -715,6 +715,15 @@ def test_from_file11():
 
         assert sig1 != sig2
 
+def test_from_file12():
+    # Caching notices changes to dimensions.
+    with temporary_current_directory():
+        shutil.copyfile(f"{TEST_FILES_DIR}/books.mp4", "./x")
+        from_file('x')
+        shutil.copyfile(f"{TEST_FILES_DIR}/bunny.webm", "./x")
+        y = from_file('x')
+        y.verify(y.frame_rate)
+
 def test_parse_subtitles():
     with pytest.raises(ValueError):
         print(list(parse_subtitles('1\n00:00:00,001 -> A0:00:00,002')))
