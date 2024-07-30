@@ -5,6 +5,7 @@
 
 import sys
 import os
+import subprocess
 
 
 sys.path.insert(0, os.path.join(os.path.split(__file__)[0], '..'))
@@ -18,6 +19,11 @@ import generate
 project = 'clip'
 copyright = "2024, Jason O'Kane"
 author = "Jason O'Kane"
+
+version_filename = os.path.join(os.path.split(__file__)[0], "../clip/version.py")
+with open(version_filename) as version_file:
+    exec(compile(version_file.read(), version_filename, "exec"))
+version = version_from_git()
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
