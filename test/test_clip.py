@@ -1371,10 +1371,31 @@ def test_crop():
     with pytest.raises(ValueError):
         crop(a, [10, 10], [100, 10000])
 
-def test_draw_text():
+def test_draw_text1():
     font = f"{TEST_FILES_DIR}/ethnocentric_rg_it.otf"
     x = draw_text("Hello!", font, font_size=200, color=[255,0,255], length=5)
     x.verify(10)
+
+def test_draw_text2():
+    # Caching notices changes to the source.
+    with temporary_current_directory():
+        font = f"{TEST_FILES_DIR}/ethnocentric_rg_it.otf"
+        shutil.copyfile(font, 'font.otf')
+        os.utime('font.otf', (0, 0))
+
+        x = draw_text("Hello!", 'font.otf', font_size=200, color=[255,0,255], length=5)
+
+        os.utime('font.otf', (1000000, 1000000))
+
+        y = draw_text("Hello!", 'font.otf', font_size=200, color=[255,0,255], length=5)
+
+        sig1 = x.frame_signature(0.5)
+        sig2 = y.frame_signature(0.5)
+
+        print(sig1)
+        print(sig2)
+
+        assert sig1 != sig2
 
 def test_to_monochrome():
     a = black(640, 480, 3)
