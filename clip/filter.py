@@ -10,12 +10,12 @@ from .validate import require_callable, require_int, require_positive
 
 class filter_frames(MutatorClip):
     """A clip formed by passing the frames of another clip through some
-    function. |modify
+    function. |modify|
 
     :param clip: The clip to filter.
     :param func: The filter function.
     :param name: A name for the filter.
-    :param size: The size of the output frames, on None
+    :param size: The size of the output frames, or None.
 
     For `func`, provide a callable that takes either one or two arguments.
 
