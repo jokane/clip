@@ -34,7 +34,7 @@ def get_test_files():  # pragma: no cover
             print(f"Downloading {fname}...")
             urllib.request.urlretrieve(url, f"{TEST_FILES_DIR}/" + fname)
 
-    snag("books.mp4", "https://www.pexels.com/video/5224014/download")
+    snag("books.mp4", "https://videos.pexels.com/video-files/2268807/2268807-sd_426_240_24fps.mp4")
     snag("music.mp3", "https://www.dropbox.com/s/mvvwaw1msplnteq/City%20Lights%20-%20The%20Lemming%20Shepherds.mp3?dl=1") #pylint: disable=line-too-long
     snag("water.png", "https://cdn.pixabay.com/photo/2017/09/14/11/07/water-2748640_1280.png")
     snag("flowers.png", "https://cdn.pixabay.com/photo/2017/02/11/17/08/flowers-2058090_1280.png")
