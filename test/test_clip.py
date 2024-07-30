@@ -693,6 +693,27 @@ def test_from_file10():
     a = from_file(f"{TEST_FILES_DIR}/name with space.webm")
     a.verify(a.frame_rate)
 
+def test_from_file11():
+    # Caching notices changes to the source.
+    with temporary_current_directory():
+        shutil.copyfile(f"{TEST_FILES_DIR}/books.mp4", "./books.mp4")
+        os.utime('books.mp4', (0, 0))
+        os.system('ls -l')
+
+        x = from_file('books.mp4')
+
+        os.utime('books.mp4', (1000000, 1000000))
+        os.system('ls -l')
+
+        y = from_file('books.mp4')
+
+        sig1 = x.frame_signature(0.5)
+        sig2 = y.frame_signature(0.5)
+
+        print(sig1)
+        print(sig2)
+
+        assert sig1 != sig2
 
 def test_parse_subtitles():
     with pytest.raises(ValueError):
