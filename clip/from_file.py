@@ -362,7 +362,7 @@ class from_file(Clip, FiniteIndexed):
         cache, or by getting them the hard way via ffprobe."""
 
         # Do we have the metrics in the cache?
-        dimensions_filename, exists = self.cache.lookup('dimensions',
+        dimensions_filename, exists = self.cache.lookup(f'dimensions-{self.file_timestamp}',
                                                         'dim',
                                                         use_hash=False)
 
