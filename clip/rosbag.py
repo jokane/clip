@@ -4,6 +4,7 @@ framework--- as a video. """
 
 import bisect
 import itertools
+import os
 import pathlib
 import statistics
 
@@ -59,6 +60,7 @@ class from_rosbag(VideoClip):
     def __init__(self, pathname, topic):
         super().__init__()
         self.pathname = pathname
+        self.timestamp = os.path.getmtime(self.pathname)
         self.topic = topic
 
         path = pathlib.Path(pathname)
@@ -94,6 +96,7 @@ class from_rosbag(VideoClip):
     def frame_signature(self, t):
         return [ 'rosbag',
                 self.pathname,
+                self.timestamp,
                 self.topic,
                 t ]
 
