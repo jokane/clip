@@ -2,7 +2,7 @@
 Installation
 ============
 
-You can install ``clip``, directly from github:
+You can install ``clip`` directly from github::
 
     $ pip install -U git+https://github.com/jokane/clip
 
