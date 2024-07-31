@@ -1412,6 +1412,20 @@ def test_draw_text3():
 
     assert sig1 == sig2
 
+def test_draw_text4():
+    # Changes in the color DO affect the signature.
+    font = f"{TEST_FILES_DIR}/ethnocentric_rg_it.otf"
+    x = draw_text("Hello!", font, font_size=200, color=[255,0,255], length=5)
+    y = draw_text("Hello!", font, font_size=200, color=[255,0,0], length=5)
+
+    sig1 = x.frame_signature(0.5)
+    sig2 = y.frame_signature(0.5)
+
+    print(sig1)
+    print(sig2)
+
+    assert sig1 != sig2
+
 
 def test_to_monochrome():
     a = black(640, 480, 3)
