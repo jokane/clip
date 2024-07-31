@@ -95,7 +95,7 @@ class Element:
             require_int(position[1], "position y")
 
         elif not callable(position):
-            raise TypeError(f'Position should be tuple (x,y) or callable,'
+            raise TypeError(f'Position should be tuple (x,y) or callable, '
                             f'not {type(position)} {position}')
 
         if not isinstance(video_mode, VideoMode):
