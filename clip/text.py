@@ -75,7 +75,7 @@ class draw_text(VideoClip):
 
     def frame_signature(self, t):
         return ['text', self.text, self.font_filename, self.font_timestamp,
-                self.font_size, self.length()]
+                self.font_size, self.color]
 
     def request_frame(self, t):
         pass
