@@ -10,8 +10,11 @@ show Clip-returing functions and Clip classes in the same way.
 
 import contextlib
 import datetime
+import dis
 import glob
 import inspect
+import io
+import importlib
 import os
 import re
 import sys
@@ -28,6 +31,8 @@ tags = [
     'save', # for things that save or otherwise consume a completed clip
 ] 
 
+# These are things to omit from the API reference, mostly because they are
+# imported from the standard library.
 exclude = [
     'ABC',
     'abstractmethod',
@@ -59,7 +64,47 @@ def main():
     os.chdir(os.path.split(__file__)[0])
     os.makedirs(MAIN_DIR, exist_ok=True)
     
-    print('Generating documentation...')
+    print('Generating documentation.')
+
+    # Examples
+    print ('- Documenting examples:')
+    with open(os.path.join(MAIN_DIR, 'examples.rst'), 'w') as f:
+        for filename in glob.glob('../examples/*.py'):
+            basename = os.path.basename(filename)
+            print('  ', basename)
+
+            spec = importlib.util.spec_from_file_location('the_module', filename)
+            assert spec is not None
+            mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(mod)
+
+            header(f"`{basename}`", f)
+            print(mod.__doc__, file=f)
+
+            sio = io.StringIO()
+            dis.dis(mod, file=sio)
+            disassembled = sio.getvalue()
+            
+            print(file=f)
+            print('Clip features used in this example: ', file=f, end='')
+
+            for match in re.finditer(r'(LOAD_GLOBAL\s+\d+\s+\(clip\)\n\s+\d+\s+LOAD_([A-Z]*)\s+\d+\s+\(([a-zA-Z0-9_]+)\))', disassembled):
+                item_name = match.group(3)
+                item = clip.__dict__[item_name]
+                if inspect.isclass(item):
+                    item_type = 'class'
+                elif callable(item):
+                    item_type = 'func'
+                else:
+                    assert False, (item_name)
+                print(f"  :{item_type}:`{item_name}` ", file=f, end='')
+            print('\n', file=f)
+            print(file=f)
+            print(f"`{basename} on github <https://github.com/jokane/clip/blob/master/examples/{basename}>`_", file=f)
+            print('\n\n\n', file=f)
+
+    # API Reference and tag lists
+    print ('- Documenting classes and functions:')
     with contextlib.ExitStack() as exst:
         f_ref = exst.enter_context(open(os.path.join(MAIN_DIR, 'reference.rst'), 'w'))
         header('API reference', f_ref)
@@ -74,7 +119,6 @@ def main():
 
             thing_tags = [tag for tag in tags if f'|{tag}|' in doc]
 
-            print('  ', name, ' '.join([f'#{tag}' for tag in thing_tags]))
 
             basename = f'{name}.rst'
             filename = os.path.join(MAIN_DIR, basename)
@@ -84,9 +128,17 @@ def main():
                 if not ('|from-source|' in doc or '|modify|' in doc or '|ex-nihilo|' in doc):
                     print('    :members:', file=f_ref)
                 print(file=f_ref)
+                doc = True
             elif callable(thing):
                 print(f'.. autofunction:: {name}', file=f_ref)
                 print(file=f_ref)
+                doc = True
+            else:
+                # Ignore other things, of which there are many.
+                doc = False
+
+            if doc:
+                print('  ', name, ' '.join([f'#{tag}' for tag in thing_tags]))
 
             for tag in thing_tags:
                 print(f':func:`clip.{name}`', file=f_tag[tag])

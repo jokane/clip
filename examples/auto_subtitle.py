@@ -97,7 +97,7 @@ class auto_subtitle(clip.MutatorClip):
         yield from group_words(result['result'])
 
 
-if __name__ == '__main__':
+def main():
     # pylint: disable=line-too-long
     url = "https://www.fdrlibrary.org/documents/356632/405112/afdr244.mp3/b37c9e47-9056-4932-b08b-d85cc22e586b"
     filename = '1941-12-07.mp3'
@@ -112,3 +112,5 @@ if __name__ == '__main__':
 
     clip.save_mp4(speech_sliced_subtitled, 'roosevelt.mp4', 5)
 
+if __name__ == '__main__':
+    main()

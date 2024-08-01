@@ -15,5 +15,6 @@ filtering the frames through custom functions.
 
    install
    guide
+   examples
    reference
    details
