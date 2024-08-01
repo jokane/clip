@@ -3,7 +3,7 @@
 import numba
 import numpy as np
 
-from .base import MutatorClip
+from .base import MutatorClip, require_clip
 from .validate import require_callable, require_float, is_float
 
 @numba.jit(nopython=True) # pragma: no cover
@@ -63,6 +63,8 @@ class scale_alpha(MutatorClip):
     """
     def __init__(self, clip, factor):
         super().__init__(clip)
+
+        require_clip(clip, 'clip')
 
         # Make sure we got either a constant float or a callable.
         if is_float(factor):
