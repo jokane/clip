@@ -295,10 +295,27 @@ def test_mutator():
     b = MutatorClip(a)
     b.verify(30)
 
-def test_scale_alpha():
-    a = black(640, 480, 5)
+def test_scale_alpha1():
+    # A constant factor applies a constant scale.
+    a = black(10, 10, 300)
     b = scale_alpha(a, 0.5)
     b.verify(30)
+
+    f1 = b.get_frame(1)
+    f2 = b.get_frame(299)
+
+    assert (f1 == f2).all()
+
+def test_scale_alpha2():
+    # A callable factor applies a constant scale.
+    a = black(10, 10, 300)
+    b = scale_alpha(a, lambda t: (255/300)*t)
+    b.verify(30)
+
+    f1 = b.get_frame(1)
+    f2 = b.get_frame(299)
+
+    assert (f1 != f2).any()
 
 def test_black():
     black(640, 480, 300).verify(30)
