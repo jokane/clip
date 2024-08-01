@@ -66,18 +66,20 @@ class scale_alpha(MutatorClip):
 
         # Make sure we got either a constant float or a callable.
         if is_float(factor):
-            factor = lambda x: x
-        require_callable(factor, "factor function")
+            func = lambda x: factor
+        else:
+            func = factor
+        require_callable(func, "factor function")
 
-        self.factor = factor
+        self.func = func
 
     def frame_signature(self, t):
-        factor = self.factor(t)
+        factor = self.func(t)
         require_float(factor, f'factor at time {t}')
         return ['scale_alpha', self.clip.frame_signature(t), factor]
 
     def get_frame(self, t):
-        factor = self.factor(t)
+        factor = self.func(t)
         require_float(factor, f'factor at time {t}')
         frame = self.clip.get_frame(t)
         if factor != 1.0:
