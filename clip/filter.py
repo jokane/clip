@@ -35,8 +35,8 @@ class filter_frames(MutatorClip):
 
         - Set `size` to `None` to infer the width and height of the result by
           executing the filter function on a sample frame.  This can be slow
-          if, for example, `clip` is (or relies upon) `from_file` clip or other
-          time-intensive source.
+          if, for example, `clip` is (or relies upon) :class:`from_file` clip
+          or other time-intensive source.
 
         - Set size to a tuple of two positive integers `(width, height)` if you
           know them.  This avoids generating a sample frame.

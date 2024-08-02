@@ -295,10 +295,27 @@ def test_mutator():
     b = MutatorClip(a)
     b.verify(30)
 
-def test_scale_alpha():
-    a = black(640, 480, 5)
+def test_scale_alpha1():
+    # A constant factor applies a constant scale.
+    a = black(10, 10, 300)
     b = scale_alpha(a, 0.5)
     b.verify(30)
+
+    f1 = b.get_frame(1)
+    f2 = b.get_frame(299)
+
+    assert (f1 == f2).all()
+
+def test_scale_alpha2():
+    # A callable factor applies a constant scale.
+    a = black(10, 10, 300)
+    b = scale_alpha(a, lambda t: (255/300)*t)
+    b.verify(30)
+
+    f1 = b.get_frame(1)
+    f2 = b.get_frame(299)
+
+    assert (f1 != f2).any()
 
 def test_black():
     black(640, 480, 300).verify(30)
@@ -433,10 +450,11 @@ def test_save_audio():
 
 def test_save_gif1():
     # Save to gif works correctly, even if there are subtitles.
-    a = from_file(f"{TEST_FILES_DIR}/bunny.webm")
+    a = slice_clip(from_file(f"{TEST_FILES_DIR}/bunny.webm"), 0, 5)
     b = add_subtitles(a, (0, a.length(), "It's a bunny!"))
     with temporary_current_directory():
-        save_gif(b, 'test.gif', frame_rate=10)
+        save_gif(b, 'with.gif', frame_rate=10, burn_subtitles=True)
+        save_gif(b, 'without.gif', frame_rate=10, burn_subtitles=False)
 
 def test_save_gif2():
     # Filename with a space.
@@ -693,6 +711,36 @@ def test_from_file10():
     a = from_file(f"{TEST_FILES_DIR}/name with space.webm")
     a.verify(a.frame_rate)
 
+def test_from_file11():
+    # Caching notices changes to the source.
+    with temporary_current_directory():
+        shutil.copyfile(f"{TEST_FILES_DIR}/books.mp4", "./books.mp4")
+        os.utime('books.mp4', (0, 0))
+        os.system('ls -l')
+
+        x = from_file('books.mp4')
+
+        os.utime('books.mp4', (1000000, 1000000))
+        os.system('ls -l')
+
+        y = from_file('books.mp4')
+
+        sig1 = x.frame_signature(0.5)
+        sig2 = y.frame_signature(0.5)
+
+        print(sig1)
+        print(sig2)
+
+        assert sig1 != sig2
+
+def test_from_file12():
+    # Caching notices changes to dimensions.
+    with temporary_current_directory():
+        shutil.copyfile(f"{TEST_FILES_DIR}/books.mp4", "./x")
+        from_file('x')
+        shutil.copyfile(f"{TEST_FILES_DIR}/bunny.webm", "./x")
+        y = from_file('x')
+        y.verify(y.frame_rate)
 
 def test_parse_subtitles():
     with pytest.raises(ValueError):
@@ -1341,10 +1389,60 @@ def test_crop():
     with pytest.raises(ValueError):
         crop(a, [10, 10], [100, 10000])
 
-def test_draw_text():
+def test_draw_text1():
     font = f"{TEST_FILES_DIR}/ethnocentric_rg_it.otf"
     x = draw_text("Hello!", font, font_size=200, color=[255,0,255], length=5)
     x.verify(10)
+
+def test_draw_text2():
+    # Caching notices changes to the source.
+    with temporary_current_directory():
+        font = f"{TEST_FILES_DIR}/ethnocentric_rg_it.otf"
+        shutil.copyfile(font, 'font.otf')
+        os.utime('font.otf', (0, 0))
+
+        x = draw_text("Hello!", 'font.otf', font_size=200, color=[255,0,255], length=5)
+
+        os.utime('font.otf', (1000000, 1000000))
+
+        y = draw_text("Hello!", 'font.otf', font_size=200, color=[255,0,255], length=5)
+
+        sig1 = x.frame_signature(0.5)
+        sig2 = y.frame_signature(0.5)
+
+        print(sig1)
+        print(sig2)
+
+        assert sig1 != sig2
+
+def test_draw_text3():
+    # Changes in the length don't affect the signature.
+    font = f"{TEST_FILES_DIR}/ethnocentric_rg_it.otf"
+    x = draw_text("Hello!", font, font_size=200, color=[255,0,255], length=5)
+    y = draw_text("Hello!", font, font_size=200, color=[255,0,255], length=10)
+
+    sig1 = x.frame_signature(0.5)
+    sig2 = y.frame_signature(0.5)
+
+    print(sig1)
+    print(sig2)
+
+    assert sig1 == sig2
+
+def test_draw_text4():
+    # Changes in the color DO affect the signature.
+    font = f"{TEST_FILES_DIR}/ethnocentric_rg_it.otf"
+    x = draw_text("Hello!", font, font_size=200, color=[255,0,255], length=5)
+    y = draw_text("Hello!", font, font_size=200, color=[255,0,0], length=5)
+
+    sig1 = x.frame_signature(0.5)
+    sig2 = y.frame_signature(0.5)
+
+    print(sig1)
+    print(sig2)
+
+    assert sig1 != sig2
+
 
 def test_to_monochrome():
     a = black(640, 480, 3)
@@ -1553,6 +1651,28 @@ def test_from_zip6():
     # Subtitles are read.
     a = from_zip(f"{TEST_FILES_DIR}/bunny-subtitled.zip", frame_rate=15)
     assert len(list(a.get_subtitles())) == 2
+
+def test_from_zip7():
+    frame_rate = from_file(f"{TEST_FILES_DIR}/bunny.webm").frame_rate
+    with temporary_current_directory():
+        shutil.copyfile(f"{TEST_FILES_DIR}/bunny.zip", "bunny.zip")
+        os.utime('bunny.zip', (0, 0))
+        os.system('ls -l')
+
+        x = from_zip('bunny.zip', frame_rate)
+
+        os.utime('bunny.zip', (1000000, 1000000))
+        os.system('ls -l')
+
+        y = from_zip('bunny.zip', frame_rate)
+
+        sig1 = x.frame_signature(0.5)
+        sig2 = y.frame_signature(0.5)
+
+        print(sig1)
+        print(sig2)
+
+        assert sig1 != sig2
 
 def test_to_default_metrics():
     a = from_file(f"{TEST_FILES_DIR}/bunny.webm")
@@ -1811,6 +1931,19 @@ def test_rosbag():
 
         assert a.width() == b.width()
         assert a.height() == b.height()
+
+        os.utime('test.bag', (1000000, 1000000))
+        c = from_rosbag(pathname='test.bag',
+                        topic='T')
+
+        sig1 = b.frame_signature(0.5)
+        sig2 = c.frame_signature(0.5)
+
+        print(sig1)
+        print(sig2)
+
+        assert sig1 != sig2
+
 
         # Length will not match exactly because of the duration of the last
         # frame, which is not stored in the rosbag.

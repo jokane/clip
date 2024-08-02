@@ -44,6 +44,7 @@ class from_zip(Clip, FiniteIndexed):
 
         # Open the zip archive.
         self.filename = filename
+        self.timestamp = os.path.getmtime(self.filename)
         self.zf = zipfile.ZipFile(filename, 'r') #pylint: disable=consider-using-with
         info_list = self.zf.infolist()
 
@@ -96,7 +97,8 @@ class from_zip(Clip, FiniteIndexed):
 
     def frame_signature(self, t):
         index = self.time_to_frame_index(t)
-        return ['zip file member', self.filename, self.image_info_list[index].filename]
+        return ['zip file member', self.filename, self.timestamp,
+                self.image_info_list[index].filename]
 
     def request_frame(self, t):
         pass

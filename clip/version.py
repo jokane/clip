@@ -15,3 +15,6 @@ def version_from_git():
         version = version[1:]
     return version
 
+if __name__ == '__main__':
+    print(version_from_git())
+

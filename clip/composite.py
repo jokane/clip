@@ -95,7 +95,7 @@ class Element:
             require_int(position[1], "position y")
 
         elif not callable(position):
-            raise TypeError(f'Position should be tuple (x,y) or callable,'
+            raise TypeError(f'Position should be tuple (x,y) or callable, '
                             f'not {type(position)} {position}')
 
         if not isinstance(video_mode, VideoMode):
@@ -112,8 +112,8 @@ class Element:
 
     def required_dimensions(self):
         """Return the `(width, height)` needed to show this element as fully as
-        possible.  Note that these dimensions may show all of the clip, things
-        at negative coordinates will still be hidden."""
+        possible.  Note that these dimensions may not show all of the clip,
+        because things at negative coordinates will still be hidden."""
         if callable(self.position):
             nw, nh = 0, 0
             for t in frame_times(self.clip.length(), 100):

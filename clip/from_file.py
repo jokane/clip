@@ -337,6 +337,8 @@ class from_file(Clip, FiniteIndexed):
             raise FileNotFoundError(f"Could not open file {filename}.")
         self.filename = os.path.abspath(filename)
 
+        self.file_timestamp = os.path.getmtime(self.filename)
+
         if cache_dir is None:
             cache_dir = os.path.join('/tmp/clipcache', re.sub('/', '_', self.filename))
         else:
@@ -360,7 +362,7 @@ class from_file(Clip, FiniteIndexed):
         cache, or by getting them the hard way via ffprobe."""
 
         # Do we have the metrics in the cache?
-        dimensions_filename, exists = self.cache.lookup('dimensions',
+        dimensions_filename, exists = self.cache.lookup(f'dimensions-{self.file_timestamp}',
                                                         'dim',
                                                         use_hash=False)
 
@@ -394,7 +396,7 @@ class from_file(Clip, FiniteIndexed):
 
         if self.has_video:
             index = self.time_to_frame_index(t)
-            return [self.filename, index]
+            return [self.filename, self.file_timestamp, index]
         else:
             return ['solid', {
                 'width': self.metrics.width,

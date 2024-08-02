@@ -1,4 +1,5 @@
 """ A tool for creating clips that display text. """
+import os
 
 import numpy as np
 from PIL import ImageFont, ImageDraw, Image
@@ -67,13 +68,14 @@ class draw_text(VideoClip):
 
         self.text = text
         self.font_filename = font_filename
+        self.font_timestamp = os.path.getmtime(self.font_filename)
         self.font_size = font_size
         self.color = color
         self.frame = None
 
     def frame_signature(self, t):
-        return ['text', self.text, self.font_filename, self.font_size,
-          self.length()]
+        return ['text', self.text, self.font_filename, self.font_timestamp,
+                self.font_size, self.color]
 
     def request_frame(self, t):
         pass

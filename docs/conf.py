@@ -7,7 +7,6 @@ import sys
 import os
 import subprocess
 
-
 sys.path.insert(0, os.path.join(os.path.split(__file__)[0], '..'))
 sys.path.insert(0, os.path.join(os.path.split(__file__)[0], '.'))
 

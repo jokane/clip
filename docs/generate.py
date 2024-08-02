@@ -10,14 +10,19 @@ show Clip-returing functions and Clip classes in the same way.
 
 import contextlib
 import datetime
+import dis
 import glob
 import inspect
+import io
+import importlib
 import os
 import re
+import subprocess
 import sys
 
 sys.path.insert(0, os.path.join(os.path.split(__file__)[0], '..'))
 import clip
+import clip.version
 
 # These are tags that we look for in the docstrings.  We'll create RST files
 # with a list of each of them, to include in the user guide.
@@ -28,14 +33,14 @@ tags = [
     'save', # for things that save or otherwise consume a completed clip
 ] 
 
-exclude = [
-    'ABC',
-    'abstractmethod',
-    'CompressedImage',
-    'Time',
-    'Enum',
-    'Header',
-]
+# These are things to omit from the API reference, mostly because they are
+# imported from the standard library.
+exclude = ['ABC',
+           'abstractmethod',
+           'CompressedImage',
+           'Time',
+           'Enum',
+           'Header']
 
 MAIN_DIR='_generated'
 
@@ -59,7 +64,74 @@ def main():
     os.chdir(os.path.split(__file__)[0])
     os.makedirs(MAIN_DIR, exist_ok=True)
     
-    print('Generating documentation...')
+    print('Generating documentation.')
+
+    version = clip.version.version_from_git()
+    if 'dev' in version:
+        gitref = subprocess.check_output(['git', 'log', '-1', "--pretty=format:%H"]).decode('utf-8')
+    else:
+        gitref = version
+
+    # Examples
+    print ('- Documenting examples:')
+    examples_using = {} # Key: name of item in clip module; Value: List of examples using that item.
+    with open(os.path.join(MAIN_DIR, 'examples.rst'), 'w') as f:
+        header(title=None, f=f)
+        for filename in sorted(glob.glob('../examples/*.py')):
+            basename = os.path.basename(filename)
+            cleanname = re.sub('[^a-zA-Z0-9]', '', basename)
+            ref_text = f':ref:`{cleanname}`'
+
+            print('  ', basename)
+
+            spec = importlib.util.spec_from_file_location('the_module', filename)
+            assert spec is not None
+            mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(mod)
+
+            print(file=f)
+            print(f'.. _{cleanname}:', file=f)
+            print(file=f)
+            print(basename, file=f)
+            print('='*len(basename), file=f)
+            print('- Description:', file=f)
+            print(file=f)
+            doc = mod.__doc__
+            doc = re.sub('^', '    ', doc, flags=re.MULTILINE)
+            print(doc, file=f)
+
+            sio = io.StringIO()
+            dis.dis(mod, file=sio)
+            disassembled = sio.getvalue()
+            
+            print(file=f)
+            print('- Features used in this example: ', file=f)
+            print(file=f)
+            print(file=f)
+
+            for match in re.finditer(r'(LOAD_GLOBAL\s+\d+\s+\(clip\)\n\s+\d+\s+LOAD_([A-Z]*)\s+\d+\s+\(([a-zA-Z0-9_]+)\))', disassembled):
+                item_name = match.group(3)
+                item = clip.__dict__[item_name]
+                if inspect.isclass(item):
+                    item_type = 'class'
+                elif callable(item):
+                    item_type = 'func'
+                else:
+                    assert False, (item_name)
+                print(f"    :{item_type}:`{item_name}` ", file=f)
+
+                try:
+                    examples_using[item_name].add(ref_text)
+                except KeyError:
+                    examples_using[item_name] = set([ref_text])
+
+            print('\n', file=f)
+            print(file=f)
+            print(f"- View `{basename} on github <https://github.com/jokane/clip/blob/{gitref}/examples/{basename}>`_.", file=f)
+            print('\n\n\n', file=f)
+
+    # API Reference and tag lists
+    print ('- Documenting classes and functions:')
     with contextlib.ExitStack() as exst:
         f_ref = exst.enter_context(open(os.path.join(MAIN_DIR, 'reference.rst'), 'w'))
         header('API reference', f_ref)
@@ -74,7 +146,6 @@ def main():
 
             thing_tags = [tag for tag in tags if f'|{tag}|' in doc]
 
-            print('  ', name, ' '.join([f'#{tag}' for tag in thing_tags]))
 
             basename = f'{name}.rst'
             filename = os.path.join(MAIN_DIR, basename)
@@ -83,10 +154,31 @@ def main():
                 print(f'.. autoclass:: {name}', file=f_ref)
                 if not ('|from-source|' in doc or '|modify|' in doc or '|ex-nihilo|' in doc):
                     print('    :members:', file=f_ref)
-                print(file=f_ref)
+                doc = True
             elif callable(thing):
                 print(f'.. autofunction:: {name}', file=f_ref)
+                doc = True
+            else:
+                # Ignore other things, of which there are many.
+                doc = False
+
+            if doc:
+                print('  ', name, ' '.join([f'#{tag}' for tag in thing_tags]))
+
+            if name in examples_using and name != 'Clip':
+                examples = sorted(list(examples_using[name]))
+                if len(examples) == 1:
+                    exes = examples[0]
+                elif len(examples) == 2:
+                    exes = f'{examples[0]} and {examples[1]}'
+                else:
+                    exes = f"{', '.join(examples[:-1])}, and {examples[-1]}"
+                    
+                s = '' if len(examples) == 1 else 's'
                 print(file=f_ref)
+                print(f'    See example usage of `{name}` in {exes}.', file=f_ref)
+
+            print(file=f_ref)
 
             for tag in thing_tags:
                 print(f':func:`clip.{name}`', file=f_tag[tag])
