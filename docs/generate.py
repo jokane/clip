@@ -70,7 +70,7 @@ def main():
     if 'dev' in version:
         gitref = subprocess.check_output(['git', 'log', '-1', "--pretty=format:%H"]).decode('utf-8')
     else:
-        gitref = version
+        gitref = 'v' + version
 
     # Examples
     print ('- Documenting examples:')
