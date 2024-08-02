@@ -10,7 +10,6 @@ import math
 
 import scipy.ndimage
 import numpy as np
-import cv2
 
 import clip
 
@@ -46,78 +45,41 @@ class BouncePositioner:
         velocity when it bounces next."""
 
         dt = float('inf')
-        next = None
-        
+        side = None
+
         if velocity[0] > 0:
             dt_right = (self.width - position[0])/velocity[0]
             if dt_right < dt:
-                next = 'right'
+                side = 'right'
                 dt = dt_right
 
         if velocity[0] < 0:
             dt_left = -position[0]/velocity[0]
             if dt_left < dt:
-                next = 'left'
+                side = 'left'
                 dt = dt_left
 
         if velocity[1] > 0:
             dt_bottom = (self.height - position[1])/velocity[1]
             if dt_bottom < dt:
-                next = 'bottom'
+                side = 'bottom'
                 dt = dt_bottom
 
         if velocity[1] < 0:
             dt_top = -position[1]/velocity[1]
             if dt_top < dt:
-                next = 'top'
+                side = 'top'
                 dt = dt_top
 
         new_position = position + dt * velocity
         new_t = t + dt
 
-        if next == 'left' or next == 'right':
+        if side in ('left', 'right'):
             new_velocity = np.array([-velocity[0], velocity[1]])
         else:
             new_velocity = np.array([velocity[0], -velocity[1]])
 
         return new_t, new_position, new_velocity
-
-
-        # # Where are the places we might bounce? Each element of this list is a
-        # # tuple: (name, which dimension?, what limit in that dimension?)
-        # limits = [(0, 0),
-        #           (0, self.width),
-        #           (1, 0),
-        #           (1, self.height)]
-
-        # # For each limit, how long will it take to get there?  Add the time at
-        # # the front of the tuple.
-        # limits_with_times = [((lim - position[dim])/velocity[dim], dim, lim)
-        #                          for dim, lim in limits ]
-
-        # print(velocity, limits_with_times)
-
-        # # Reject times that are negative -- those represent limits that we're
-        # # moving away from, and thus will never reach without bouncing at some
-        # # point.
-        # active_limits = [ x for x in limits_with_times if x[0] > 0 or math.isclose(x[0], 0) ]
-
-        # # Which of these remaining limts will we reach on the next bounce?  We
-        # # can use the standard ordering to find the minimum because the times
-        # # are the first elements of each limit tuple.  But it might be more
-        # # that one, if we're hitting the corner exactly.
-        # dt = min(active_limits)[0]
-        # next_limits = [ x for x in active_limits if x[0] == dt ]
-
-        # # Compute resulting position and the new velocity after the bounce.
-        # dt, dim, lim = next_limits[0]
-        # new_position = position + dt * velocity
-        # new_velocity = velocity.copy()
-        # t += dt
-        # for _, _, _ in next_limits:
-        #     new_velocity[dim] *= -1
-
-        # return t, new_position, new_velocity
 
     def __call__(self, t):
         """Return the position of the object at time t as a tuple of
@@ -146,7 +108,21 @@ class BouncePositioner:
 
 
 class color_gradient(clip.VideoClip):
+    """A clip showing a given color, with transparency decreasing with distance
+    from a given point, which may be moving.
+
+    :param color: The color to fill the frames of the clip.
+    :param position: Which poiny should be fully opaque?  Either an integer
+            point, or a callable that maps times to integer points.
+    :param width: The positive integer width of the clip.
+    :param height: The positive integer height of the clip.
+    :param length: The positive float length of the clip.
+
+    """
+
     def __init__(self, color, position, width, height, length):
+        super().__init__()
+
         self.color = color
         self.position = position
         self.metrics = clip.Metrics(src=clip.Clip.default_metrics,
@@ -155,6 +131,7 @@ class color_gradient(clip.VideoClip):
                                     length=length)
 
     def get_position(self, t):
+        """Where will the object be at time t?"""
         if callable(self.position):
             return self.position(t)
         else:
@@ -183,11 +160,14 @@ class color_gradient(clip.VideoClip):
         x = np.sqrt(x)
         x = 255 - (255.0/diam)*x
         x = x.astype(np.uint8)
-        c = np.full((height, width, 3), (self.color[2], self.color[1], self.color[0]), dtype=np.uint8)
+        c = np.full((height, width, 3),
+                    (self.color[2], self.color[1], self.color[0]),
+                    dtype=np.uint8)
         x = np.stack([c[:,:,0], c[:,:,1], c[:,:,2], x], axis=2)
         return x
 
 def video1():
+    """Make a video with some text bouncing around."""
     screen_width, screen_height = 640, 480
     length = 60
 
@@ -211,6 +191,7 @@ def video1():
     clip.save_mp4(video, 'text_bounce.mp4', 30)
 
 def video2():
+    """Make a video with some shifting colors."""
     width = 960
     height = 540
 
@@ -250,7 +231,7 @@ def video2():
                     start_time=0,
                     position=(0,0),
                     video_mode=clip.VideoMode.BLEND)
-        
+
         elements.append(e)
 
     x = clip.composite(elements)

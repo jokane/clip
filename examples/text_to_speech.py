@@ -3,7 +3,7 @@
 An example that uses a text-to-speech library to generate spoken word from a
 string input.
 
-Install `pyttsx4` before running:
+Install `pyttsx4` before running::
 
         pip install pyttsx4
 
@@ -71,6 +71,8 @@ class text_to_speech(clip.from_audio_samples):
             seconds_so_far = seconds_after_this_chunk
 
 def main():
+    """Make a short video based on a famous speech."""
+
     message = """
     Four score and seven years ago our fathers brought forth on
     this continent a new nation, conceived in liberty, and dedicated to the

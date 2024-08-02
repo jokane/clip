@@ -11,7 +11,7 @@ class add_subtitles(MutatorClip):
 
     :param clip: The original clip.
     :param args: Subtitles to add, each a `(start_time, end_time, text)` triple.
-    
+
     """
     def __init__(self, clip, *args):
         super().__init__(clip)

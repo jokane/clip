@@ -4,7 +4,7 @@ An example that uses a speech-to-text library to try to add subtitles to a clip
 automatically.  This example uses `vosk` because it works offline and provides
 easy access to timing of individual words.
 
-Install `vosk` before running:
+Install `vosk` before running::
 
         pip install vosk
 
@@ -98,6 +98,8 @@ class auto_subtitle(clip.MutatorClip):
 
 
 def main():
+    """Make a short video based on a famous speech."""
+
     # pylint: disable=line-too-long
     url = "https://www.fdrlibrary.org/documents/356632/405112/afdr244.mp3/b37c9e47-9056-4932-b08b-d85cc22e586b"
     filename = '1941-12-07.mp3'
