@@ -65,7 +65,7 @@ class slice_clip(MutatorClip):
         require_float(end, "end time")
         require_non_negative(end, "end time")
         require_less_equal(start, end, "start time", "end time")
-        require_less_equal(end, clip.length(), "start time", "end time")
+        require_less_equal(end, clip.length(), "end time", "clip length")
 
         self.start_time = start
         self.end_time = end
