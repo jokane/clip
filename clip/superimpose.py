@@ -4,7 +4,8 @@ from .base import require_clip
 from .validate import require_float, require_non_negative
 from .composite import VideoMode, AudioMode, composite, Element
 
-def superimpose_center(under_clip, over_clip, start_time, audio_mode=AudioMode.ADD):
+def superimpose_center(under_clip, over_clip, start_time, video_mode=VideoMode.REPLACE,
+                       audio_mode=AudioMode.ADD):
     """Superimpose one clip on another, in the center of each frame, starting at
     a given time. |modify|
 
@@ -25,6 +26,6 @@ def superimpose_center(under_clip, over_clip, start_time, audio_mode=AudioMode.A
     x = int(under_clip.width()/2) - int(over_clip.width()/2)
     y = int(under_clip.height()/2) - int(over_clip.height()/2)
 
-    return composite(Element(under_clip, 0, [0,0], VideoMode.REPLACE),
-                     Element(over_clip, start_time, [x,y], VideoMode.REPLACE, audio_mode))
+    return composite(Element(under_clip, 0, [0,0], video_mode),
+                     Element(over_clip, start_time, [x,y], video_mode, audio_mode))
 
