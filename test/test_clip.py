@@ -1909,46 +1909,77 @@ def test_bgr2rgb():
     b = bgr2rgb(a)
     b.verify(30)
 
-def test_rosbag():
-    # Since there's no rosbag in our standard test files, we'll make one first.
-    # This tests both reading and writing together.
+def test_rosbag1():
+    # Since thereare no rosbags in our standard test files, we'll make some
+    # first. The idea is to test both reading and writing together.
 
+    a = slice_clip(from_file(f"{TEST_FILES_DIR}/bunny.webm"), 0, 2)
+
+    # Do the whole thing several times with different configurations.
+    iterations = [
+        (True, None),  # compressed, default format
+        (False, None), # uncompressed, default (rgb8) encoding
+        (False, 'mono8'), # uncompressed, monochrome encoding
+    ]
+
+    for compressed, fmt in iterations:
+        with temporary_current_directory():
+            # Save a rosbag from the sample video.
+            save_rosbag(clip=a,
+                        pathname='test.bag',
+                        frame_rate=30,
+                        compressed=compressed,
+                        fmt=fmt)
+
+            # Figure out the topic name that would have been used.
+            topic = '/camera/image_raw'
+            if compressed:
+                topic += '/compressed'
+
+            # Read that same rosbag back.
+            b = from_rosbag(pathname='test.bag',
+                            topic=topic)
+
+            # Did we get a legit clip?  Does it match the original? Note that
+            # the lengths will not match exactly because of the duration of the
+            # last frame, which is not stored in the rosbag.
+            b.verify(30)
+
+            assert a.width() == b.width()
+            assert a.height() == b.height()
+
+            assert abs(b.length() - 2.0) < 0.1, b.length()
+            assert abs(b.estimated_frame_rate() - 30) < 1e-3, b.estimated_frame_rate()
+
+            # Ensure that the timestamp of the bag is used in the frame
+            # signatures, so caching will work correctly if the bag is updated.
+            os.utime('test.bag', (1000000, 1000000))
+            c = from_rosbag(pathname='test.bag',
+                            topic='T')
+            c.verify(30)
+
+            sig1 = b.frame_signature(0.5)
+            sig2 = c.frame_signature(0.5)
+            assert sig1 != sig2
+
+def test_rosbag2():
+    # Pathname with spaces.
     a = slice_clip(from_file(f"{TEST_FILES_DIR}/bunny.webm"), 0, 2)
     with temporary_current_directory():
         save_rosbag(clip=a,
-                    pathname='test.bag',
-                    frame_rate=30,
-                    topic='T')
-
-        save_rosbag(clip=a,
                     pathname='name with space.bag',
-                    frame_rate=30,
-                    topic='T')
+                    frame_rate=30)
 
-        b = from_rosbag(pathname='test.bag',
-                        topic='T')
-        b.verify(30)
-
-        assert a.width() == b.width()
-        assert a.height() == b.height()
-
-        os.utime('test.bag', (1000000, 1000000))
-        c = from_rosbag(pathname='test.bag',
-                        topic='T')
-
-        sig1 = b.frame_signature(0.5)
-        sig2 = c.frame_signature(0.5)
-
-        print(sig1)
-        print(sig2)
-
-        assert sig1 != sig2
-
-
-        # Length will not match exactly because of the duration of the last
-        # frame, which is not stored in the rosbag.
-        assert abs(b.length() - 2.0) < 0.1, b.length()
-        assert abs(b.estimated_frame_rate() - 30) < 1e-3, b.estimated_frame_rate()
+def test_rosbag3():
+    # Saving with a bad encoding
+    a = slice_clip(from_file(f"{TEST_FILES_DIR}/bunny.webm"), 0, 2)
+    with temporary_current_directory():
+        with pytest.raises(ValueError):
+            save_rosbag(clip=a,
+                        pathname='test.bag',
+                        frame_rate=30,
+                        compressed=False,
+                        fmt='xyyzy')
 
 # Grab all of the test source files first.  (...instead of checking within
 # each test.)
