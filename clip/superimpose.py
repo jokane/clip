@@ -11,7 +11,7 @@ def superimpose_center(under_clip, over_clip, start_time, video_mode=VideoMode.R
 
     :param under_clip: The main clip.
     :param over_clip: Another clip to show atop the main clip.
-    :param start_time: The time at which `over_clop` should begin.  A
+    :param start_time: The time at which `over_clip` should begin.  A
             non-negative float.
     :param audio_clip: A :class:`AudioMode` telling what to do with the audio
             in `over_clip`.
