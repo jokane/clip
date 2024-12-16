@@ -4,7 +4,7 @@ import hashlib
 
 from .base import Clip, AudioClip, VideoClip, require_clip
 from .metrics import Metrics
-from .validate import (require_rgb_color, require_float, require_non_negative, require_less_equal,
+from .validate import (check_color, require_float, require_non_negative, require_less_equal,
                        require_positive)
 from .util import read_image
 
@@ -20,7 +20,8 @@ class solid(Clip):
     """
     def __init__(self, color, width, height, length):
         super().__init__()
-        require_rgb_color(color, "solid color")
+        color = check_color(color, "solid color")
+
         self.metrics = Metrics(Clip.default_metrics,
                                width=width,
                                height=height,
