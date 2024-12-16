@@ -57,6 +57,22 @@ def is_rgb_color(color):
     if color[2] < 0 or color[2] > 255: return False
     return True
 
+def is_rgba_color(color):
+    """Is this a color, in RGBA unsigned 8-bit format?"""
+    try:
+        if len(color) != 4: return False
+    except TypeError:
+        return False
+    if not is_int(color[0]): return False
+    if not is_int(color[1]): return False
+    if not is_int(color[2]): return False
+    if not is_int(color[3]): return False
+    if color[0] < 0 or color[0] > 255: return False
+    if color[1] < 0 or color[1] > 255: return False
+    if color[2] < 0 or color[2] > 255: return False
+    if color[3] < 0 or color[3] > 255: return False
+    return True
+
 def is_int_point(pt):
     """Is this a 2D point with integer coordinates?"""
     if len(pt) != 2: return False

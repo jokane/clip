@@ -119,6 +119,12 @@ def test_is_rgb_color():
     with pytest.raises(TypeError):
         require_rgb_color(1024, "color")
 
+def test_is_rgba_color():
+    assert not is_rgba_color([0,0,0])
+    assert not is_rgba_color([0,0,0,256])
+    assert is_rgba_color([0,0,0,255])
+    assert not is_rgba_color(1024)
+
 def test_is_numbers():
     assert not is_positive(0)
     assert is_non_negative(0)
