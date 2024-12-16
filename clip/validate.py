@@ -43,7 +43,7 @@ def is_non_negative(x):
     """Can the given value be interpreted as a non-negative number?"""
     return x>=0
 
-def is_color(color):
+def is_rgb_color(color):
     """Is this a color, in RGB unsigned 8-bit format?"""
     try:
         if len(color) != 3: return False
@@ -110,9 +110,9 @@ def require_string(x, name):
     """Raise an informative exception if x is not a string."""
     require(x, is_string, "string", name, TypeError)
 
-def require_color(x, name):
-    """Raise an informative exception if x is not a color."""
-    require(x, is_color, "color", name, TypeError)
+def require_rgb_color(x, name):
+    """Raise an informative exception if x is not an RGB color."""
+    require(x, is_rgb_color, "RGB color", name, TypeError)
 
 def require_int_point(x, name):
     """Raise an informative exception if x is not a integer point."""

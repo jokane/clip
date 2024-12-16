@@ -111,13 +111,13 @@ def test_is_float():
     require_float(8, 'name')
     require_float(7.7, 'name')
 
-def test_is_color():
-    assert is_color([0,0,0])
-    assert not is_color([0,0,256])
+def test_is_rgb_color():
+    assert is_rgb_color([0,0,0])
+    assert not is_rgb_color([0,0,256])
 
-    require_color([0,0,0], "color")
+    require_rgb_color([0,0,0], "color")
     with pytest.raises(TypeError):
-        require_color(1024, "color")
+        require_rgb_color(1024, "color")
 
 def test_is_numbers():
     assert not is_positive(0)

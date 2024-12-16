@@ -8,7 +8,7 @@ from .alpha import alpha_blend
 from .base import Clip, VideoClip
 from .metrics import Metrics
 from .validate import (require_string, require_float, require_positive,
-                       require_color, require_non_negative)
+                       require_rgb_color, require_non_negative)
 
 
 def get_font(font, size):
@@ -58,7 +58,7 @@ class draw_text(VideoClip):
         require_string(font_filename, "font filename")
         require_float(font_size, "font size")
         require_positive(font_size, "font size")
-        require_color(color, "color")
+        require_rgb_color(color, "color")
 
         if (outline_width is None) ^ (outline_color is None):
             raise ValueError('Got only one of outline width and outline color. '
@@ -71,7 +71,7 @@ class draw_text(VideoClip):
             outline_width = 0
 
         if outline_color is not None:
-            require_color(outline_color, "outline color")
+            require_rgb_color(outline_color, "outline color")
 
         # Determine the bounding box for the text that we want.  This is
         # relevant both for sizing and for using the right position later when

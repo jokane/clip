@@ -6,7 +6,7 @@ from .base import require_clip
 from .filter import filter_frames
 from .composite import composite, Element, AudioMode, VideoMode
 from .video import solid
-from .validate import require_color
+from .validate import require_rgb_color
 
 def to_monochrome(clip):
     """ Convert a clip's video to monochrome. |modify|
@@ -53,7 +53,7 @@ def background(clip, bg_color):
 
     """
     require_clip(clip, 'clip')
-    require_color(bg_color, 'background color')
+    require_rgb_color(bg_color, 'background color')
 
     return composite(Element(solid(bg_color,
                                    clip.width(),
