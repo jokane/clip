@@ -125,6 +125,15 @@ def test_is_rgba_color():
     assert is_rgba_color([0,0,0,255])
     assert not is_rgba_color(1024)
 
+def test_check_color():
+    a = check_color([1, 2, 3], 'color')
+    b = check_color([1, 2, 3, 255], 'color')
+    assert a == b
+
+    with pytest.raises(ValueError):
+        check_color([1, 2, 3, 4, 5], 'color')
+
+
 def test_is_numbers():
     assert not is_positive(0)
     assert is_non_negative(0)

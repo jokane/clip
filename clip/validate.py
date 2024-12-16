@@ -167,3 +167,18 @@ def require_callable(x, name):
     """Raise an informative exception if x is not callable."""
     require(x, callable, "callable", name, TypeError)
 
+def check_color(x, name):
+    """Check whether x is an RGB color or an RGBA color.  If it's RGB, return
+    the equivalent opaque RGBA color.  If it's RGBA, return it unchanged.  If
+    it's neither, complain.
+
+    Use this to accept parameters that can be RGB or RGBA.
+    """
+    if is_rgb_color(x):
+        return [x[0], x[1], x[2], 255]
+    elif is_rgba_color(x):
+        return x
+    else:
+        raise ValueError(f'Expected {name} to be a color (RGB or RGBA), '
+                         f'but got a {type(x)} with value {x} instead.')
+
