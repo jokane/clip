@@ -46,8 +46,8 @@ def background(clip, bg_color):
     """ Blend a clip onto a same-sized background of the given color. |modify|
 
     :param clip: A clip to modify.
-    :param bg_color: A color `(r,g,b)`.  Each element must be an integer in the
-            range [0,255].
+    :param color: A color `(r,g,b)` or `(r,g,b,a)`.  Each element must be an
+            integer in the range [0,255].
     :return: A new clip, the same as the original, but with its video blended
             atop a solid background of the given `bg_color`.
 

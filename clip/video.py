@@ -11,8 +11,8 @@ from .util import read_image
 class solid(Clip):
     """A silent video clip in which each frame has the same solid color. |ex-nihilo|
 
-    :param bg_color: A color `(r,g,b)`.  Each element must be an integer in the
-            range [0,255].
+    :param bg_color: A color `(r,g,b)` or `(r,g,b,a)`.  Each element must be an
+            integer in the range [0,255].
     :param width: The width of the clip in pixels. A positive integer.
     :param height: The height of the clip in pixels.  A positive integer.
     :param length: The length of the clip in seconds.  A positive float.

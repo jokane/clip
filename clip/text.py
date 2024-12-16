@@ -8,7 +8,7 @@ from .alpha import alpha_blend
 from .base import Clip, VideoClip
 from .metrics import Metrics
 from .validate import (require_string, require_float, require_positive,
-                       require_rgb_color, require_non_negative)
+                       check_color, require_non_negative)
 
 
 def get_font(font, size):
@@ -37,12 +37,13 @@ class draw_text(VideoClip):
 
     :param text: The string of text to draw.
     :param font_filename: The filename of a TrueType font.
-    :param color: A color `(r,g,b)`.  Each element must be an integer in the
-            range [0,255].
+    :param color: A color `(r,g,b)` or `(r,g,b,a)`.  Each element must be an
+            integer in the range [0,255].
     :param size: The desired size, in pixels.
     :param length: The length of the clip in seconds.  A positive float.
     :param outline_width: The size of the desired outline, in pixels.
-    :param outline_color: The color of the desired outline.
+    :param outline_color: The color of the desired outline, given as `(r,g,b)`
+            or `(r,g,b,a)`.  Each element must be an integer in the range [0,255].
 
     The resulting clip will be the right size to contain the desired text,
     which will be draw in the given color on a transparent background.
@@ -58,7 +59,7 @@ class draw_text(VideoClip):
         require_string(font_filename, "font filename")
         require_float(font_size, "font size")
         require_positive(font_size, "font size")
-        require_rgb_color(color, "color")
+        color = check_color(color, "color")
 
         if (outline_width is None) ^ (outline_color is None):
             raise ValueError('Got only one of outline width and outline color. '
@@ -71,7 +72,7 @@ class draw_text(VideoClip):
             outline_width = 0
 
         if outline_color is not None:
-            require_rgb_color(outline_color, "outline color")
+            outline_color = check_color(outline_color, "outline color")
 
         # Determine the bounding box for the text that we want.  This is
         # relevant both for sizing and for using the right position later when
