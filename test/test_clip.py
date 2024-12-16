@@ -1390,6 +1390,7 @@ def test_crop():
         crop(a, [10, 10], [100, 10000])
 
 def test_draw_text1():
+    # Basic text drawing does not blow up.
     font = f"{TEST_FILES_DIR}/ethnocentric_rg_it.otf"
     x = draw_text("Hello!", font, font_size=200, color=[255,0,255], length=5)
     x.verify(10)
@@ -1442,6 +1443,29 @@ def test_draw_text4():
     print(sig2)
 
     assert sig1 != sig2
+
+def test_draw_text5():
+    # Complain about inconsistent parameters.
+    font = f"{TEST_FILES_DIR}/ethnocentric_rg_it.otf"
+    with pytest.raises(ValueError):
+        draw_text("Hello!", font, font_size=200, color=[255,0,255], outline_width=10, length=5)
+
+    with pytest.raises(ValueError):
+        draw_text("Hello!", font, font_size=200, color=[255,0,255], outline_color=[2,2,2], length=5)
+
+
+def test_draw_text6():
+    # Wide outlines take up space.
+    font = f"{TEST_FILES_DIR}/ethnocentric_rg_it.otf"
+    x = draw_text("Hello!", font, font_size=200, color=[255,0,255], outline_width=10,
+                  outline_color=[0,0,255], length=5)
+    y = draw_text("Hello!", font, font_size=200, color=[255,0,0], outline_width=25,
+                  outline_color=[0,0,255], length=5)
+
+    x.verify(10)
+    y.verify(10)
+    assert x.height() < y.height()
+    assert x.width() < y.width()
 
 
 def test_to_monochrome():
