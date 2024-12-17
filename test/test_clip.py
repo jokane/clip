@@ -2001,6 +2001,10 @@ def test_rosbag1():
             sig2 = c.frame_signature(0.5)
             assert sig1 != sig2
 
+            # Bogus topic?  Not today!
+            with pytest.raises(ValueError):
+                from_rosbag(pathname='test.bag', topic='nope')
+
 def test_rosbag2():
     # Pathname with spaces.
     a = slice_clip(from_file(f"{TEST_FILES_DIR}/bunny.webm"), 0, 2)
