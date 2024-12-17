@@ -114,7 +114,7 @@ class repeat_frame(VideoClip):
     """Show the same frame, from another clip, over and over. |modify|
 
     :param clip: A clip from which to borrow a frame.
-    :param when: A time, in seconds.  Should be between 0 and `self.length()`.
+    :param when: A time, in seconds.  Should be between 0 and `clip.length()`.
     :param length: The length of the clip in seconds.  A positive float.
 
     """
