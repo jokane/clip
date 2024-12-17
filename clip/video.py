@@ -27,7 +27,7 @@ class solid(Clip):
                                height=height,
                                length=length)
 
-        self.color = [color[2], color[1], color[0], 255]
+        self.color = [color[2], color[1], color[0], color[3]]
         self.frame = None
 
     # Yes, this is gross.  But it avoids both code duplication and multiple
