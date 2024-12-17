@@ -1994,7 +1994,7 @@ def test_rosbag1():
             # signatures, so caching will work correctly if the bag is updated.
             os.utime('test.bag', (1000000, 1000000))
             c = from_rosbag(pathname='test.bag',
-                            topic='T')
+                            topic=topic)
             c.verify(30)
 
             sig1 = b.frame_signature(0.5)

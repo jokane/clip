@@ -93,6 +93,10 @@ class from_rosbag(VideoClip):
                                              default_typestore=typestore)
         reader.open()
         connections = [x for x in reader.connections if x.topic == topic]
+
+        if len(connections) == 0:
+            raise ValueError(f'In rosbag {pathname}, topic {topic} does not exist.')
+
         self.messages = list(map(lambda x: ROSImageMessage(reader, x),
                                  reader.messages(connections=connections)))
 
