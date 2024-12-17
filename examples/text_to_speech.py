@@ -107,6 +107,8 @@ def main():
                                    font_filename=font_filename,
                                    font_size=25,
                                    color=(255,255,255),
+                                   outline_width=2,
+                                   outline_color=(0,0,255),
                                    length=x.length())
         stack_items.append(text_clip)
         stack_items.append(int(0.2*text_clip.height()))
