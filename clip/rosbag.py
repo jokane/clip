@@ -177,6 +177,8 @@ def save_rosbag(clip, pathname, frame_rate, compressed=True,
         if fmt is None:
             fmt = 'rgb8'
 
+    clip.request_all_frames(frame_rate)
+
     with custom_progressbar(f"Saving {path}", round(clip.length(), 1)) as pb:
         with rosbags.rosbag2.Writer(path, version=8) as writer:
 
