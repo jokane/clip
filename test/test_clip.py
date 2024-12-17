@@ -773,6 +773,9 @@ def test_slice_clip1():
     with pytest.raises(ValueError):
         slice_clip(a, 3, 1)
 
+    with pytest.raises(TypeError):
+        slice_clip(1, 2, 3)
+
     d = slice_clip(a, 3, 4)
     d.verify(30)
 
@@ -800,7 +803,6 @@ def test_slice_clip2():
     print(z.length(), subs)
     assert len(subs)==2
     assert subs[0][1] - subs[0][0] == 0.5
-
 
 def asff_helper(fname,
                 expected_num_samples,
