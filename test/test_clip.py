@@ -1099,6 +1099,17 @@ def test_composite16():
     assert z.sample_rate() == Clip.default_metrics.sample_rate
     assert z.num_channels() == Clip.default_metrics.num_channels
 
+def test_composite17():
+    # Don't request video frames for elements that don't contribute to the video.
+    a = solid([0,255,0], 640, 480, 5)
+    b = from_file(f"{TEST_FILES_DIR}/bunny.webm")
+
+    c = join(video_clip=a, audio_clip=b)
+
+    c.request_all_frames(10)
+    assert len(b.requested_indices) == 0
+
+
 def test_join1():
     # Normal case.
     x = sine_wave(440, 0.25, 3, 48000, 2)
