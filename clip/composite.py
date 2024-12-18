@@ -170,8 +170,12 @@ class Element:
 
         """
         clip_t = t - self.start_time
-        if t < self.start_time or t >= self.start_time + self.clip.length():
+
+        if self.video_mode == VideoMode.IGNORE:
             return
+        elif t < self.start_time or t >= self.start_time + self.clip.length():
+            return
+
         self.clip.request_frame(clip_t)
 
     def get_subtitles(self):
