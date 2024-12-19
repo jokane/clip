@@ -435,9 +435,10 @@ class from_file(Clip, FiniteIndexed):
         return self.subtitles
 
     def explode(self):
-        """Expand the requested frames into our cache for later.  Occasionally
-        this can fail for a small number of frames.  Returns the number of
-        failed frames."""
+        """Expand the requested frames into our cache for later.
+
+        Occasionally this can fail for a small number of frames.  Returns the
+        number of failed frames."""
         assert self.has_video
 
         if len(self.requested_indices) == 0:
@@ -456,21 +457,16 @@ class from_file(Clip, FiniteIndexed):
             def move_frames_to_cache(min_age=1):
                 for filename in glob.glob('*.png'):
                     age = time.time() - os.path.getmtime(filename)
-                    if age < min_age:
-                        print('too new', filename, age)
-                        continue
-                    else:
-                        file_index = int(re.search(r'\d*', filename).group(0)) - 1
-                        shifted_index = start_index + file_index
-                        new_filename, exists = self.cache.lookup(f'{shifted_index:06d}',
-                                                              self.cache.frame_format,
-                                                              use_hash=False)
-                        if exists:
-                            print('already exists', filename, age)
-                        else:
-                            print('moving', filename, age)
-                            os.rename(filename, new_filename)
-                            self.cache.insert(new_filename)
+                    if age < min_age: continue
+                    file_index = int(re.search(r'\d*', filename).group(0)) - 1
+                    shifted_index = start_index + file_index
+                    new_filename, exists = self.cache.lookup(f'{shifted_index:06d}',
+                                                          self.cache.frame_format,
+                                                          use_hash=False)
+                    if not exists:
+                        print('moving', filename, age)
+                        os.rename(filename, new_filename)
+                        self.cache.insert(new_filename)
 
             # Extract the frames into the current temporary directory.
             # Occasionally move those frames into the cache as we go.
@@ -482,6 +478,9 @@ class from_file(Clip, FiniteIndexed):
                    task=f'Exploding {os.path.basename(self.filename)}',
                    num_frames=num_frames_expected,
                    callback=move_frames_to_cache)
+
+            # Now that the extraction is complete, grab anything left over.
+            move_frames_to_cache(min_age=-1)
 
             # Make sure we got all of the frames we expected to get.
             num_missing = 0
