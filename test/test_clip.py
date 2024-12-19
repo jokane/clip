@@ -208,6 +208,19 @@ def test_ffmpeg3():
         os.environ.clear()
         os.environ.update(old_env)
 
+def test_ffmpeg4():
+    # If there's a callback, it actually gets called.
+    x = [ 0 ]
+    def cb():
+        x[0] = 1
+
+    with temporary_current_directory():
+        ffmpeg(f'-i {TEST_FILES_DIR}/bunny.webm',
+               'bunny.gif',
+               callback=cb)
+
+    assert x[0] == 1
+
 def test_temporary_current_directory():
     with temporary_current_directory():
         assert not glob.glob('*')

@@ -1,6 +1,7 @@
 """ A function for running ffmpeg with a given set of arguments.  Tracks
 progress by watching the stats file generated along the way. """
 
+import contextlib
 import os
 import shutil
 import subprocess
@@ -79,7 +80,7 @@ def save_via_ffmpeg(clip, filename, frame_rate, output_args, use_audio, use_subt
 class FFMPEGException(Exception):
     """Raised when `ffmpeg` fails."""
 
-def ffmpeg(*args, task=None, num_frames=None):
+def ffmpeg(*args, task=None, num_frames=None, callback=None):
     """Run `ffmpeg` with the given arguments.
 
     :param args: String arguments to pass to `ffmpeg`.  These will have `-y`
@@ -97,42 +98,50 @@ def ffmpeg(*args, task=None, num_frames=None):
     if shutil.which('ffmpeg') is None:
         raise FileNotFoundError('Could not find the FFMEG executable.  Is FFMPEG installed?')
 
-    with tempfile.NamedTemporaryFile() as stats:
+    with contextlib.ExitStack() as estack:
+        if task is not None:
+            pb = estack.enter_context(custom_progressbar(task=task, steps=num_frames))
+            pb.update(0)
+
+        stats = estack.enter_context(tempfile.NamedTemporaryFile())
         command = f"ffmpeg -y -vstats_file {stats.name} {' '.join(args)} 2> errors"
-        with subprocess.Popen(command, shell=True) as proc:
-            t = threading.Thread(target=proc.communicate)
-            t.start()
+
+        proc = estack.enter_context(subprocess.Popen(command, shell=True))
+
+        t = threading.Thread(target=proc.communicate)
+        t.start()
+
+        while proc.poll() is None:
+            if callback is not None:
+                callback()
 
             if task is not None:
-                with custom_progressbar(task=task, steps=num_frames) as pb:
-                    pb.update(0)
-                    while proc.poll() is None:
-                        try:
-                            with open(stats.name) as f: #pragma: no cover
-                                fr = int(re.findall(r'frame=\s*(\d+)\s', f.read())[-1])
-                                pb.update(min(fr, num_frames-1))
-                        except FileNotFoundError:
-                            pass # pragma: no cover
-                        except IndexError:
-                            pass # pragma: no cover
-                        time.sleep(1)
+                try:
+                    with open(stats.name) as f: #pragma: no cover
+                        fr = int(re.findall(r'frame=\s*(\d+)\s', f.read())[-1])
+                        pb.update(min(fr, num_frames-1))
+                except FileNotFoundError:
+                    pass # pragma: no cover
+                except IndexError:
+                    pass # pragma: no cover
 
-            t.join()
+            time.sleep(0.5)
 
+        t.join()
+
+        if os.path.exists('errors'):
+            shutil.copy('errors', '/tmp/ffmpeg_errors')
+            with open('/tmp/ffmpeg_command', 'w') as f:
+                print(command, file=f)
+
+        if proc.returncode != 0:
             if os.path.exists('errors'):
-                shutil.copy('errors', '/tmp/ffmpeg_errors')
-                with open('/tmp/ffmpeg_command', 'w') as f:
-                    print(command, file=f)
+                with open('errors', 'r') as f:
+                    errors = f.read()
+            else:
+                errors = '[no errors file found]' #pragma: no cover
+            message = (f'Alas, ffmpeg failed with return code {proc.returncode}.\n'
+                       f'Command was: {command}\n'
+                       f'Standard error was:\n{errors}')
+            raise FFMPEGException(message)
 
-            if proc.returncode != 0:
-                if os.path.exists('errors'):
-                    with open('errors', 'r') as f:
-                        errors = f.read()
-                else:
-                    errors = '[no errors file found]' #pragma: no cover
-                message = (
-                  f'Alas, ffmpeg failed with return code {proc.returncode}.\n'
-                  f'Command was: {command}\n'
-                  f'Standard error was:\n{errors}'
-                )
-                raise FFMPEGException(message)
