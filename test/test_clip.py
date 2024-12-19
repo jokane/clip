@@ -770,6 +770,17 @@ def test_from_file12():
         y = from_file('x')
         y.verify(y.frame_rate)
 
+def test_from_file13():
+    # Exploding actually gets all of the frames it should get.
+    fname = os.path.join(os.getcwd(), f'{TEST_FILES_DIR}/bunny.webm')
+
+    with temporary_current_directory():
+        x = from_file(fname, cache_dir=os.getcwd())
+        x.request_all_frames(x.frame_rate)
+        num_missing = x.explode()
+
+    assert num_missing == 0
+
 def test_parse_subtitles():
     with pytest.raises(ValueError):
         print(list(parse_subtitles('1\n00:00:00,001 -> A0:00:00,002')))

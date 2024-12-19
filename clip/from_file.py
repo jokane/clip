@@ -6,6 +6,7 @@ import glob
 import os
 import re
 import subprocess
+import time
 import warnings
 
 import cv2
@@ -434,11 +435,13 @@ class from_file(Clip, FiniteIndexed):
         return self.subtitles
 
     def explode(self):
-        """Expand the requested frames into our cache for later."""
+        """Expand the requested frames into our cache for later.  Occasionally
+        this can fail for a small number of frames.  Returns the number of
+        failed frames."""
         assert self.has_video
 
         if len(self.requested_indices) == 0:
-            return
+            return 0
 
         with temporary_current_directory():
             start_index = min(self.requested_indices)
@@ -448,34 +451,47 @@ class from_file(Clip, FiniteIndexed):
             length = (end_index - start_index) / self.frame_rate
             num_frames_expected = end_index - start_index
 
+            # Set up a callback to grab the extracted frames to the cache.
+            # Add each frame that was extracted to the cache.
+            def move_frames_to_cache(min_age=1):
+                for filename in glob.glob('*.png'):
+                    age = time.time() - os.path.getmtime(filename)
+                    if age < min_age:
+                        print('too new', filename, age)
+                        continue
+                    else:
+                        file_index = int(re.search(r'\d*', filename).group(0)) - 1
+                        shifted_index = start_index + file_index
+                        new_filename, exists = self.cache.lookup(f'{shifted_index:06d}',
+                                                              self.cache.frame_format,
+                                                              use_hash=False)
+                        if exists:
+                            print('already exists', filename, age)
+                        else:
+                            print('moving', filename, age)
+                            os.rename(filename, new_filename)
+                            self.cache.insert(new_filename)
+
             # Extract the frames into the current temporary directory.
+            # Occasionally move those frames into the cache as we go.
             ffmpeg(f'-ss {start_time}',
                    f'-t {length}',
                    f'-i "{self.filename}"',
                    f'-r {self.frame_rate}',
                    '%06d.png',
                    task=f'Exploding {os.path.basename(self.filename)}',
-                   num_frames=num_frames_expected)
-
-            # Add each frame that was extracted to the cache.
-            for filename in sorted(glob.glob('*.png')):
-                file_index = int(re.search(r'\d*', filename).group(0)) - 1
-                shifted_index = start_index + file_index
-                new_filename, exists = self.cache.lookup(f'{shifted_index:06d}',
-                                                      self.cache.frame_format,
-                                                      use_hash=False)
-                if not exists:
-                    os.rename(filename, new_filename)
-                    self.cache.insert(new_filename)
+                   num_frames=num_frames_expected,
+                   callback=move_frames_to_cache)
 
             # Make sure we got all of the frames we expected to get.
+            num_missing = 0
             for index in sorted(self.requested_indices):
                 # If we get here, it means ffmpeg thought a frame should exist,
                 # but that frame was ultimately not extracted.  This seems to
                 # happen from mis-estimations of the video length, or sometimes
                 # from simply missing frames.  To keep things rolling, let's
                 # fill in a black frame instead.
-                filename, exists = self.cache.lookup(f'{shifted_index:06d}',
+                filename, exists = self.cache.lookup(f'{index:06d}',
                                                   self.cache.frame_format,
                                                   use_hash=False)
                 if not exists: # pragma: no cover
@@ -484,6 +500,9 @@ class from_file(Clip, FiniteIndexed):
                     fr = np.zeros([self.height(), self.width(), 3], np.uint8)
                     cv2.imwrite(filename, fr)
                     self.cache.insert(filename)
+                    num_missing += 1
+
+            return num_missing
 
     def get_samples(self):
         if self.samples is None:
