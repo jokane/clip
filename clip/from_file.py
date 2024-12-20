@@ -464,7 +464,6 @@ class from_file(Clip, FiniteIndexed):
                                                           self.cache.frame_format,
                                                           use_hash=False)
                     if not exists:
-                        print('moving', filename, age)
                         os.rename(filename, new_filename)
                         self.cache.insert(new_filename)
 
