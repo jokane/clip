@@ -3,6 +3,7 @@
 # pylint: disable=wildcard-import
 
 import glob
+import itertools
 import os
 import re
 import subprocess
@@ -305,6 +306,33 @@ def subtitles_from_file(filename, cache):
 
     # Send 'em back.
     yield from parse_subtitles(srt_text)
+
+def get_requested_intervals(requested_indices, max_gap):
+    """For a given set of requested indices, return an iterable of start/stop
+    pairs that covers everything that was requested.  If there are gaps smaller
+    than max_gap, include those missing ones too."""
+    if len(requested_indices)==0:
+        return
+
+    start = None
+    
+    intervals = []
+
+    a = sorted(requested_indices)
+    b = itertools.pairwise(a)
+
+    for i1, i2 in itertools.chain(b, [(a[-1], float('inf'))]):
+        # Are we just getting started?
+        if start is None:
+            start = i1
+
+        # Is the jump here too big to put into one interval?  If so, end the
+        # previous interval and start a new one.
+        if i2 - i1 > max_gap:
+            yield (start, i1)
+            start = i2
+
+
 
 class from_file(Clip, FiniteIndexed):
     """A clip read from a file such as an mp4, flac, or other format readable

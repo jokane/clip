@@ -781,6 +781,32 @@ def test_from_file13():
 
     assert num_missing == 0
 
+def test_explode1():
+    x = set([1, 2, 3, 7, 8, 9, 15])
+    y = list(get_requested_intervals(x, max_gap=3))
+    assert y == [(1, 3), (7, 9), (15, 15)]
+
+def test_explode2():
+    x = set([1, 2, 3, 4, 7, 8, 9])
+    y = list(get_requested_intervals(x, max_gap=3))
+    assert y == [(1, 9)]
+
+def test_explode3():
+    x = set()
+    y = list(get_requested_intervals(x, max_gap=3))
+    assert y == []
+
+def test_explode4():
+    x = set(range(30,101)).union(range(150, 201))
+    y = list(get_requested_intervals(x, max_gap=20))
+    assert len(y) == 2
+
+def test_explode5():
+    x = set(range(30,101)).union(range(150, 201))
+    y = list(get_requested_intervals(x, max_gap=50))
+    assert len(y) == 1
+
+
 def test_parse_subtitles():
     with pytest.raises(ValueError):
         print(list(parse_subtitles('1\n00:00:00,001 -> A0:00:00,002')))
