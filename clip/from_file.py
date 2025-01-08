@@ -479,6 +479,7 @@ class from_file(Clip, FiniteIndexed):
             start_time = start_index / self.frame_rate
             length = (end_index - start_index) / self.frame_rate
             num_frames_expected = end_index - start_index
+            print(f'Exploding {num_frames_expected} frames')
 
             # Set up a callback to grab the extracted frames to the cache.
             # Add each frame that was extracted to the cache.
