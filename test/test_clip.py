@@ -806,6 +806,27 @@ def test_explode5():
     y = list(get_requested_intervals(x, max_gap=50))
     assert len(y) == 1
 
+def test_explode6():
+    # If we actually use two different intervals, we end up with two different
+    # intervals to explode.
+    fname = os.path.join(os.getcwd(), f'{TEST_FILES_DIR}/bunny.webm')
+
+    with temporary_current_directory():
+        # Create something that uses two separate segments of a larger video.
+        x = from_file(fname, cache_dir=os.getcwd())
+
+        y = chain(slice_clip(x, 1,2), slice_clip(x, 10, 11))
+
+        # Confirm that (only) those two segments will be requested.
+        y.request_all_frames(x.frame_rate)
+
+        assert len(x.requested_indices) == 2*x.frame_rate
+
+        z = list(get_requested_intervals(x.requested_indices, 100))
+        assert len(z) == 2
+
+        # Actually do the extraction.
+        y.verify(x.frame_rate)
 
 def test_parse_subtitles():
     with pytest.raises(ValueError):

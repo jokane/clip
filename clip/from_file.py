@@ -463,9 +463,8 @@ class from_file(Clip, FiniteIndexed):
     def explode_interval(self, start_index, end_index):
         """Expand the given range of frames into the cache.  Helper for explode()."""
         start_time = start_index / self.frame_rate
-        length = (end_index - start_index) / self.frame_rate
+        length = (end_index - start_index + 1) / self.frame_rate
         num_frames_expected = end_index - start_index
-        print(f'Exploding {num_frames_expected} frames')
 
         # Set up a callback to grab the extracted frames to the cache.
         # Add each frame that was extracted to the cache.
@@ -496,6 +495,22 @@ class from_file(Clip, FiniteIndexed):
         # Now that the extraction is complete, grab anything left over.
         move_frames_to_cache(min_age=-1)
 
+
+    def explode(self):
+        """Expand the requested frames into our cache for later.
+
+        Occasionally this can fail for a small number of frames.  Returns the
+        number of failed frames."""
+        assert self.has_video
+
+        if len(self.requested_indices) == 0:
+            return 0
+
+        # Explode everything, in chunks.
+        with temporary_current_directory():
+            for start_index, end_index in get_requested_intervals(self.requested_indices, 100):
+                self.explode_interval(start_index, end_index)
+
         # Make sure we got all of the frames we expected to get.
         num_missing = 0
         for index in sorted(self.requested_indices):
@@ -514,23 +529,6 @@ class from_file(Clip, FiniteIndexed):
                 cv2.imwrite(filename, fr)
                 self.cache.insert(filename)
                 num_missing += 1
-
-        return num_missing
-
-    def explode(self):
-        """Expand the requested frames into our cache for later.
-
-        Occasionally this can fail for a small number of frames.  Returns the
-        number of failed frames."""
-        assert self.has_video
-
-        if len(self.requested_indices) == 0:
-            return 0
-
-        with temporary_current_directory():
-            start_index = min(self.requested_indices)
-            end_index = max(self.requested_indices)+1
-            num_missing = self.explode_interval(start_index, end_index)
 
         return num_missing
 
