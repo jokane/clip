@@ -125,7 +125,7 @@ def ffmpeg(*args, task=None, num_frames=None, callback=None):
                 except IndexError:
                     pass # pragma: no cover
 
-            time.sleep(0.5)
+            time.sleep(0.05)
 
         t.join()
 
