@@ -668,14 +668,25 @@ def test_metrics_from_ffprobe_output3():
         metrics_from_ffprobe_output(f'{bitmap_subtitle_deets}{tagged_video_deets}', 'test.mp4')
 
 def test_metrics_from_ffprobe_output4():
-    # From an Ubuntu screencast.  Duration only in the format metadata, not in the individual stream.
+    # From an Ubuntu screencast.  Duration only in the format metadata, not in
+    # the individual stream.  Also avg_frame_rate is somehow 0/0?
     stream_deets = "stream|index=0|codec_name=vp8|codec_long_name=On2 VP8|profile=0|codec_type=video|codec_tag_string=[0][0][0][0]|codec_tag=0x0000|width=1629|height=991|coded_width=1629|coded_height=991|closed_captions=0|has_b_frames=0|sample_aspect_ratio=1:1|display_aspect_ratio=1629:991|pix_fmt=yuv420p|level=-99|color_range=tv|color_space=bt709|color_transfer=bt709|color_primaries=bt709|chroma_location=unspecified|field_order=progressive|refs=1|id=N/A|r_frame_rate=1000/1|avg_frame_rate=0/0|time_base=1/1000|start_pts=13|start_time=0.013000|duration_ts=N/A|duration=N/A|bit_rate=N/A|max_bit_rate=N/A|bits_per_raw_sample=N/A|nb_frames=N/A|nb_read_frames=N/A|nb_read_packets=N/A|disposition:default=1|disposition:dub=0|disposition:original=0|disposition:comment=0|disposition:lyrics=0|disposition:karaoke=0|disposition:forced=0|disposition:hearing_impaired=0|disposition:visual_impaired=0|disposition:clean_effects=0|disposition:attached_pic=0|disposition:timed_thumbnails=0|tag:language=eng|tag:title=Video" # pylint:disable=line-too-long
-    format_deets = "format|filename=/home/jokane/Screencasts/Screencast from 01-09-2025 12:43:05 PM.webm|nb_streams=1|nb_programs=0|format_name=matroska,webm|format_long_name=Matroska / WebM|start_time=0.013000|duration=9.889831|size=15004885|bit_rate=12137627|probe_score=100|tag:encoder=GStreamer matroskamux version 1.20.3|tag:creation_time=2025-01-09T18:43:05.862999Z" # pylint:disable=line-too-long
+    format_deets = "format|filename=screencast.webm|nb_streams=1|nb_programs=0|format_name=matroska,webm|format_long_name=Matroska / WebM|start_time=0.013000|duration=9.889831|size=15004885|bit_rate=12137627|probe_score=100|tag:encoder=GStreamer matroskamux version 1.20.3|tag:creation_time=2025-01-09T18:43:05.862999Z" # pylint:disable=line-too-long
 
     with pytest.raises(ValueError):
         metrics_from_ffprobe_output(stream_deets, 'test.webm')
 
-    m = metrics_from_ffprobe_output(f'{stream_deets}\n{format_deets}', 'test.webm')
+    m, fr, _, _, _ = metrics_from_ffprobe_output(f'{stream_deets}\n{format_deets}', 'test.webm')
+    assert m.length > 9.7 and m.length < 9.9
+    assert fr > 500
+
+def test_metrics_from_ffprobe_output5():
+    # Modified to have no legit framerate.
+    stream_deets = "stream|index=0|codec_name=vp8|codec_long_name=On2 VP8|profile=0|codec_type=video|codec_tag_string=[0][0][0][0]|codec_tag=0x0000|width=1629|height=991|coded_width=1629|coded_height=991|closed_captions=0|has_b_frames=0|sample_aspect_ratio=1:1|display_aspect_ratio=1629:991|pix_fmt=yuv420p|level=-99|color_range=tv|color_space=bt709|color_transfer=bt709|color_primaries=bt709|chroma_location=unspecified|field_order=progressive|refs=1|id=N/A|r_frame_rate=0/0|avg_frame_rate=0/0|time_base=1/1000|start_pts=13|start_time=0.013000|duration_ts=N/A|duration=N/A|bit_rate=N/A|max_bit_rate=N/A|bits_per_raw_sample=N/A|nb_frames=N/A|nb_read_frames=N/A|nb_read_packets=N/A|disposition:default=1|disposition:dub=0|disposition:original=0|disposition:comment=0|disposition:lyrics=0|disposition:karaoke=0|disposition:forced=0|disposition:hearing_impaired=0|disposition:visual_impaired=0|disposition:clean_effects=0|disposition:attached_pic=0|disposition:timed_thumbnails=0|tag:language=eng|tag:title=Video" # pylint:disable=line-too-long
+    format_deets = "format|filename=screencast.webm|nb_streams=1|nb_programs=0|format_name=matroska,webm|format_long_name=Matroska / WebM|start_time=0.013000|duration=9.889831|size=15004885|bit_rate=12137627|probe_score=100|tag:encoder=GStreamer matroskamux version 1.20.3|tag:creation_time=2025-01-09T18:43:05.862999Z" # pylint:disable=line-too-long
+
+    with pytest.raises(ValueError):
+        metrics_from_ffprobe_output(f'{stream_deets}\n{format_deets}', 'test.webm')
 
 def test_from_file1():
     with pytest.raises(FileNotFoundError):

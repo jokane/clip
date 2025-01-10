@@ -22,20 +22,25 @@ from .metrics import Metrics
 from .validate import *
 from .util import temporary_current_directory, parse_hms_to_seconds
 
-def get_duration_from_ffprobe_stream(stream):
-    """Determine the duration of a stream found by `ffprobe`.
+def get_duration_from_ffprobe_stream(stream, fmt):
+    """Determine the duration of a stream found by `ffprobe`, using `fmt` if
+    available as the container format output.
 
     :param stream: A dictionary built from the key-value pairs in an `ffprobe`
             stream.
+    :param fmt: A dictionary built from the key-value pairs in an `ffprobe`
+            format.
     :return: A float number of seconds of duration for that stream.
 
     Raises `ValueError` if no duration is found.
 
     """
 
+    # Plan A: Duration given directly as a number of seconds.
     if 'duration' in stream and is_float(stream['duration']):
         return float(stream['duration'])
 
+    # Plan B: Duration given in a tag as HH:MM:SS.XXX.
     tags = ['tag:DURATION',
             'tag:DURATION-eng']
 
@@ -47,7 +52,32 @@ def get_duration_from_ffprobe_stream(stream):
                 secs = float(match.group(3))
                 return secs + 60*mins + 60*60*hours
 
+    # Plan C: Duration given in the format entry instead.
+    if fmt and 'duration' in fmt and is_float(fmt['duration']):
+        return float(fmt['duration'])
+
     raise ValueError(f"Could not find a duration in ffprobe stream. {stream}")
+
+def get_framerate_from_ffprobe_stream(stream):
+    """Determine the frame rate for a video stream found by `ffprobe`.
+
+    :param stream: A dictionary built from the key-value pairs in an `ffprobe`
+            stream.
+    :return: A float number of frames per second for that stream.
+
+    Raises `ValueError` if no frame rate is found.
+
+    """
+
+    # Plan A: Most streams seem to have an avg_frame_rate.
+    if 'avg_frame_rate' in stream and stream['avg_frame_rate'] != '0/0':
+        return eval(stream['avg_frame_rate'])
+
+    # Plan B: If the avg_frame_rate is missing or nonsense, try r_frame_rate instead.
+    if 'r_frame_rate' in stream and stream['r_frame_rate'] != '0/0':
+        return eval(stream['r_frame_rate'])
+
+    raise ValueError(f"Could not find a frame rate in ffprobe stream. {stream}")
 
 def metrics_and_frame_rate_from_stream_dicts(streams, filename):
     """Given a dict containing the audio, video, and subtitles streams of
@@ -65,6 +95,7 @@ def metrics_and_frame_rate_from_stream_dicts(streams, filename):
     video_stream = streams['video']
     audio_stream = streams['audio']
     subtitle_stream = streams['subtitle']
+    fmt = streams['format']
     has_subtitles = subtitle_stream is not None
 
     # Some videos, especially from mobile phones, contain metadata asking for a
@@ -79,8 +110,10 @@ def metrics_and_frame_rate_from_stream_dicts(streams, filename):
         video_stream['width'],video_stream['height'] = video_stream['height'],video_stream['width']
 
     if video_stream and audio_stream:
-        vlen = get_duration_from_ffprobe_stream(video_stream)
-        alen = get_duration_from_ffprobe_stream(audio_stream)
+        vlen = get_duration_from_ffprobe_stream(video_stream, fmt)
+        fr = get_framerate_from_ffprobe_stream(video_stream)
+        alen = get_duration_from_ffprobe_stream(audio_stream, fmt)
+
         if abs(vlen - alen) > 0.5:
             raise ValueError(f"In {filename}, video length ({vlen}) and audio length ({alen}) "
               "do not match. Perhaps load video and audio separately?")
@@ -90,24 +123,23 @@ def metrics_and_frame_rate_from_stream_dicts(streams, filename):
                        sample_rate = eval(audio_stream['sample_rate']),
                        num_channels = eval(audio_stream['channels']),
                        length = min(vlen, alen)), \
-               eval(video_stream['avg_frame_rate']), \
-               True, True,  has_subtitles
+               fr, True, True, has_subtitles
     elif video_stream:
-        vlen = get_duration_from_ffprobe_stream(video_stream)
+        vlen = get_duration_from_ffprobe_stream(video_stream, fmt)
+        fr = get_framerate_from_ffprobe_stream(video_stream)
+
         return Metrics(src = Clip.default_metrics,
                        width = eval(video_stream['width']),
                        height = eval(video_stream['height']),
                        length = vlen), \
-               eval(video_stream['avg_frame_rate']), \
-               True, False, has_subtitles
+               fr, True, False, has_subtitles
     elif audio_stream:
-        alen = get_duration_from_ffprobe_stream(audio_stream)
+        alen = get_duration_from_ffprobe_stream(audio_stream, fmt)
         return Metrics(src = Clip.default_metrics,
                        sample_rate = eval(audio_stream['sample_rate']),
                        num_channels = eval(audio_stream['channels']),
                        length = alen), \
-               None, \
-               False, True, has_subtitles
+               None, False, True, has_subtitles
     else:
         # Should be impossible to get here, but just in case...
         raise ValueError(f"File {filename} contains neither audio nor video.") # pragma: no cover
@@ -132,7 +164,8 @@ def metrics_from_ffprobe_output(ffprobe_output, filename, suppress=None):
 
     stream_lists = {'video': [],
                     'audio': [],
-                    'subtitle': []}
+                    'subtitle': [],
+                    'format': []}
 
     if suppress is None:
         suppress = ['data']
@@ -142,31 +175,39 @@ def metrics_from_ffprobe_output(ffprobe_output, filename, suppress=None):
         # into a dictionary.
         stream = {}
         fields = line.split('|')
-        if fields[0] != 'stream': continue
+
+        # Sanity check.
+        if fields[0] not in ['stream', 'format']: continue
+
+        # Convert into a dictionary.
         for pair in fields[1:]:
             key, val = pair.split('=')
             if key in stream:
                 raise ValueError(f'Stream has multiple values for key {key}: {stream[key]} val')
             stream[key] = val
 
-        # What kind of stream is this?
-        t = stream['codec_type']
+        # Handle streams and formats differently.
+        if fields[0] == 'stream':
+            # What kind of stream is this?
+            t = stream['codec_type']
 
-        # A special case: Image-based subtitles.  Can't do much with those.
-        if t == 'subtitle' and stream['codec_name'] == 'dvd_subtitle' in line:
-            warnings.warn(f'Ignoring image-based subtitles in {filename}.')
-            continue
+            # A special case: Image-based subtitles.  Can't do much with those.
+            if t == 'subtitle' and stream['codec_name'] == 'dvd_subtitle' in line:
+                warnings.warn(f'Ignoring image-based subtitles in {filename}.')
+                continue
 
-        # Store the stream data based on what type it is.  Ignore streams that
-        # we are suppressing.  Complain about streams that we are neither
-        # expecting nor suppressing.
-        if t in suppress:
-            continue
-        if t in stream_lists:
-            stream_lists[t].append(stream)
-        else:
-            raise ValueError(f"Don't know what to do with {filename}, "
-              f"which has an unknown stream of type {stream['codec_type']}.")
+            # Store the stream data based on what type it is.  Ignore streams that
+            # we are suppressing.  Complain about streams that we are neither
+            # expecting nor suppressing.
+            if t in suppress:
+                continue
+            if t in stream_lists:
+                stream_lists[t].append(stream)
+            else:
+                raise ValueError(f"Don't know what to do with {filename}, "
+                  f"which has an unknown stream of type {stream['codec_type']}.")
+        else:  # fields[0] == 'format':
+            stream_lists['format'].append(stream)
 
     streams_by_type = {}
     for t, streams in stream_lists.items():
@@ -402,7 +443,9 @@ class from_file(Clip, FiniteIndexed):
             # No.  Get the metrics, then store in the cache for next time.
             print(f"Probing dimensions for {self.filename}")
             with subprocess.Popen(f'ffprobe -hide_banner -v error "{self.filename}" '
-                                  '-of compact -show_entries stream', shell=True,
+                                  '-of compact -show_entries stream '
+                                  '-show_entries format ',
+                                  shell=True,
                                   stdout=subprocess.PIPE) as proc:
                 deets = proc.stdout.read().decode('utf-8')
 
