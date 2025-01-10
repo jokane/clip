@@ -3,6 +3,7 @@
 # pylint: disable=wildcard-import
 
 import glob
+import itertools
 import os
 import re
 import subprocess
@@ -306,6 +307,31 @@ def subtitles_from_file(filename, cache):
     # Send 'em back.
     yield from parse_subtitles(srt_text)
 
+def get_requested_intervals(requested_indices, max_gap):
+    """For a given set of requested indices, return an iterable of start/stop
+    pairs that covers everything that was requested.  If there are gaps smaller
+    than max_gap, include those missing ones too."""
+    if len(requested_indices)==0:
+        return
+
+    start = None
+
+    a = sorted(requested_indices)
+    b = itertools.pairwise(a)
+
+    for i1, i2 in itertools.chain(b, [(a[-1], float('inf'))]):
+        # Are we just getting started?
+        if start is None:
+            start = i1
+
+        # Is the jump here too big to put into one interval?  If so, end the
+        # previous interval and start a new one.
+        if i2 - i1 > max_gap:
+            yield (start, i1)
+            start = i2
+
+
+
 class from_file(Clip, FiniteIndexed):
     """A clip read from a file such as an mp4, flac, or other format readable
     by ffmpeg.
@@ -434,6 +460,42 @@ class from_file(Clip, FiniteIndexed):
                 self.subtitles = []
         return self.subtitles
 
+    def explode_interval(self, start_index, end_index):
+        """Expand the given range of frames into the cache.  Helper for explode()."""
+        start_time = start_index / self.frame_rate
+        length = (end_index - start_index + 1) / self.frame_rate
+        num_frames_expected = end_index - start_index
+
+        # Set up a callback to grab the extracted frames to the cache.
+        # Add each frame that was extracted to the cache.
+        def move_frames_to_cache(min_age=1):
+            for filename in glob.glob('*.png'):
+                age = time.time() - os.path.getmtime(filename)
+                if age < min_age: continue
+                file_index = int(re.search(r'\d*', filename).group(0)) - 1
+                shifted_index = start_index + file_index
+                new_filename, exists = self.cache.lookup(f'{shifted_index:06d}',
+                                                      self.cache.frame_format,
+                                                      use_hash=False)
+                if not exists:
+                    os.rename(filename, new_filename)
+                    self.cache.insert(new_filename)
+
+        # Extract the frames into the current temporary directory.
+        # Occasionally move those frames into the cache as we go.
+        ffmpeg(f'-ss {start_time}',
+               f'-t {length}',
+               f'-i "{self.filename}"',
+               f'-r {self.frame_rate}',
+               '%06d.png',
+               task=f'Exploding {os.path.basename(self.filename)}',
+               num_frames=num_frames_expected,
+               callback=move_frames_to_cache)
+
+        # Now that the extraction is complete, grab anything left over.
+        move_frames_to_cache(min_age=-1)
+
+
     def explode(self):
         """Expand the requested frames into our cache for later.
 
@@ -444,13 +506,29 @@ class from_file(Clip, FiniteIndexed):
         if len(self.requested_indices) == 0:
             return 0
 
+        # Explode everything, in chunks.
         with temporary_current_directory():
-            start_index = min(self.requested_indices)
-            end_index = max(self.requested_indices)+1
+            for start_index, end_index in get_requested_intervals(self.requested_indices, 100):
+                self.explode_interval(start_index, end_index)
 
-            start_time = start_index / self.frame_rate
-            length = (end_index - start_index) / self.frame_rate
-            num_frames_expected = end_index - start_index
+        # Make sure we got all of the frames we expected to get.
+        num_missing = 0
+        for index in sorted(self.requested_indices):
+            # If we get here, it means ffmpeg thought a frame should exist,
+            # but that frame was ultimately not extracted.  This seems to
+            # happen from mis-estimations of the video length, or sometimes
+            # from simply missing frames.  To keep things rolling, let's
+            # fill in a black frame instead.
+            filename, exists = self.cache.lookup(f'{index:06d}',
+                                              self.cache.frame_format,
+                                              use_hash=False)
+            if not exists: # pragma: no cover
+                print(f"[Exploding {self.filename} did not produce frame index={index}. "
+                      "Using black instead.]")
+                fr = np.zeros([self.height(), self.width(), 3], np.uint8)
+                cv2.imwrite(filename, fr)
+                self.cache.insert(filename)
+                num_missing += 1
 
             # Set up a callback to grab the extracted frames to the cache.
             # Add each frame that was extracted to the cache.
@@ -467,40 +545,8 @@ class from_file(Clip, FiniteIndexed):
                         os.rename(filename, new_filename)
                         self.cache.insert(new_filename)
 
-            # Extract the frames into the current temporary directory.
-            # Occasionally move those frames into the cache as we go.
-            ffmpeg(f'-ss {start_time}',
-                   f'-t {length}',
-                   f'-i "{self.filename}"',
-                   f'-r {self.frame_rate}',
-                   '%06d.png',
-                   task=f'Exploding {os.path.basename(self.filename)}',
-                   num_frames=num_frames_expected,
-                   callback=move_frames_to_cache)
+        return num_missing
 
-            # Now that the extraction is complete, grab anything left over.
-            move_frames_to_cache(min_age=-1)
-
-            # Make sure we got all of the frames we expected to get.
-            num_missing = 0
-            for index in sorted(self.requested_indices):
-                # If we get here, it means ffmpeg thought a frame should exist,
-                # but that frame was ultimately not extracted.  This seems to
-                # happen from mis-estimations of the video length, or sometimes
-                # from simply missing frames.  To keep things rolling, let's
-                # fill in a black frame instead.
-                filename, exists = self.cache.lookup(f'{index:06d}',
-                                                  self.cache.frame_format,
-                                                  use_hash=False)
-                if not exists: # pragma: no cover
-                    print(f"[Exploding {self.filename} did not produce frame index={index}. "
-                          "Using black instead.]")
-                    fr = np.zeros([self.height(), self.width(), 3], np.uint8)
-                    cv2.imwrite(filename, fr)
-                    self.cache.insert(filename)
-                    num_missing += 1
-
-            return num_missing
 
     def get_samples(self):
         if self.samples is None:
