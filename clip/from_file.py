@@ -530,21 +530,6 @@ class from_file(Clip, FiniteIndexed):
                 self.cache.insert(filename)
                 num_missing += 1
 
-            # Set up a callback to grab the extracted frames to the cache.
-            # Add each frame that was extracted to the cache.
-            def move_frames_to_cache(min_age=1):
-                for filename in glob.glob('*.png'):
-                    age = time.time() - os.path.getmtime(filename)
-                    if age < min_age: continue
-                    file_index = int(re.search(r'\d*', filename).group(0)) - 1
-                    shifted_index = start_index + file_index
-                    new_filename, exists = self.cache.lookup(f'{shifted_index:06d}',
-                                                          self.cache.frame_format,
-                                                          use_hash=False)
-                    if not exists:
-                        os.rename(filename, new_filename)
-                        self.cache.insert(new_filename)
-
         return num_missing
 
 
