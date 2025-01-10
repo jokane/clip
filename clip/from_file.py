@@ -315,8 +315,6 @@ def get_requested_intervals(requested_indices, max_gap):
         return
 
     start = None
-    
-    intervals = []
 
     a = sorted(requested_indices)
     b = itertools.pairwise(a)
