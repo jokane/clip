@@ -797,11 +797,20 @@ def test_from_file13():
 
     with temporary_current_directory():
         x = from_file(fname, cache_dir=os.getcwd())
-        x.request_all_frames(x.frame_rate)
+        y = slice_clip(x, 0, 1)
+        y.request_all_frames(x.frame_rate)
         num_cached, num_exploded, num_missing = x.explode()
 
         assert num_cached == 0
-        assert num_exploded == 3150
+        assert num_exploded == int(x.frame_rate)
+        assert num_missing == 0
+
+        y = from_file(fname, cache_dir=os.getcwd())
+        y.request_all_frames(y.frame_rate)
+        num_cached, num_exploded, num_missing = y.explode()
+
+        assert num_cached == int(x.frame_rate)
+        assert num_exploded == 3150 - int(x.frame_rate)
         assert num_missing == 0
 
 def test_explode1():

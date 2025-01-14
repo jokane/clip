@@ -554,16 +554,28 @@ class from_file(Clip, FiniteIndexed):
 
         assert self.has_video
 
-        if len(self.requested_indices) == 0:
-            return 0
-
         num_cached = 0
         num_exploded = 0
         num_missing = 0
 
+        if len(self.requested_indices) == 0:
+            return 0
+
+        # Figure out which requested indices are missing from the cache.
+        needed_indices = set()
+        for index in self.requested_indices:
+            _, exists = self.cache.lookup(f'{index:06d}',
+                                          self.cache.frame_format,
+                                          use_hash=False)
+            
+            if not exists:
+                needed_indices.add(index)
+            else:
+                num_cached += 1
+
         # Explode everything, in chunks.
         with temporary_current_directory():
-            for start_index, end_index in get_requested_intervals(self.requested_indices, 100):
+            for start_index, end_index in get_requested_intervals(needed_indices, 100):
                 num_exploded += self.explode_interval(start_index, end_index)
 
         # Make sure we got all of the frames we expected to get.
