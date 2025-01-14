@@ -509,9 +509,12 @@ class from_file(Clip, FiniteIndexed):
         length = (end_index - start_index + 1) / self.frame_rate
         num_frames_expected = end_index - start_index
 
+        num_exploded = 0
+
         # Set up a callback to grab the extracted frames to the cache.
         # Add each frame that was extracted to the cache.
         def move_frames_to_cache(min_age=1):
+            nonlocal num_exploded
             for filename in glob.glob('*.png'):
                 age = time.time() - os.path.getmtime(filename)
                 if age < min_age: continue
@@ -523,6 +526,7 @@ class from_file(Clip, FiniteIndexed):
                 if not exists:
                     os.rename(filename, new_filename)
                     self.cache.insert(new_filename)
+                    num_exploded += 1
 
         # Extract the frames into the current temporary directory.
         # Occasionally move those frames into the cache as we go.
@@ -538,24 +542,31 @@ class from_file(Clip, FiniteIndexed):
         # Now that the extraction is complete, grab anything left over.
         move_frames_to_cache(min_age=-1)
 
+        # Done!
+        return num_exploded
+
 
     def explode(self):
         """Expand the requested frames into our cache for later.
 
-        Occasionally this can fail for a small number of frames.  Returns the
-        number of failed frames."""
+        Returns the number that were already in the cache, the number actually
+        exploded, and the number of failed frames."""
+
         assert self.has_video
 
         if len(self.requested_indices) == 0:
             return 0
 
+        num_cached = 0
+        num_exploded = 0
+        num_missing = 0
+
         # Explode everything, in chunks.
         with temporary_current_directory():
             for start_index, end_index in get_requested_intervals(self.requested_indices, 100):
-                self.explode_interval(start_index, end_index)
+                num_exploded += self.explode_interval(start_index, end_index)
 
         # Make sure we got all of the frames we expected to get.
-        num_missing = 0
         for index in sorted(self.requested_indices):
             # If we get here, it means ffmpeg thought a frame should exist,
             # but that frame was ultimately not extracted.  This seems to
@@ -573,7 +584,7 @@ class from_file(Clip, FiniteIndexed):
                 self.cache.insert(filename)
                 num_missing += 1
 
-        return num_missing
+        return num_cached, num_exploded, num_missing
 
 
     def get_samples(self):

@@ -798,9 +798,11 @@ def test_from_file13():
     with temporary_current_directory():
         x = from_file(fname, cache_dir=os.getcwd())
         x.request_all_frames(x.frame_rate)
-        num_missing = x.explode()
+        num_cached, num_exploded, num_missing = x.explode()
 
-    assert num_missing == 0
+        assert num_cached == 0
+        assert num_exploded == 3150
+        assert num_missing == 0
 
 def test_explode1():
     x = set([1, 2, 3, 7, 8, 9, 15])
