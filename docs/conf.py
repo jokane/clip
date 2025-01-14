@@ -16,7 +16,7 @@ import generate
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = 'clip'
-copyright = "2024, Jason O'Kane"
+copyright = "2025, Jason O'Kane"
 author = "Jason O'Kane"
 
 version_filename = os.path.join(os.path.split(__file__)[0], "../clip/version.py")
