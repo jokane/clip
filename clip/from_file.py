@@ -567,7 +567,7 @@ class from_file(Clip, FiniteIndexed):
             _, exists = self.cache.lookup(f'{index:06d}',
                                           self.cache.frame_format,
                                           use_hash=False)
-            
+
             if not exists:
                 needed_indices.add(index)
             else:
