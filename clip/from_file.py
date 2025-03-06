@@ -181,7 +181,7 @@ def metrics_from_ffprobe_output(ffprobe_output, filename, suppress=None):
 
         # Convert into a dictionary.
         for pair in fields[1:]:
-            key, val = pair.split('=')
+            key, val = pair.split('=', 1)
             if key in stream:
                 raise ValueError(f'Stream has multiple values for key {key}: {stream[key]} val')
             stream[key] = val
