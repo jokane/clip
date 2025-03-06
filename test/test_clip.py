@@ -1212,6 +1212,13 @@ def test_composite17():
     c.request_all_frames(10)
     assert len(b.requested_indices) == 0
 
+def test_composite18():
+    # Sane error message when there are no elements.
+    
+    with pytest.raises(ValueError, match='element'):
+        z = composite()
+
+
 
 def test_join1():
     # Normal case.
