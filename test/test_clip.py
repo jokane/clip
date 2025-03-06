@@ -1214,9 +1214,9 @@ def test_composite17():
 
 def test_composite18():
     # Sane error message when there are no elements.
-    
+
     with pytest.raises(ValueError, match='element'):
-        z = composite()
+        composite()
 
 
 

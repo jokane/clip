@@ -257,6 +257,8 @@ class composite(Clip):
         self.elements = flatten_args(args)
 
         # Sanity check on the inputs.
+        if len(self.elements) == 0:
+            raise ValueError("Cannot form a composite with zero elements.")
         for (i, e) in enumerate(self.elements):
             assert isinstance(e, Element)
             require_non_negative(e.start_time, f'start time {i}')
