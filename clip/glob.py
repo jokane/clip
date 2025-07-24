@@ -43,7 +43,6 @@ class image_glob(VideoClip, FiniteIndexed):
 
         # Get the modification times, which we'll use in the frame signatures.
         self.stamps = [os.path.getmtime(x) for x in self.filenames]
-        print(self.stamps)
 
         # Use a sample frame to get the metrics.
         sample_frame = cv2.imread(self.filenames[0])
