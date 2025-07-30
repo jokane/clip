@@ -8,7 +8,7 @@ lint:
 	pylint clip/*.py test/*.py examples/*.py
 
 test:
-	NUMBA_DISABLE_JIT=1 coverage run --omit=.venv* -m pytest --durations=5
+	NUMBA_DISABLE_JIT=1 xvfb-run coverage run --omit=.venv* -m pytest --durations=5
 	coverage report -m --omit "/usr*","/opt*","*config*"
 
 docs: clip/*.py docs/*.rst docs/*.py
