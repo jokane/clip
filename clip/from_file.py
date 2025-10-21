@@ -192,7 +192,7 @@ def metrics_from_ffprobe_output(ffprobe_output, filename, suppress=None):
             t = stream['codec_type']
 
             # A special case: Image-based subtitles.  Can't do much with those.
-            if t == 'subtitle' and stream['codec_name'] == 'dvd_subtitle' in line:
+            if t == 'subtitle' and stream['codec_name'] == 'dvd_subtitle':
                 warnings.warn(f'Ignoring image-based subtitles in {filename}.')
                 continue
 

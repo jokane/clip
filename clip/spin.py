@@ -52,8 +52,8 @@ class spin(MutatorClip):
         frame = np.zeros([self.radius, self.radius, 4], np.uint8)
         original_frame = self.clip.get_frame(t)
 
-        a = (frame.shape[0] - original_frame.shape[0])
-        b = (frame.shape[1] - original_frame.shape[1])
+        a = frame.shape[0] - original_frame.shape[0]
+        b = frame.shape[1] - original_frame.shape[1]
 
         frame[
             int(a/2):int(a/2)+original_frame.shape[0],

@@ -8,3 +8,4 @@ pytest>=7.2.0
 rosbags>=0.10.4
 scipy>=1.9.3
 soundfile>=0.11.0
+vosk>=0.3.45

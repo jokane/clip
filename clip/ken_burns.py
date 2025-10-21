@@ -103,8 +103,8 @@ class ken_burns(MutatorClip):
         """ Return the top left and bottom right corners of the view at the
         given frame index. """
         alpha = t/self.length()
-        p1 = (((1-alpha)*self.start_top_left + alpha*self.end_top_left))
-        p2 = (((1-alpha)*self.start_bottom_right + alpha*self.end_bottom_right))
+        p1 = (1-alpha)*self.start_top_left + alpha*self.end_top_left
+        p2 = (1-alpha)*self.start_bottom_right + alpha*self.end_bottom_right
         p1 = np.around(p1).astype(int)
         p2 = np.around(p2).astype(int)
         return p1, p2
