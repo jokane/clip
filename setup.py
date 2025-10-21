@@ -1,3 +1,4 @@
+import os
 from setuptools import setup, find_packages
 
 version_filename = os.path.join(os.path.split(__file__)[0], "clip/version.py")
