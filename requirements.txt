@@ -4,7 +4,10 @@ pdf2image>=1.16.0
 progressbar2>=4.2.0
 pylint>=2.15.6
 pytest>=7.2.0
-rosbags>=0.10.4
+rosbags>=0.10.4,!=0.11
+# rosbags 0.11 seems to have broken AnyReader, so that it does not correctly
+# auto-detect a ROS2 bag, instead complaining that it's a directory instead of a
+# file.
 scipy>=1.9.3
 soundfile>=0.11.0
 vosk>=0.3.45
