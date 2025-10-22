@@ -446,6 +446,11 @@ def test_save5():
         save_mp4(x, 'test.mp4', frame_rate=30, bitrate=1024*1024, target_size=5)
 
 def test_save6():
+    # With a target file size that's too big.
+    x = solid([0,0,0], 640, 480, 2)
+    save_mp4(x, 'test.mp4', frame_rate=30, target_size=50e6)
+
+def test_save7():
     # With a preset.
     x = solid([0,0,0], 640, 480, 2)
     with temporary_current_directory():
@@ -453,7 +458,7 @@ def test_save6():
         with pytest.raises(ValueError):
             save_mp4(x, 'test.mp4', frame_rate=30, preset='mindbogglinglyslow')
 
-def test_save7():
+def test_save8():
     # Filename with a space.
     x = solid([0,0,0], 640, 480, 2)
     with temporary_current_directory():
