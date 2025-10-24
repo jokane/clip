@@ -97,9 +97,11 @@ def save_mp4(clip, filename, frame_rate, bitrate=None, target_size=None, two_pas
     # If this happens, send back a sensible exception.
     if bitrate >= 2147483647000:
         if target_size is not None:
-            raise ValueError(f'Target size of {target_size:0.1f}MB gives a bitrate too large, probably by a lot.')
+            raise ValueError(f'Target size of {target_size:0.1f}MB gives a bitrate too large, '
+                            'probably by a lot.')
         else:
-            raise ValueError(f'Bitrate of {bitrate} is too large, probably by a lot.  Cannot exceed ~268 GB/s.')
+            raise ValueError(f'Bitrate of {bitrate} is too large, probably by a lot.  '
+                             'Cannot exceed ~268 GB/s.')
 
     require_string(cache_dir, 'cache directory')
     require_bool(burn_subtitles, 'burn subtitles')

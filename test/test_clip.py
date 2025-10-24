@@ -448,7 +448,10 @@ def test_save5():
 def test_save6():
     # With a target file size that's too big.
     x = solid([0,0,0], 640, 480, 2)
-    save_mp4(x, 'test.mp4', frame_rate=30, target_size=50e6)
+    with pytest.raises(ValueError):
+        save_mp4(x, 'test.mp4', frame_rate=30, target_size=50e6)
+    with pytest.raises(ValueError):
+        save_mp4(x, 'test.mp4', frame_rate=30, bitrate=1e99)
 
 def test_save7():
     # With a preset.
