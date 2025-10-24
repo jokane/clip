@@ -1,6 +1,6 @@
 .PHONY: Makefile
 
-UVRUN=uv run --group dev
+UVRUN=uv run --group dev --group example
 
 SPHINXOPTS    ?=
 SPHINXBUILD   ?= $(UVRUN) sphinx-build
