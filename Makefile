@@ -14,7 +14,7 @@ test:
 	$(UVRUN) coverage report -m --omit "/usr*","/opt*","*config*"
 
 docs: clip/*.py docs/*.rst docs/*.py
-	$(UVRUN) python3 docs/generate.py
+	$(UVRUN) --group example python3 docs/generate.py
 	$(MAKE) -C docs html
 
 clean: clean-docs
