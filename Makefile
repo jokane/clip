@@ -10,7 +10,7 @@ lint:
 	$(UVRUN) pylint clip/*.py test/*.py examples/*.py
 
 test:
-	NUMBA_DISABLE_JIT=1 xvfb-run uv run --group dev coverage run --omit=.venv* -m pytest --durations=5
+	xvfb-run uv run --group dev coverage run --omit=.venv* -m pytest --durations=5
 	$(UVRUN) coverage report -m --omit "/usr*","/opt*","*config*"
 
 docs: clip/*.py docs/*.rst docs/*.py

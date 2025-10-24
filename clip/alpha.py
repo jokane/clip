@@ -6,51 +6,46 @@ import numpy as np
 from .base import MutatorClip, require_clip
 from .validate import require_callable, require_float, is_float
 
-@numba.jit(nopython=True) # pragma: no cover
-def alpha_blend(f0, f1):
+@numba.njit(parallel=True)
+def alpha_blend(f0, f1): #pragma: nocover
     """ Blend two equally-sized RGBA images, respecting the alpha channels of each.
 
     :param f0: An image.
     :param f1: Another image.
     :return: The result of alpha-blending `f0` onto `f1`.
+    
+    """
 
-    Note that this process, as currently implemented, is irritatingly slow,
-    mostly because of the need to convert the images from `unit8` format to
-    `float64` format and back.  Someday, we'll replace this with something
-    better."""
+    h, w, _ = f0.shape
+    out = np.empty_like(f0)
 
-    # https://stackoverflow.com/questions/28900598/how-to-combine-two-colors-with-varying-alpha-values
-    # assert f0.shape == f1.shape, f'{f0.shape}!={f1.shape}'
-    # assert f0.dtype == np.uint8
-    # assert f1.dtype == np.uint8
+    for y in numba.prange(h): #pylint: disable=not-an-iterable
+        for x in range(w):
+            # normalized alphas in [0,1]
+            a0 = f0[y, x, 3] / 255.0
+            a1 = f1[y, x, 3] / 255.0
 
-    f0 = f0.astype(np.float64) / 255.0
-    f1 = f1.astype(np.float64) / 255.0
+            inv_a0 = 1.0 - a0
 
-    b0 = f0[:,:,0]
-    g0 = f0[:,:,1]
-    r0 = f0[:,:,2]
-    a0 = f0[:,:,3]
+            # blend RGB in the 0-255 domain to avoid unit mismatch
+            for c in range(3):
+                v = f0[y, x, c] * a0 + f1[y, x, c] * a1 * inv_a0
+                # clamp to [0,255]
+                if v < 0.0:
+                    v = 0.0
+                elif v > 255.0:
+                    v = 255.0
+                out[y, x, c] = np.uint8(v)
 
-    b1 = f1[:,:,0]
-    g1 = f1[:,:,1]
-    r1 = f1[:,:,2]
-    a1 = f1[:,:,3]
+            # combined alpha: convert back to 0-255
+            a_out = a0 + a1 * inv_a0
+            if a_out < 0.0:
+                a_out = 0.0
+            elif a_out > 1.0:
+                a_out = 1.0
+            out[y, x, 3] = np.uint8(a_out * 255.0)
 
-    a01 = (1 - a0)*a1 + a0
-    b01 = (1 - a0)*b1 + a0*b0
-    g01 = (1 - a0)*g1 + a0*g0
-    r01 = (1 - a0)*r1 + a0*r0
-
-    f01 = np.zeros(shape=f0.shape, dtype=np.float64)
-
-    f01[:,:,0] = b01
-    f01[:,:,1] = g01
-    f01[:,:,2] = r01
-    f01[:,:,3] = a01
-    f01 = (f01*255.0).astype(np.uint8)
-
-    return f01
+    return out
 
 class scale_alpha(MutatorClip):
     """ Scale the alpha channel of a given clip by the given factor. |modify|
