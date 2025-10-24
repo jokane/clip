@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools>=61.0", "setuptools-scm>=8.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "clip"
+dynamic = ["version"]
+description = "A package for creating video clips."
+readme = { file = "README.rst", content-type = "text/x-rst" }
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+    { name = "Jason O'Kane", email = "jokane@tamu.edu" },
+]
+dependencies = [
+    "numba>=0.56.4",
+    "opencv-python>=4.6.0.66",
+    "pdf2image>=1.16.0",
+    "progressbar2>=4.2.0",
+    "rosbags>=0.10.4,!=0.11",
+    "scipy>=1.9.3",
+    "soundfile>=0.11.0",
+]
+
+[dependency-groups]
+dev = [
+    "pylint>=4.0.2",
+    "pytest>=8.4.2",
+    "coverage>=7.0",
+]
+
+example = [
+    "vosk",
+    "pyttsx4"
+]
+
+[project.urls]
+Homepage = "https://github.com/jokane/clip"
+Issues = "https://github.com/jokane/clip/issues"
+
+[tool.setuptools]
+packages = ["clip"]
+
+[tool.setuptools_scm]
+version_scheme = "post-release"
+local_scheme = "node-and-date"

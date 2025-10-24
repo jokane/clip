@@ -10,3 +10,4 @@ dist/
 clip.egg-info/
 docs/_*
 
+uv.lock

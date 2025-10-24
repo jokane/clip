@@ -1,18 +1,20 @@
 .PHONY: all check lint test docs clean clean-docs
 
+UVRUN=uv run --group dev
+
 all: docs check install
 
 check: lint test
 
 lint:
-	pylint clip/*.py test/*.py examples/*.py
+	$(UVRUN) pylint clip/*.py test/*.py examples/*.py
 
 test:
-	NUMBA_DISABLE_JIT=1 xvfb-run coverage run --omit=.venv* -m pytest --durations=5
-	coverage report -m --omit "/usr*","/opt*","*config*"
+	NUMBA_DISABLE_JIT=1 xvfb-run uv run --group dev coverage run --omit=.venv* -m pytest --durations=5
+	$(UVRUN) coverage report -m --omit "/usr*","/opt*","*config*"
 
 docs: clip/*.py docs/*.rst docs/*.py
-	python3 docs/generate.py
+	uv run python3 docs/generate.py
 	$(MAKE) -C docs html
 
 clean: clean-docs
@@ -22,5 +24,5 @@ clean-docs:
 	rm -rfv docs/_build docs/_generated docs/__pycache__
 
 install:
-	pip install .
+	uv pip install -e .
 
