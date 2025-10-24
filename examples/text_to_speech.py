@@ -98,7 +98,7 @@ def main():
 
     x = text_to_speech(message, words_per_minute=150)
 
-    font_filename="/usr/share/matplotlib/mpl-data/fonts/ttf/DejaVuSans.ttf"
+    font_filename="/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
 
     stack_items = []
     stack_items.append(100)

@@ -171,7 +171,7 @@ def video1():
     screen_width, screen_height = 640, 480
     length = 60
 
-    font_filename="/usr/share/matplotlib/mpl-data/fonts/ttf/DejaVuSans.ttf"
+    font_filename="/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
 
     text_clip1 = clip.draw_text(text="DVD", font_filename=font_filename,
                                 font_size=50, color=(255,255,255), length=length)
