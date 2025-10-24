@@ -17,6 +17,9 @@ sys.path.insert(0, os.path.join(os.path.split(__file__)[0], '..'))
 from clip import * #pylint: disable=wrong-import-position
 
 TEST_FILES_DIR = os.path.join(os.path.split(__file__)[0], ".test_files")
+FONT_URL = "https://dl.dafont.com/dl/?f=ethnocentric"
+FONT_NAME = "Ethnocentric-Regular.otf"
+FONT_FILE = f"{TEST_FILES_DIR}/{FONT_NAME}"
 
 def get_test_files():  # pragma: no cover
     """ Download some media files to use for the test, if they don't exist
@@ -80,18 +83,14 @@ He seems tired."""
         shutil.copyfile(f"{TEST_FILES_DIR}/bunny.webm",
                         f"{TEST_FILES_DIR}/name with space.webm")
 
-    exists = os.path.exists(f"{TEST_FILES_DIR}/ethnocentric_rg.otf")
-    exists = exists and os.path.exists(f"{TEST_FILES_DIR}/ethnocentric_rg_it.otf")
+    exists = os.path.exists(FONT_FILE)
     if not exists:
-        with urllib.request.urlopen("https://dl.dafont.com/dl/?f=ethnocentric") as u:
+        with urllib.request.urlopen(FONT_URL) as u:
             zip_data = u.read()
         file_like_object = io.BytesIO(zip_data)
         with zipfile.ZipFile(file_like_object) as z:
-            with open(f"{TEST_FILES_DIR}/ethnocentric_rg.otf", 'wb') as f, \
-              z.open("ethnocentric rg.otf") as otf:
-                f.write(otf.read())
-            with open(f"{TEST_FILES_DIR}/ethnocentric_rg_it.otf", 'wb') as f, \
-              z.open("ethnocentric rg it.otf") as otf:
+            with open(FONT_FILE, 'wb') as f, \
+              z.open(FONT_NAME) as otf:
                 f.write(otf.read())
 
 def test_is_int():
@@ -375,9 +374,7 @@ def test_sha256sum_file():
     assert h[:7] == 'e16d354'
 
 def test_get_font():
-    get_font(f"{TEST_FILES_DIR}/ethnocentric_rg.otf", 10)
-    get_font(f"{TEST_FILES_DIR}/ethnocentric_rg.otf", 10)
-    get_font(f"{TEST_FILES_DIR}/ethnocentric_rg_it.otf", 20)
+    get_font(f"{FONT_FILE}", 10)
 
     with pytest.raises(ValueError):
         get_font("clip3.py", 20)
@@ -1537,15 +1534,13 @@ def test_crop():
 
 def test_draw_text1():
     # Basic text drawing does not blow up.
-    font = f"{TEST_FILES_DIR}/ethnocentric_rg_it.otf"
-    x = draw_text("Hello!", font, font_size=200, color=[255,0,255], length=5)
+    x = draw_text("Hello!", FONT_FILE, font_size=200, color=[255,0,255], length=5)
     x.verify(10)
 
 def test_draw_text2():
     # Caching notices changes to the source.
     with temporary_current_directory():
-        font = f"{TEST_FILES_DIR}/ethnocentric_rg_it.otf"
-        shutil.copyfile(font, 'font.otf')
+        shutil.copyfile(FONT_FILE, 'font.otf')
         os.utime('font.otf', (0, 0))
 
         x = draw_text("Hello!", 'font.otf', font_size=200, color=[255,0,255], length=5)
@@ -1564,9 +1559,8 @@ def test_draw_text2():
 
 def test_draw_text3():
     # Changes in the length don't affect the signature.
-    font = f"{TEST_FILES_DIR}/ethnocentric_rg_it.otf"
-    x = draw_text("Hello!", font, font_size=200, color=[255,0,255], length=5)
-    y = draw_text("Hello!", font, font_size=200, color=[255,0,255], length=10)
+    x = draw_text("Hello!", FONT_FILE, font_size=200, color=[255,0,255], length=5)
+    y = draw_text("Hello!", FONT_FILE, font_size=200, color=[255,0,255], length=10)
 
     sig1 = x.frame_signature(0.5)
     sig2 = y.frame_signature(0.5)
@@ -1578,9 +1572,8 @@ def test_draw_text3():
 
 def test_draw_text4():
     # Changes in the color DO affect the signature.
-    font = f"{TEST_FILES_DIR}/ethnocentric_rg_it.otf"
-    x = draw_text("Hello!", font, font_size=200, color=[255,0,255], length=5)
-    y = draw_text("Hello!", font, font_size=200, color=[255,0,0], length=5)
+    x = draw_text("Hello!", FONT_FILE, font_size=200, color=[255,0,255], length=5)
+    y = draw_text("Hello!", FONT_FILE, font_size=200, color=[255,0,0], length=5)
 
     sig1 = x.frame_signature(0.5)
     sig2 = y.frame_signature(0.5)
@@ -1592,20 +1585,20 @@ def test_draw_text4():
 
 def test_draw_text5():
     # Complain about inconsistent parameters.
-    font = f"{TEST_FILES_DIR}/ethnocentric_rg_it.otf"
     with pytest.raises(ValueError):
-        draw_text("Hello!", font, font_size=200, color=[255,0,255], outline_width=10, length=5)
+        draw_text("Hello!", FONT_FILE, font_size=200, color=[255,0,255],
+                  outline_width=10, length=5)
 
     with pytest.raises(ValueError):
-        draw_text("Hello!", font, font_size=200, color=[255,0,255], outline_color=[2,2,2], length=5)
+        draw_text("Hello!", FONT_FILE, font_size=200, color=[255,0,255],
+                  outline_color=[2,2,2], length=5)
 
 
 def test_draw_text6():
     # Wide outlines take up space.
-    font = f"{TEST_FILES_DIR}/ethnocentric_rg_it.otf"
-    x = draw_text("Hello!", font, font_size=200, color=[255,0,255], outline_width=10,
+    x = draw_text("Hello!", FONT_FILE, font_size=200, color=[255,0,255], outline_width=10,
                   outline_color=[0,0,255], length=5)
-    y = draw_text("Hello!", font, font_size=200, color=[255,0,0], outline_width=25,
+    y = draw_text("Hello!", FONT_FILE, font_size=200, color=[255,0,0], outline_width=25,
                   outline_color=[0,0,255], length=5)
 
     x.verify(10)
@@ -1962,8 +1955,7 @@ def test_stack_clips():
 def test_background():
     # Note: Need to ensure that the default audio of the solid background is
     # ignored; otherwise, we might get a sample rate mismatch from composite.
-    font = f"{TEST_FILES_DIR}/ethnocentric_rg_it.otf"
-    a = draw_text("Hello!", font, font_size=200, color=[255,0,255], length=5)
+    a = draw_text("Hello!", FONT_FILE, font_size=200, color=[255,0,255], length=5)
     b = sine_wave(880, 0.1, 5, 48001, 2)
     c = join(a, b)
     d = background(c, (255,0,0))
