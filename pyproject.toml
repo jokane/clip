@@ -27,6 +27,8 @@ dev = [
     "pylint>=4.0.2",
     "pytest>=8.4.2",
     "coverage>=7.0",
+    "sphinx",
+    "sphinx-rtd-theme"
 ]
 
 example = [
@@ -42,5 +44,5 @@ Issues = "https://github.com/jokane/clip/issues"
 packages = ["clip"]
 
 [tool.setuptools_scm]
-version_scheme = "post-release"
+version_scheme = "guess-next-dev"
 local_scheme = "node-and-date"
