@@ -25,6 +25,7 @@ from .pdf import *
 from .preview import *
 from .resample import *
 from .rosbag import *
+from .rotate import *
 from .save_audio import *
 from .save_mp4 import *
 from .save_gif import *
