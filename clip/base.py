@@ -149,25 +149,6 @@ class Clip(ABC):
         for t in fts:
             self.request_frame(t)
 
-    def preview(self, frame_rate, cache_dir='/tmp/clipcache/computed'):
-        """Render the video part and display it in a window on screen.
-
-        :param frame_rate: The desired frame rate, in frames per second.
-        :param cache_dir: The directory to use for the frame cache.
-
-        """
-        cache = ClipCache(cache_dir)
-
-        with custom_progressbar("Previewing", self.length()) as pb:
-            self.request_all_frames(frame_rate)
-            for t in frame_times(self.length(), frame_rate):
-                frame = self.get_frame_cached(cache, t)
-                pb.update(t)
-                cv2.imshow("", frame)
-                cv2.waitKey(1)
-
-        cv2.destroyWindow("")
-
     def verify(self, frame_rate, verbose=False):
         """Call the appropriate methods to fully realize this clip, checking
         that the right sizes and formats of images are returned by

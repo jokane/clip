@@ -22,6 +22,7 @@ from .hold import *
 from .ken_burns import *
 from .loop import *
 from .pdf import *
+from .preview import *
 from .resample import *
 from .rosbag import *
 from .save_audio import *
