@@ -127,6 +127,7 @@ def read_image(filename):
                                 f"(Current working directory is {os.getcwd()}")
     frame = cv2.imread(filename, cv2.IMREAD_UNCHANGED)
     assert frame is not None
+    assert len(frame.shape) == 3
     if frame.shape[2] == 3:
         frame = cv2.cvtColor(frame, cv2.COLOR_RGB2RGBA)
     assert frame.shape[2] == 4, frame.shape
