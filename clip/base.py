@@ -305,10 +305,10 @@ class Clip(ABC):
         # Make sure we got a legit frame.
         assert frame is not None, \
           "Got None instead of a real frame for " + str(self.frame_signature(t))
-        assert frame.shape[1] == self.width(), f"For {self.frame_signature(t)}," \
-            f"I got a frame of width {frame.shape[1]} instead of {self.width()}."
-        assert frame.shape[0] == self.height(), f"For {self.frame_signature(t)}," \
-            f"I got a frame of height {frame.shape[0]} instead of {self.height()}."
+        assert frame.shape[1] == self.width(), f"For {self.frame_signature(t)}, " \
+            f"the computed frame has width {frame.shape[1]} instead of {self.width()}. "
+        assert frame.shape[0] == self.height(), f"For {self.frame_signature(t)}, " \
+            f"the computed frame has height {frame.shape[0]} instead of {self.height()}."
 
         # Add to disk and to the cache.
         cv2.imwrite(cached_filename, frame)
