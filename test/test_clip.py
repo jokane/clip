@@ -818,6 +818,15 @@ def test_from_file13():
         assert num_exploded == 3150 - int(x.frame_rate)
         assert num_missing == 0
 
+def test_from_file14():
+    # Complain if we're asked for a frame that had not been requested
+    # previously.
+    fname = os.path.join(os.getcwd(), f'{TEST_FILES_DIR}/bunny.webm')
+    with temporary_current_directory():
+        x = from_file(fname, cache_dir=os.getcwd())
+        with pytest.raises(ValueError):
+            x.get_frame(1)
+
 def test_explode1():
     x = set([1, 2, 3, 7, 8, 9, 15])
     y = list(get_requested_intervals(x, max_gap=3))

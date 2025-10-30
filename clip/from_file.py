@@ -502,7 +502,7 @@ class from_file(Clip, FiniteIndexed):
                                       'the file does not exist, probably beacause the frame '
                                       'was not requested.') from fnfe
                 else:
-                    raise
+                    raise #pragma nocover
 
             return image
 
