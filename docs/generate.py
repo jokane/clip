@@ -109,7 +109,7 @@ def main():
             print(file=f)
             print(file=f)
 
-            for match in re.finditer(r'(LOAD_GLOBAL\s+\d+\s+\(clip\)\n\s+\d+\s+LOAD_([A-Z]*)\s+\d+\s+\(([a-zA-Z0-9_]+)\))', disassembled):
+            for match in re.finditer(r'(LOAD_GLOBAL\s+\d+\s+\(NULL \+ clip\)\n\s+\d+\s+LOAD_([A-Z]*)\s+\d+\s+\(([a-zA-Z0-9_]+)\))', disassembled):
                 item_name = match.group(3)
                 item = clip.__dict__[item_name]
                 if inspect.isclass(item):
@@ -119,6 +119,7 @@ def main():
                 else:
                     assert False, (item_name)
                 print(f"    :{item_type}:`{item_name}` ", file=f)
+                print(f'      {item_type} {item_name}')
 
                 try:
                     examples_using[item_name].add(ref_text)
