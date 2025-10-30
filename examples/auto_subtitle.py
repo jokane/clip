@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """
 
 An example that uses a speech-to-text library to try to add subtitles to a clip
