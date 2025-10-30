@@ -492,8 +492,19 @@ class from_file(Clip, FiniteIndexed):
                                               use_hash=False)
             if not exists:
                 self.explode()
+            
+            try:
+                image = read_image(filename)
+            except FileNotFoundError:
+                if index not in self.requested_indices:
+                    raise Exception(f'Tried to get frame at time {t} with index {index}, but '
+                                      'the file does not exist, probably beacause the frame '
+                                      'was not requested.')
+                else:
+                    raise
 
-            return read_image(filename)
+            return image
+
 
     def get_subtitles(self):
         if self.subtitles is None:
