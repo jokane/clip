@@ -437,7 +437,6 @@ class from_file(Clip, FiniteIndexed):
 
         if exists:
             # Yes. Grab it.
-            print(f"Using cached dimensions for {self.filename}")
             with open(dimensions_filename, 'r') as f:
                 deets = f.read()
         else:
