@@ -5,12 +5,12 @@ import cv2
 from .filter import filter_frames
 
 def rotate90cw(clip):
-  """Rotate a clip 90 degrees counterclockwise. "|modify|"""
-  return filter_frames(clip, lambda x: cv2.rotate(x, cv2.ROTATE_90_COUNTERCLOCKWISE))
+    """Rotate a clip 90 degrees counterclockwise. "|modify|"""
+    return filter_frames(clip, lambda x: cv2.rotate(x, cv2.ROTATE_90_COUNTERCLOCKWISE))
 
 def rotate90ccw(clip):
-  """Rotate a clip 90 degrees counterclockwise. "|modify|"""
-  return filter_frames(clip, lambda x: cv2.rotate(x, cv2.ROTATE_90_CLOCKWISE))
+    """Rotate a clip 90 degrees counterclockwise. "|modify|"""
+    return filter_frames(clip, lambda x: cv2.rotate(x, cv2.ROTATE_90_CLOCKWISE))
 
 def rotate180(clip):
     """Rotate a clip 180 degrees. |modify|"""

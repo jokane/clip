@@ -5,7 +5,7 @@ import cv2
 from .base import Clip, require_clip, frame_times
 from .progress import custom_progressbar
 from .cache import ClipCache
-from .validate import *
+from .validate import require_positive
 
 def preview(clips, frame_rate, cache_dir='/tmp/clipcache/computed'):
     """ Render the video parts of one or more clips and display them in a
@@ -38,6 +38,7 @@ def preview(clips, frame_rate, cache_dir='/tmp/clipcache/computed'):
         label = f"Previewing x{len(clips)}"
 
     with custom_progressbar(label, length) as pb:
+        pb.update(0)
         for clip in clips:
             clip.request_all_frames(frame_rate)
 

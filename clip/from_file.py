@@ -15,7 +15,8 @@ import numpy as np
 import soundfile
 
 from .audio import patch_audio_length
-from .base import Clip, FiniteIndexed, ClipCache
+from .base import Clip, FiniteIndexed
+from .cache import ClipCache
 from .util import read_image
 from .ffmpeg import ffmpeg
 from .metrics import Metrics
@@ -492,14 +493,14 @@ class from_file(Clip, FiniteIndexed):
                                               use_hash=False)
             if not exists:
                 self.explode()
-            
+
             try:
                 image = read_image(filename)
-            except FileNotFoundError:
+            except FileNotFoundError as fnfe:
                 if index not in self.requested_indices:
-                    raise Exception(f'Tried to get frame at time {t} with index {index}, but '
+                    raise ValueError(f'Tried to get frame at time {t} with index {index}, but '
                                       'the file does not exist, probably beacause the frame '
-                                      'was not requested.')
+                                      'was not requested.') from fnfe
                 else:
                     raise
 

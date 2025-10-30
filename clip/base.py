@@ -11,7 +11,6 @@ import cv2
 import numpy as np
 import soundfile
 
-from .cache import ClipCache
 from .metrics import Metrics
 from .progress import custom_progressbar
 from .util import temporarily_changed_directory, format_seconds_as_hms, read_image

@@ -392,7 +392,7 @@ def test_parse_hms_to_seconds():
 
 def test_preview():
     x = solid([0,0,0], 640, 480, 5)
-    x.preview(30)
+    preview(x, 30)
 
 def test_save1():
     # Basic case, with video.
