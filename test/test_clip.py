@@ -390,9 +390,14 @@ def test_parse_hms_to_seconds():
     with pytest.raises(ValueError):
         parse_hms_to_seconds('0102:03,456')
 
-def test_preview():
+def test_preview1():
+    # Preview, including single and multiple clips, and different lengths for
+    # the multiple clip version.
     x = solid([0,0,0], 640, 480, 5)
+    y = solid([255,255,255], 640, 480, 10)
+
     preview(x, 30)
+    preview([y, x], 30)
 
 def test_save1():
     # Basic case, with video.
