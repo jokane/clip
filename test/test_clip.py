@@ -2161,6 +2161,20 @@ def test_rosbag3():
                         compressed=False,
                         fmt='xyyzy')
 
+def test_rotate():
+    a = from_file(f"{TEST_FILES_DIR}/bunny.webm")
+    b = rotate90cw(a)
+    c = rotate90ccw(a)
+    d = rotate180(a)
+    e = rotate360(a)
+
+    assert a.width() == b.height()
+    assert a.width() == c.height()
+    assert a.width() == d.width()
+    assert a.width() == e.width()
+
+
+
 # Grab all of the test source files first.  (...instead of checking within
 # each test.)
 get_test_files()
