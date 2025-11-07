@@ -13,7 +13,9 @@ from .validate import require_int_point, require_non_negative, require_less, req
 # pylint: enable=duplicate-code
 
 class ken_burns_base(MutatorClip):
-    """A base class."""
+    """A base class for :class:`ken_burns` and :class:`ken_burns_preview`.
+    You probably want :class:`ken_burns`."""
+
     def __init__(self, clip, width, height, start_top_left, start_bottom_right,
                  end_top_left, end_bottom_right):
         super().__init__(clip)
@@ -111,7 +113,8 @@ class ken_burns(ken_burns_base):
     """
     def __init__(self, clip, width, height, start_top_left, start_bottom_right,
                  end_top_left, end_bottom_right):
-        super().__init__(clip, width, height, start_top_left, start_bottom_right, end_top_left, end_bottom_right)
+        super().__init__(clip, width, height, start_top_left, start_bottom_right,
+                         end_top_left, end_bottom_right)
 
         self.metrics = Metrics(src=clip.metrics,
                                width=width,
@@ -131,12 +134,23 @@ class ken_burns(ken_burns_base):
         return sized_fragment
 
 class ken_burns_preview(ken_burns_base):
-    """Onto a given source clip, draw the rectangle that would be shown using
-    ken_burns with the same arguments."""
+    """See :class:`ken_burns` for the details.  |modify|
+
+    This class differs from `ken_burns` in that, instead of cropping and
+    stretching, it just annotates the original clip by drawing the rectangle
+    that would be shown using `ken_burns` with the same arguments.
+
+    Note that, in contrast to the real `ken_burns`, the `width` and `height`
+    parameters do not describe the width and height of the resulting clip,
+    whose metrics will be the same as the original.  Instead, `width` and
+    `height` are used only for error checking, to ensure that everything has
+    approximately correct aspect ratios.
+    """
 
     def __init__(self, clip, width, height, start_top_left, start_bottom_right,
                  end_top_left, end_bottom_right):
-        super().__init__(clip, width, height, start_top_left, start_bottom_right, end_top_left, end_bottom_right)
+        super().__init__(clip, width, height, start_top_left, start_bottom_right,
+                         end_top_left, end_bottom_right)
         self.metrics = Metrics(src=clip.metrics)
 
     def frame_signature(self, t):
