@@ -12,35 +12,8 @@ from .metrics import Metrics
 from .validate import require_int_point, require_non_negative, require_less, require_less_equal
 # pylint: enable=duplicate-code
 
-class ken_burns(MutatorClip):
-    """Pan and/or zoom through a clip over time. |modify|
-
-    Crops and scales each frame of the input clip, smoothly moving the visible
-    portion from a starting rectangle to an ending rectangle across the full
-    duration of the input clip.
-
-    :param clip: A clip to modify.
-    :param width: The desired output width.  A positive integer.
-    :param height: The desired output height.  A positive integer.
-    :param start_top_left: Integer coordinates of the top-left corner of the
-            visible rectangle at the start, as an `(x,y)` tuple.
-    :param start_bottom_right: Integer coordinates of the bottom-right corner
-            of the visible rectangle at the start, as an `(x,y)` tuple.
-    :param end_top_left: Integer coordinates of the top-left corner of the
-            visible rectangle at the end, as an `(x,y)` tuple.
-    :param end_bottom_right: Integer coordinates of the bottom-right corner
-            of the visible rectangle at the end, as an `(x,y)` tuple.
-
-    To prevent distortion, all three of these rectangles must have the same
-    aspect ratio:
-
-        - The output clip, given by `width` and `height`.
-        - The visible rectangle at the start.
-        - The visible rectangle at the end.
-
-    An exception is raised if these three are not at least approximately equal.
-
-    """
+class ken_burns_base(MutatorClip):
+    """A base class."""
     def __init__(self, clip, width, height, start_top_left, start_bottom_right,
                  end_top_left, end_bottom_right):
         super().__init__(clip)
@@ -95,9 +68,6 @@ class ken_burns(MutatorClip):
         self.end_top_left = np.array(end_top_left)
         self.end_bottom_right = np.array(end_bottom_right)
 
-        self.metrics = Metrics(src=clip.metrics,
-                               width=width,
-                               height=height)
 
     def get_corners(self, t):
         """ Return the top left and bottom right corners of the view at the
@@ -108,6 +78,44 @@ class ken_burns(MutatorClip):
         p1 = np.around(p1).astype(int)
         p2 = np.around(p2).astype(int)
         return p1, p2
+
+
+class ken_burns(ken_burns_base):
+    """Pan and/or zoom through a clip over time. |modify|
+
+    Crops and scales each frame of the input clip, smoothly moving the visible
+    portion from a starting rectangle to an ending rectangle across the full
+    duration of the input clip.
+
+    :param clip: A clip to modify.
+    :param width: The desired output width.  A positive integer.
+    :param height: The desired output height.  A positive integer.
+    :param start_top_left: Integer coordinates of the top-left corner of the
+            visible rectangle at the start, as an `(x,y)` tuple.
+    :param start_bottom_right: Integer coordinates of the bottom-right corner
+            of the visible rectangle at the start, as an `(x,y)` tuple.
+    :param end_top_left: Integer coordinates of the top-left corner of the
+            visible rectangle at the end, as an `(x,y)` tuple.
+    :param end_bottom_right: Integer coordinates of the bottom-right corner
+            of the visible rectangle at the end, as an `(x,y)` tuple.
+
+    To prevent distortion, all three of these rectangles must have the same
+    aspect ratio:
+
+        - The output clip, given by `width` and `height`.
+        - The visible rectangle at the start.
+        - The visible rectangle at the end.
+
+    An exception is raised if these three are not at least approximately equal.
+
+    """
+    def __init__(self, clip, width, height, start_top_left, start_bottom_right,
+                 end_top_left, end_bottom_right):
+        super().__init__(clip, width, height, start_top_left, start_bottom_right, end_top_left, end_bottom_right)
+
+        self.metrics = Metrics(src=clip.metrics,
+                               width=width,
+                               height=height)
 
     def frame_signature(self, t):
         p1, p2 = self.get_corners(t)
@@ -122,3 +130,25 @@ class ken_burns(MutatorClip):
         sized_fragment = cv2.resize(fragment, (self.width(), self.height()))
         return sized_fragment
 
+class ken_burns_preview(ken_burns_base):
+    """Onto a given source clip, draw the rectangle that would be shown using
+    ken_burns with the same arguments."""
+
+    def __init__(self, clip, width, height, start_top_left, start_bottom_right,
+                 end_top_left, end_bottom_right):
+        super().__init__(clip, width, height, start_top_left, start_bottom_right, end_top_left, end_bottom_right)
+        self.metrics = Metrics(src=clip.metrics)
+
+    def frame_signature(self, t):
+        p1, p2 = self.get_corners(t)
+        return ['ken_burns_preview', {'top_left': p1,
+                                      'bottom_right': p2,
+                                      'frame':self.clip.frame_signature(t)}]
+
+    def get_frame(self, t):
+        tl, br = self.get_corners(t)
+        frame = self.clip.get_frame(t).copy()
+        color = (0,255,0)
+        thickness = 4
+        cv2.rectangle(frame, tl, br, color, thickness)
+        return frame
