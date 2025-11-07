@@ -14,6 +14,7 @@ import soundfile
 
 from .audio import patch_audio_length
 from .base import Clip, FiniteIndexed, require_clip, frame_times
+from .cache import ClipCache
 from .from_file import parse_subtitles
 from .metrics import Metrics
 from .validate import require_string, require_float, require_positive, require_bool
@@ -126,7 +127,8 @@ class from_zip(Clip, FiniteIndexed):
         yield from parse_subtitles(srt_text)
 
 
-def save_zip(clip, filename, frame_rate, include_audio=True, include_subtitles=None):
+def save_zip(clip, filename, frame_rate, include_audio=True, include_subtitles=None,
+             cache_dir='/tmp/clipcache/computed'):
     """Save a clip to a zip archive of numbered images. |save|
 
     :param clip: The clip to save.
@@ -155,6 +157,8 @@ def save_zip(clip, filename, frame_rate, include_audio=True, include_subtitles=N
     if subtitles is None:
         subtitles = list(clip.get_subtitles())
 
+    cache = ClipCache(cache_dir)
+
     with contextlib.ExitStack() as exst:
         zf = exst.enter_context(zipfile.ZipFile(filename, 'w'))
         pb = exst.enter_context(custom_progressbar(f"Saving {filename}", round(clip.length(), 1)))
@@ -178,8 +182,5 @@ def save_zip(clip, filename, frame_rate, include_audio=True, include_subtitles=N
 
         for i, t in enumerate(frame_times(clip.length(), frame_rate)):
             pb.update(round(t, 1))
-            frame = clip.get_frame(t)
-            frame_compressed = cv2.imencode('.png', frame)[1]
-            with zf.open(f'{i:06d}.png', 'w') as zf_member:
-                zf_member.write(frame_compressed)
-
+            cached_filename = clip.get_cached_filename(cache, t)
+            zf.write(cached_filename, f'{i:06d}.png')
