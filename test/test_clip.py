@@ -2047,7 +2047,6 @@ def test_ken_burns3():
                   end_top_left=[2000,2000],
                   end_bottom_right=[3000,3000]).verify(30)
 
-
 def test_ken_burns4():
     # Grabbing at the exact width or height: OK, because the slice is not
     # inclusive.
@@ -2059,6 +2058,18 @@ def test_ken_burns4():
                   start_bottom_right=(100,100),
                   end_top_left=(10,10),
                   end_bottom_right=(100,100))
+    b.verify(30)
+
+def test_ken_burns_preview():
+    # Legit.
+    a = static_image(f"{TEST_FILES_DIR}/flowers.png", 10)
+    b = ken_burns_preview(clip=a,
+                          width=520,
+                          height=520,
+                          start_top_left=[0,0],
+                          start_bottom_right=[100,100],
+                          end_top_left=[100,100],
+                          end_bottom_right=[250,250])
     b.verify(30)
 
 def test_fade_between():
