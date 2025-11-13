@@ -1,6 +1,6 @@
 .PHONY: all check lint test docs clean clean-docs
 
-UVRUN=uv run --group dev
+UVRUN=uv run --group dev --group example
 
 all: docs check install
 

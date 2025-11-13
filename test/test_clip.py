@@ -1305,6 +1305,30 @@ def test_filter_frames3():
     with pytest.raises(TypeError):
         filter_frames(a, lambda x, y, z: None)
 
+def test_filter_frames4():
+    # Closures over different values should give different signatures.  This
+    # can matter in practice if a user fiddles with a filter function by
+    # changing constants defined outside the filter function -- it can lead to
+    # incorrect cache hits.
+
+    a = black(640, 480, 3)
+
+    Z = 100
+    def func1(frame):
+        print(Z)
+        return frame
+    b = filter_frames(a, func1)
+
+    Z = 200
+    def func2(frame):
+        print(Z)
+        return frame
+    c = filter_frames(a, func2)
+
+    assert b.sig != c.sig, f'{b.sig} {c.sig}'
+
+
+
 def test_scale_to_size():
     a = black(640, 480, 3)
     b = scale_to_size(a, 100, 200)
