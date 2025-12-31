@@ -462,7 +462,7 @@ class from_file(Clip, FiniteIndexed):
         self.requested_indices = set()
 
     def frame_signature(self, t):
-        require_positive(t, "timestamp")
+        require_non_negative(t, "timestamp")
 
         if self.has_video:
             index = self.time_to_frame_index(t)
