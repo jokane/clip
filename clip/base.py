@@ -214,16 +214,6 @@ class Clip(ABC):
 
         # Do things in the requested directory.
         with temporarily_changed_directory(directory):
-            # Audio.
-            audio_fname = 'audio.flac'
-            data = self.get_samples()
-            assert data is not None
-            soundfile.write(audio_fname, data, self.sample_rate())
-
-            # Subtitles
-            subtitles_fname = 'subtitles.srt'
-            self.save_subtitles(subtitles_fname)
-
             # Video.
             task = f"Staging {filename}" if filename else "Staging"
             self.request_all_frames(frame_rate)
@@ -241,6 +231,17 @@ class Clip(ABC):
 
                     # Update the progress bar.
                     pb.update(index)
+
+            # Audio.
+            audio_fname = 'audio.flac'
+            data = self.get_samples()
+            assert data is not None
+            soundfile.write(audio_fname, data, self.sample_rate())
+
+            # Subtitles
+            subtitles_fname = 'subtitles.srt'
+            self.save_subtitles(subtitles_fname)
+
 
     def save_subtitles(self, destination):
         """Save the subtitles for this clip to the given file.
