@@ -39,14 +39,14 @@ class draw_text(VideoClip):
     :param font_filename: The filename of a TrueType font.
     :param color: A color `(r,g,b)` or `(r,g,b,a)`.  Each element must be an
             integer in the range [0,255].
-    :param size: The desired size, in pixels.
+    :param size: The desired font size, in pixels.
     :param length: The length of the clip in seconds.  A positive float.
     :param outline_width: The size of the desired outline, in pixels.
     :param outline_color: The color of the desired outline, given as `(r,g,b)`
             or `(r,g,b,a)`.  Each element must be an integer in the range [0,255].
 
     The resulting clip will be the right size to contain the desired text,
-    which will be draw in the given color on a transparent background.
+    which will be drawn in the given color on a transparent background.
 
     If either of `outline_width` or `outline_color` are given, both must be
     given.
