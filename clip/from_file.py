@@ -591,15 +591,15 @@ class from_file(Clip, FiniteIndexed):
 
         # Make sure we got all of the frames we expected to get.
         for index in sorted(self.requested_indices):
-            # If we get here, it means ffmpeg thought a frame should exist,
-            # but that frame was ultimately not extracted.  This seems to
-            # happen from mis-estimations of the video length, or sometimes
-            # from simply missing frames.  To keep things rolling, let's
-            # fill in a black frame instead.
             filename, exists = self.cache.lookup(f'{index:06d}',
                                               self.cache.frame_format,
                                               use_hash=False)
             if not exists: # pragma: no cover
+                # If we get here, it means ffmpeg thought a frame should exist,
+                # but that frame was ultimately not extracted.  This seems to
+                # happen from mis-estimations of the video length, or sometimes
+                # from simply missing frames.  To keep things rolling, let's
+                # fill in a black frame instead.
                 print(f"[Exploding {self.filename} did not produce frame index={index}. "
                       "Using black instead.]")
                 fr = np.zeros([self.height(), self.width(), 3], np.uint8)
