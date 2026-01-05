@@ -119,7 +119,7 @@ def ffmpeg(*args, task=None, num_frames=None, callback=None):
                 try:
                     with open(stats.name) as f: #pragma: no cover
                         fr = int(re.findall(r'frame=\s*(\d+)\s', f.read())[-1])
-                        pb.update(min(fr, num_frames-1))
+                        pb.update(max(0, min(fr, num_frames-1)))
                 except FileNotFoundError:
                     pass # pragma: no cover
                 except IndexError:
