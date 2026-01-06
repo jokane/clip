@@ -498,8 +498,9 @@ class from_file(Clip, FiniteIndexed):
             except FileNotFoundError as fnfe:
                 if index not in self.requested_indices:
                     raise ValueError(f'Tried to get frame at time {t} with index {index}, but '
-                                      'the file does not exist, probably beacause the frame '
-                                      'was not requested.') from fnfe
+                                     'the file does not exist.  Note that this frame was not '
+                                     f'among the {len(self.requested_indices)} requested , '
+                                     'frames which is the likely cause of the error.') from fnfe
                 else:
                     raise #pragma nocover
 
