@@ -111,7 +111,10 @@ def parse_hms_to_seconds(hms):
         millis = float(match.group(4))
         return millis/1000 + secs + 60*mins + 60*60*hours
     else:
-        raise ValueError(f'Cannot parse {hms} as hours, minutes, seconds, and milliseconds.')
+        try:
+            return float(hms)
+        except:
+            raise ValueError(f'Cannot parse {hms} as hours, minutes, seconds, and milliseconds.')
 
 def read_image(filename):
     """Read an image from disk.  If needed, convert it to the correct RGBA
