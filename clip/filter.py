@@ -1,12 +1,11 @@
 """ A tool for filtering the frames of a clip. """
 
-import dis
-import hashlib
 import inspect
 
 from .base import MutatorClip
 from .metrics import Metrics
 from .validate import require_callable, require_int, require_positive
+from .util import func_signature
 
 class filter_frames(MutatorClip):
     """A clip formed by passing the frames of another clip through some
@@ -58,10 +57,7 @@ class filter_frames(MutatorClip):
         # which we'll use in the frame signatures.  This should help to prevent
         # the need to clear cache if the implementation of a filter function is
         # changed.
-        bytecode = dis.Bytecode(func, first_line=0)
-        description = bytecode.dis()
-        self.sig = hashlib.sha1(description.encode('UTF-8')).hexdigest()[:7]
-
+        self.sig = func_signature(func)
 
         # Acquire a name for the filter.
         if name is None:

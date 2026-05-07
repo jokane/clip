@@ -364,6 +364,23 @@ def test_read_image3():
     with pytest.raises(FileNotFoundError):
         read_image("xyz.png")
 
+def test_func_signature1():
+    # Differences in func.__code__.co_code.consts
+    def func1(): #pragma nocover
+        return sorted([], key=lambda x: 2*x)
+    def func2(): #pragma nocover
+        return sorted([], key=lambda x: 3*x)
+
+    assert func_signature(func1) != func_signature(func2)
+
+def test_func_signature2():
+    # Empty closure cells.
+    def func3(): #pragma nocover
+        return x #pylint: disable=possibly-used-before-assignment
+    if ord('A')==ord('B'): x = 2
+
+    func_signature(func3)
+
 def test_flatten_args():
     x = [[1, [2, 3]], 4]
     y = flatten_args(x)

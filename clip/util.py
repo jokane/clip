@@ -137,3 +137,46 @@ def read_image(filename):
     assert frame.dtype == np.uint8
     return frame
 
+
+
+def func_signature(func):
+    """Return a short signature string for a function, aiming to be different
+    when the function's behavior changes.  Accounts for code changes in the
+    function, in those it calls, and in closure of this function.
+
+    It's not hard to break this, of course.  (Examples: mutable closure values,
+    I/O, etc, etc.)  But it should cover many common cases.
+
+    :param function: A function for which to generate a signature.
+
+    """
+    addr_re = re.compile(r'0x[0-9a-fA-F]+')
+    def hide_pointers(x):
+        return addr_re.sub('0xXX', repr(x))
+
+    parts = []
+    stack = [func.__code__]
+    while stack:
+        c = stack.pop()
+        parts.append(c.co_code)
+        parts.append(repr(c.co_names).encode())
+        parts.append(repr(c.co_varnames).encode())
+        parts.append(repr(c.co_freevars).encode())
+        for const in c.co_consts:
+            if hasattr(const, 'co_code'):
+                stack.append(const)
+            else:
+                parts.append(hide_pointers(const).encode())
+
+    if func.__closure__:
+        for cell in func.__closure__:
+            try:
+                r = repr(cell.cell_contents)
+                parts.append(hide_pointers(r).encode())
+            except ValueError:
+                parts.append(b'<empty cell>')
+
+    parts.append(hide_pointers(func.__defaults__).encode())
+    parts.append(hide_pointers(func.__kwdefaults__).encode())
+
+    return hashlib.sha1(b''.join(parts)).hexdigest()[:7]

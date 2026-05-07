@@ -28,7 +28,9 @@ dev = [
     "pytest>=8.4.2",
     "coverage>=7.0",
     "sphinx",
-    "sphinx-rtd-theme"
+    "sphinx-rtd-theme",
+    "pyyaml",
+    "lark"
 ]
 
 example = [
