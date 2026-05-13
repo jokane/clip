@@ -1484,14 +1484,16 @@ def test_fade_in():
     assert b.alpha(1.5) == 1
     assert b.alpha(2) == 1
 
-def test_fades2():
+def test_fades():
+    # Check several behaviours for fade in and fade out, in both transparent
+    # and non-transparent cases.
     a = white(640, 480, 3)
 
     for cls in [fade_in, fade_out]:
         for transparent in [True, False]:
             # Normal usage.  Very high frame rate, to cover the case where
             # some frames are unchanged.
-            b = cls(a, 1.5,transparent=transparent)
+            b = cls(a, 1.5, transparent=transparent)
             b.verify(300)
 
             # Negative fade time.
@@ -2224,7 +2226,6 @@ def test_rotate():
     assert a.width() == c.height()
     assert a.width() == d.width()
     assert a.width() == e.width()
-
 
 
 # Grab all of the test source files first.  (...instead of checking within
