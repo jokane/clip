@@ -178,7 +178,7 @@ class sine_wave(AudioClip):
                                sample_rate = sample_rate,
                                num_channels = num_channels)
 
-    def get_samples(self):
+    def compute_samples(self):
         samples = np.arange(self.num_samples()) / self.sample_rate()
         samples = self.volume * np.sin(2 * np.pi * self.frequency * samples)
         samples = np.stack([samples]*self.num_channels(), axis=1)

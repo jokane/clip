@@ -83,7 +83,7 @@ class slice_clip(MutatorClip):
     def get_frame(self, t):
         return self.clip.get_frame(self.start_time + t)
 
-    def get_samples(self):
+    def compute_samples(self):
         original_samples = self.clip.get_samples()
         return original_samples[self.start_sample:self.start_sample+self.num_samples()]
 

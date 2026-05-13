@@ -96,8 +96,9 @@ class Clip(ABC):
         """Create and return a frame of this clip at the given time."""
 
     @abstractmethod
-    def get_samples(self):
-        """Create and return the audio data for the clip."""
+    def compute_samples(self):
+        """Create and return the audio data for the clip.  Most of the time you
+        don't want to call this; you probably wany `get_samples` instead."""
 
     @abstractmethod
     def get_subtitles(self):
@@ -184,7 +185,7 @@ class Clip(ABC):
                   f" Expecting {(self.height(), self.width(), 4)}")
 
         samples = self.get_samples()
-        assert samples.shape == (self.num_samples(), self.num_channels())
+        assert samples.shape == (self.num_samples(), self.num_channels()), f'{type(self)} returned the wrong shape from get_samples.  Got {samples.shape}, but should have been {(self.num_samples(), self.num_channels())}'
 
         subtitles = self.get_subtitles()
         for subtitle in subtitles:
@@ -338,6 +339,15 @@ class Clip(ABC):
             # No. Generate and save to disk for next time.
             return self.compute_and_cache_frame(t, cache, cached_filename)
 
+    def get_samples(self):
+        """Return the audio samples for this clip, with memoization to ensure
+        that the work of computing them is only done once."""
+        try:
+            return self.samples
+        except AttributeError:
+            self.samples = self.compute_samples() # pylint: disable=attribute-defined-outside-init
+            return self.samples
+
     def is_silent(self):
         """Return True if the audio in this clip is all zero, or False otherwise."""
         return not np.any(self.get_samples())
@@ -407,7 +417,7 @@ class MutatorClip(Clip):
         """ By default, re-use the subtitles of the original clip."""
         return self.clip.get_subtitles()
 
-    def get_samples(self):
+    def compute_samples(self):
         """ By default, re-use the audio of the original clip."""
         return self.clip.get_samples()
 

@@ -335,7 +335,7 @@ class composite(Clip):
             e.apply_to_frame(frame, t)
         return frame
 
-    def get_samples(self):
+    def compute_samples(self):
         samples = np.zeros([self.metrics.num_samples(), self.metrics.num_channels])
         for e in self.elements:
             clip_samples = e.clip.get_samples()

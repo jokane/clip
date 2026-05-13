@@ -1,7 +1,14 @@
 # This is an illustration of the need for memoization when computing audio.
 #
 # Without memoization this took about a minute on my computer, mostly from
-# generating the sine wave 100 times.
+# generating the sine wave 100 times.  With memoization ---which, when you read
+# this, will be implemented throughout the library--- it takes about 5 seconds.
+#
+# It's tough to make this a proper test because it's a performance difference,
+# not really a behavior difference.  But good to see confirmation that it's
+# working.
+#
+
 
 from clip import *
 
