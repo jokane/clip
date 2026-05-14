@@ -5,7 +5,6 @@
 from abc import ABC, abstractmethod
 import contextlib
 import os
-import pprint
 
 import cv2
 import numpy as np
@@ -148,54 +147,6 @@ class Clip(ABC):
         fts = list(frame_times(self.length(), frame_rate))
         for t in fts:
             self.request_frame(t)
-
-    def verify(self, frame_rate, verbose=False):
-        """Call the appropriate methods to fully realize this clip, checking
-        that the right sizes and formats of images are returned by
-        `get_frame()`, the right length of format of audio is returned by
-        `get_samples()`, and the right kinds of subtitles are returned by
-        `get_subtitles()`.
-
-        Useful for debugging and testing.
-
-        :param frame_rate: The desired frame rate, in frames per second.
-        :param verbose: Set this to `True` to get lots of diagnostic output.
-        """
-
-        self.metrics.verify()
-
-        require_positive(frame_rate, 'frame rate')
-
-        for t in frame_times(self.length(), frame_rate):
-            self.request_frame(t)
-
-        for t in frame_times(self.length(), frame_rate):
-            sig = self.frame_signature(t)
-            if verbose:
-                print(f'{t:0.2f}', end=" ")
-                pprint.pprint(sig)
-            assert sig is not None
-
-            frame = self.get_frame(t)
-            assert isinstance(frame, np.ndarray), f'{type(frame)} ({frame})'
-            assert frame.dtype == np.uint8
-            if frame.shape != (self.height(), self.width(), 4):
-                raise ValueError("Wrong shape of frame returned."
-                  f" Got {frame.shape} "
-                  f" Expecting {(self.height(), self.width(), 4)}")
-
-        samples = self.get_samples()
-        assert samples.shape == (self.num_samples(), self.num_channels()), \
-                f'{type(self)} returned the wrong shape from get_samples.  ' \
-                f'Got {samples.shape}; should have been {(self.num_samples(), self.num_channels())}'
-
-        subtitles = self.get_subtitles()
-        for subtitle in subtitles:
-            assert len(subtitle) == 3
-            assert is_non_negative(subtitle[0])
-            assert is_non_negative(subtitle[1])
-            assert subtitle[0] < subtitle[1]
-            assert is_string(subtitle[2])
 
     def stage(self, directory, cache, frame_rate, filename=""):
         """Get everything for this clip onto to disk in the specified

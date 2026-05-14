@@ -254,7 +254,7 @@ def test_metrics():
 
 def test_solid():
     x = solid([0,0,0], 640, 480, 300)
-    x.verify(30)
+    verify(x, 30)
 
     samples = x.get_samples()
     assert samples.shape == (x.num_samples(), x.num_channels())
@@ -270,22 +270,22 @@ def test_clip_metrics():
 def test_verify1():
     # Valid
     x = solid([0,0,0], 640, 480, 10)
-    x.verify(30)
-    x.verify(0.1, verbose=True)
+    verify(x, 30)
+    verify(x, 0.1, verbose=True)
 
 def test_verify2():
     # Return something that's not a frame.
     x = solid([0,0,0], 640, 480, 10)
     with pytest.raises(AssertionError):
         x.get_frame = lambda x: None
-        x.verify(30)
+        verify(x, 30)
 
 def test_verify3():
     # Return the wrong size frame.
     x = solid([0,0,0], 640, 480, 10)
     with pytest.raises(ValueError):
         x.get_frame = lambda x: np.zeros([10, 10, 4], dtype=np.uint8)
-        x.verify(30)
+        verify(x, 30)
 
 def test_readable_length1():
     x = solid([0,0,0], 640, 480, 30)
@@ -309,24 +309,24 @@ def test_from_audio_samples():
     x = from_audio_samples(samples, sample_rate=22050)
     print(x.samples.shape)
     print((x.num_samples(), x.num_channels()))
-    x.verify(frame_rate=30)
+    verify(x, frame_rate=30)
 
 
 def test_sine_wave1():
     x = sine_wave(880, 0.1, 5, 48000, 2)
-    x.verify(20)
+    verify(x, 20)
 
 
 def test_mutator():
     a = black(640, 480, 5)
     b = MutatorClip(a)
-    b.verify(30)
+    verify(b, 30)
 
 def test_scale_alpha1():
     # A constant factor applies a constant scale.
     a = black(10, 10, 300)
     b = scale_alpha(a, 0.5)
-    b.verify(30)
+    verify(b, 30)
 
     f1 = b.get_frame(1)
     f2 = b.get_frame(299)
@@ -337,7 +337,7 @@ def test_scale_alpha2():
     # A callable factor applies a constant scale.
     a = black(10, 10, 300)
     b = scale_alpha(a, lambda t: (255/300)*t)
-    b.verify(30)
+    verify(b, 30)
 
     f1 = b.get_frame(1)
     f2 = b.get_frame(299)
@@ -345,10 +345,10 @@ def test_scale_alpha2():
     assert (f1 != f2).any()
 
 def test_black():
-    black(640, 480, 300).verify(30)
+    verify(black(640, 480, 300), 30)
 
 def test_white():
-    white(640, 480, 300).verify(30)
+    verify(white(640, 480, 300), 30)
 
 def test_read_image1():
     img = read_image(f'{TEST_FILES_DIR}/water.png')
@@ -497,7 +497,7 @@ def test_save_audio():
                   Element(g, 2, (0,0), audio_mode = AudioMode.ADD),
                   Element(c2, 3, (0,0), audio_mode = AudioMode.ADD))
     x = fade_out(x, 0.1)
-    x.verify(20)
+    verify(x, 20)
 
     with temporary_current_directory():
         save_audio(x, 'foo.flac')
@@ -548,7 +548,7 @@ def test_subtitles1():
     assert len(caps) == 2
     assert caps[0][0] == 1
     print(caps)
-    x.verify(frame_rate=30)
+    verify(x, frame_rate=30)
 
     with temporary_current_directory():
         save_mp4(x, 'burned.mp4', frame_rate=30, burn_subtitles=True)
@@ -722,27 +722,27 @@ def test_from_file1():
 def test_from_file2():
     a = from_file(f"{TEST_FILES_DIR}/bunny.webm")
     a = slice_clip(a, 0, 1.1)
-    a.verify(30)
+    verify(a, 30)
 
 def test_from_file3():
     b = from_file(f"{TEST_FILES_DIR}/bunny.webm")
-    b.verify(30)
+    verify(b, 30)
 
     # Again to use the cached dimensions.
     c = from_file(f"{TEST_FILES_DIR}/bunny.webm")
-    c.verify(30)
+    verify(c, 30)
 
 def test_from_file4():
     # For the case with no video.
     d = from_file(f"{TEST_FILES_DIR}/music.mp3")
     assert not d.has_video
-    d.verify(30)
+    verify(d, 30)
 
 def test_from_file5():
     # For the case with no audio.
     e = from_file(f"{TEST_FILES_DIR}/books.mp4")
     e = slice_clip(e, 1.5, 2.5)
-    e.verify(10)
+    verify(e, 10)
 
 def test_from_file6():
     # Suppress audio and suppress video.
@@ -759,7 +759,7 @@ def test_from_file7():
     with temporary_current_directory():
         for _ in range(2):
             x = from_file(fname, cache_dir=os.getcwd())
-            x.verify(x.frame_rate)
+            verify(x, x.frame_rate)
 
 def test_from_file8():
     # No need to explode if there's no requested frames.
@@ -780,12 +780,12 @@ def test_from_file9():
         caps = list(x.get_subtitles())
         print(caps)
         assert len(caps) == 2
-        x.verify(30)
+        verify(x, 30)
 
 def test_from_file10():
     # If the filename has a space.
     a = from_file(f"{TEST_FILES_DIR}/name with space.webm")
-    a.verify(a.frame_rate)
+    verify(a, a.frame_rate)
 
 def test_from_file11():
     # Caching notices changes to the source.
@@ -816,7 +816,7 @@ def test_from_file12():
         from_file('x')
         shutil.copyfile(f"{TEST_FILES_DIR}/bunny.webm", "./x")
         y = from_file('x')
-        y.verify(y.frame_rate)
+        verify(y, y.frame_rate)
 
 def test_from_file13():
     # Exploding actually gets all of the frames it should get.
@@ -894,7 +894,7 @@ def test_explode6():
         assert len(z) == 2
 
         # Actually do the extraction.
-        y.verify(x.frame_rate)
+        verify(y, x.frame_rate)
 
 def test_parse_subtitles():
     with pytest.raises(ValueError):
@@ -916,13 +916,13 @@ def test_slice_clip1():
         slice_clip(1, 2, 3)
 
     d = slice_clip(a, 3, 4)
-    d.verify(30)
+    verify(d, 30)
 
     e = slice_clip(a, 3)
-    e.verify(30)
+    verify(e, 30)
 
     f = slice_clip(a, end=3)
-    f.verify(30)
+    verify(f, 30)
 
 def test_slice_clip2():
     # Subtitles that are sliced out don't appear in the output.
@@ -1067,7 +1067,7 @@ def test_composite1():
       Element(x, 0, [0, 0]),
       Element(y, 6, [0, 0])
     )
-    z.verify(30)
+    verify(z, 30)
     assert z.height() == 481
 
 def test_composite2():
@@ -1090,7 +1090,7 @@ def test_composite5():
       Element(y, 6, [0, 0])
     )
     assert z.length() == 11
-    z.verify(30)
+    verify(z, 30)
 
 def test_composite6():
     # Clipping above, below, left, and right.
@@ -1104,7 +1104,7 @@ def test_composite6():
       height=480,
       length=5
     )
-    z.verify(30)
+    verify(z, 30)
 
 def test_composite7():
     # Totally off-screen.
@@ -1118,7 +1118,7 @@ def test_composite7():
       height=480,
       length=5
     )
-    z.verify(30)
+    verify(z, 30)
 
 
 def test_composite8():
@@ -1133,7 +1133,7 @@ def test_composite8():
       height=480,
       length=1
     )
-    z.verify(30)
+    verify(z, 30)
 
 def test_composite9():
     # Bad inputs.
@@ -1173,7 +1173,7 @@ def test_composite10():
       Element(x, 0, pos2, video_mode=VideoMode.BLEND),
       length=5
     )
-    z.verify(30)
+    verify(z, 30)
 
 def test_composite11():
     # Ignored video should not impact the frame signatures.
@@ -1261,7 +1261,7 @@ def test_join1():
     x = sine_wave(440, 0.25, 3, 48000, 2)
     y = solid([0,255,0], 640, 480, 5)
     z = join(y, x)
-    z.verify(30)
+    verify(z, 30)
     assert y.length() == 5
 
 def test_join2():
@@ -1283,16 +1283,16 @@ def test_filter_frames1():
 
     b = filter_frames(a, lambda x: x)
     assert not b.depends_on_time
-    b.verify(30)
+    verify(b, 30)
 
     c = filter_frames(a, lambda x: x, name='identity')
-    c.verify(30)
+    verify(c, 30)
 
     d = filter_frames(a, lambda x: x, size='same')
-    d.verify(30)
+    verify(d, 30)
 
     e = filter_frames(a, lambda x: x, size=(a.width(), a.height()))
-    e.verify(30)
+    verify(e, 30)
 
     # Nonsense size
     with pytest.raises(ValueError):
@@ -1301,7 +1301,7 @@ def test_filter_frames1():
     # Wrong size
     f = filter_frames(a, lambda x: x, size=(10, 10))
     with pytest.raises(ValueError):
-        f.verify(30)
+        verify(f, 30)
 
     # Signatures match?
     g = filter_frames(a, lambda x: x)
@@ -1314,7 +1314,7 @@ def test_filter_frames2():
     # Two-parameter filter version.
     a = black(640, 480, 3)
     b = filter_frames(a, lambda x, i: x)
-    b.verify(30)
+    verify(b, 30)
 
 def test_filter_frames3():
     # A bogus filter.
@@ -1349,36 +1349,36 @@ def test_filter_frames4():
 def test_scale_to_size():
     a = black(640, 480, 3)
     b = scale_to_size(a, 100, 200)
-    b.verify(30)
+    verify(b, 30)
     assert b.width() == 100
     assert b.height() == 200
 
 def test_scale_by_factor():
     a = black(100, 200, 3)
     b = scale_by_factor(a, 0.1)
-    b.verify(30)
+    verify(b, 30)
     assert b.width() == 10
     assert b.height() == 20
 
 def test_scale_to_fit():
     a = black(100, 100, 3)
     b = scale_to_fit(a, 50, 100)
-    b.verify(30)
+    verify(b, 30)
     assert abs(b.width()/b.height() - 1.0)  < 1e-10
 
     c = scale_to_fit(a, 100, 50)
-    c.verify(30)
+    verify(c, 30)
     assert abs(b.width()/b.height() - 1.0)  < 1e-10
 
 def test_static_frame1():
     # Legit usage: An RGBA image.
     a = static_image(f"{TEST_FILES_DIR}/water.png", 10)
-    a.verify(30)
+    verify(a, 30)
 
 def test_static_frame2():
     # Legit usage: An RGB image.
     b = static_image(f"{TEST_FILES_DIR}/brian.jpg", 10)
-    b.verify(30)
+    verify(b, 30)
 
 def test_static_frame3():
     # Wrong type
@@ -1428,11 +1428,11 @@ def test_chain1():
 
     d = chain(a, [b, c])
     assert d.length() == a.length() + b.length() + c.length()
-    d.verify(30)
+    verify(d, 30)
 
     e = chain(a, [b, c], fade_time=2)
     assert e.length() == a.length() + b.length() + c.length() - 4
-    e.verify(30)
+    verify(e, 30)
 
 
 def test_chain2():
@@ -1452,7 +1452,7 @@ def test_chain3():
     y = solid([255,255,255], 640, 480, 10)
 
     z = chain(y, y, fade_time=0.1)
-    z.verify(10, verbose=True)
+    verify(z, 10, verbose=True)
 
     for t in frame_times(z.length(), 10):
         computed_frame = z.get_frame(t)
@@ -1464,7 +1464,7 @@ def test_fade_out():
     a = white(640, 480, 2)
     b = fade_out(a, 0.5)
 
-    b.verify(100)
+    verify(b, 100)
 
     assert b.alpha(0) == 1
     assert b.alpha(1.5) == 1, b.alpha(1.5)
@@ -1476,7 +1476,7 @@ def test_fade_in():
     a = white(640, 480, 2)
     b = fade_in(a, 0.5)
 
-    b.verify(100)
+    verify(b, 100)
 
     assert b.alpha(0) == 0, b.alpha(0)
     assert b.alpha(0.25) == 0.5
@@ -1494,7 +1494,7 @@ def test_fades():
             # Normal usage.  Very high frame rate, to cover the case where
             # some frames are unchanged.
             b = cls(a, 1.5, transparent=transparent)
-            b.verify(300)
+            verify(b, 300)
 
             # Negative fade time.
             with pytest.raises(ValueError):
@@ -1511,7 +1511,7 @@ def test_fades():
 def test_mono_to_stereo():
     a = sine_wave(880, 0.1, 10, 48000, 1)
     b = mono_to_stereo(a)
-    b.verify(30)
+    verify(b, 30)
     assert b.num_channels() == 2
 
     a = sine_wave(880, 0.1, 10, 48000, 2)
@@ -1522,7 +1522,7 @@ def test_mono_to_stereo():
 def test_stereo_to_mono():
     a = sine_wave(880, 0.1, 10, 48000, 2)
     b = stereo_to_mono(a)
-    b.verify(30)
+    verify(b, 30)
     assert b.num_channels() == 1
 
     a = sine_wave(880, 0.1, 10, 48000, 1)
@@ -1541,7 +1541,7 @@ def test_reverse():
     )
     c = chain(a,b)
     d = reverse(c)
-    d.verify(30)
+    verify(d, 30)
 
     f1 = c.get_frame(5)
     f2 = d.get_frame(d.length()-5)
@@ -1555,7 +1555,7 @@ def test_reverse():
 def test_volume():
     a = sine_wave(880, 0.1, 10, 48000, 2)
     b = scale_volume(a, 0.1)
-    b.verify(30)
+    verify(b, 30)
 
     with pytest.raises(ValueError):
         scale_volume(a, -10)
@@ -1571,14 +1571,14 @@ def test_crop():
 
     # Typical usage.
     b = crop(a, [10, 10], [100, 100])
-    b.verify(30)
+    verify(b, 30)
     assert b.width() == 90
     assert b.height() == 90
 
 
     # Zero is okay.
     c = crop(a, [0, 0], [100, 100])
-    c.verify(30)
+    verify(c, 30)
 
     with pytest.raises(ValueError):
         crop(a, [-1, 10], [100, 100])
@@ -1592,7 +1592,7 @@ def test_crop():
 def test_draw_text1():
     # Basic text drawing does not blow up.
     x = draw_text("Hello!", FONT_FILE, font_size=200, color=[255,0,255], length=5)
-    x.verify(10)
+    verify(x, 10)
 
 def test_draw_text2():
     # Caching notices changes to the source.
@@ -1658,8 +1658,8 @@ def test_draw_text6():
     y = draw_text("Hello!", FONT_FILE, font_size=200, color=[255,0,0], outline_width=25,
                   outline_color=[0,0,255], length=5)
 
-    x.verify(10)
-    y.verify(10)
+    verify(x, 10)
+    verify(y, 10)
     assert x.height() < y.height()
     assert x.width() < y.width()
 
@@ -1667,7 +1667,7 @@ def test_draw_text6():
 def test_to_monochrome():
     a = black(640, 480, 3)
     b = to_monochrome(a)
-    b.verify(30)
+    verify(b, 30)
 
 def test_resample1():
     # Basic case.
@@ -1680,7 +1680,7 @@ def test_resample1():
     b = resample(a, sample_rate=sr, length=l)
     assert b.sample_rate() == sr
     assert b.length() == l
-    b.verify(29)
+    verify(b, 29)
 
 def test_resample2():
     # Cover all of the default-parameter branches.
@@ -1689,7 +1689,7 @@ def test_resample2():
     a = slice_clip(a, 0, length)
 
     b = resample(a)
-    b.verify(30)
+    verify(b, 30)
 
 def test_resample3():
     # Subtitle times get scaled appropriately.
@@ -1716,7 +1716,7 @@ def test_slice_out2():
     # Bad times.
     a = black(640, 480, 3)
     b = slice_out(a, 1.5, 2.5)
-    b.verify(30)
+    verify(b, 30)
     assert b.length() == 2
 
 def test_slice_out3():
@@ -1728,7 +1728,7 @@ def test_slice_out3():
 def test_letterbox():
     a = white(640, 480, 3)
     b = letterbox(a, 1000, 1000)
-    b.verify(30)
+    verify(b, 30)
 
 def test_repeat_frame():
     x = from_file(f"{TEST_FILES_DIR}/bunny.webm")
@@ -1737,7 +1737,7 @@ def test_repeat_frame():
     when = 0.2
 
     b = repeat_frame(a, when, 5)
-    b.verify(x.frame_rate, verbose=False)
+    verify(b, x.frame_rate, verbose=False)
     assert b.length() == 5
     assert b.frame_signature(0) == a.frame_signature(when)
 
@@ -1747,7 +1747,7 @@ def test_hold_at_start1():
     a = slice_clip(x, 0, 1)
 
     b = hold_at_start(a, 5)
-    b.verify(x.frame_rate)
+    verify(b, x.frame_rate)
     assert b.length() == 5
 
     c = hold_at_start(a, 0.5)
@@ -1758,7 +1758,7 @@ def test_hold_at_start2():
     x = from_file(f"{TEST_FILES_DIR}/bunny.webm")
     a = slice_clip(x, 0, 0.98)
     b = hold_at_start(a, 5)
-    b.verify(x.frame_rate, verbose=True)
+    verify(b, x.frame_rate, verbose=True)
     assert b.length() == 5
 
 def test_hold_at_end1():
@@ -1767,7 +1767,7 @@ def test_hold_at_end1():
     a = slice_clip(x, 0, 1)
 
     b = hold_at_end(a, 5)
-    b.verify(x.frame_rate)
+    verify(b, x.frame_rate)
     assert b.length() == 5
 
 def test_hold_at_end2():
@@ -1775,13 +1775,13 @@ def test_hold_at_end2():
     x = from_file(f"{TEST_FILES_DIR}/bunny.webm")
     a = slice_clip(x, 0, 0.98)
     b = hold_at_end(a, 5)
-    b.verify(x.frame_rate, verbose=True)
+    verify(b, x.frame_rate, verbose=True)
     assert b.length() == 5
 
 def test_image_glob1():
     # Normal usage.
     a = image_glob(f"{TEST_FILES_DIR}/bunny_frames/*.png", frame_rate=24)
-    a.verify(24)
+    verify(a, 24)
 
 def test_image_glob2():
     # Bad pattern.
@@ -1791,10 +1791,10 @@ def test_image_glob2():
 def test_image_glob3():
     # Make sure we can still find the files if the current directory changes.
     a = image_glob(f"{TEST_FILES_DIR}/bunny_frames/*.png", frame_rate=24)
-    a.verify(24)
+    verify(a, 24)
 
     with temporary_current_directory():
-        a.verify(24)
+        verify(a, 24)
 
 def test_image_glob4():
     # Provide length instead of frame rate.
@@ -1836,7 +1836,7 @@ def test_from_zip1():
     frame_rate = from_file(f"{TEST_FILES_DIR}/bunny.webm").frame_rate
     a = from_zip(f"{TEST_FILES_DIR}/bunny.zip", frame_rate=frame_rate)
     assert not a.is_silent()
-    a.verify(frame_rate)
+    verify(a, frame_rate)
     assert len(list(a.get_subtitles())) == 0
 
 def test_from_zip2():
@@ -1844,7 +1844,7 @@ def test_from_zip2():
     frame_rate = from_file(f"{TEST_FILES_DIR}/bunny.webm").frame_rate
     a = from_zip(f"{TEST_FILES_DIR}/bunny-silent.zip", frame_rate=frame_rate)
     assert a.is_silent()
-    a.verify(frame_rate)
+    verify(a, frame_rate)
     assert len(list(a.get_subtitles())) == 0
 
 def test_from_zip3():
@@ -1853,7 +1853,7 @@ def test_from_zip3():
     frame_rate = from_file(f"{TEST_FILES_DIR}/bunny.webm").frame_rate
     a = from_zip(f"{TEST_FILES_DIR}/bunny.zip", frame_rate=frame_rate+0.001)
     assert not a.is_silent()
-    a.verify(frame_rate)
+    verify(a, frame_rate)
     assert len(list(a.get_subtitles())) == 0
 
 def test_from_zip4():
@@ -1902,19 +1902,19 @@ def test_to_default_metrics():
         a.metrics.verify_compatible_with(Clip.default_metrics)
 
     b = to_default_metrics(a)
-    b.verify(30)
+    verify(b, 30)
     b.metrics.verify_compatible_with(Clip.default_metrics)
 
     # Stereo to mono.
     Clip.default_metrics.num_channels = 1
     c = to_default_metrics(a)
-    c.verify(30)
+    verify(c, 30)
     c.metrics.verify_compatible_with(Clip.default_metrics)
 
     # Mono to stereo.
     Clip.default_metrics.num_channels = 2
     d = to_default_metrics(c)
-    d.verify(30)
+    verify(d, 30)
     d.metrics.verify_compatible_with(Clip.default_metrics)
 
     # Don't know how to deal with 3 channels.
@@ -1926,28 +1926,28 @@ def test_to_default_metrics():
 def test_timewarp():
     a = white(640, 480, 3)
     b = timewarp(a, 2)
-    b.verify(30)
+    verify(b, 30)
     assert 2*b.length() == a.length()
 
 def test_pdf_page1():
     a = pdf_page(f"{TEST_FILES_DIR}/snowman.pdf",
                  page_num=1,
                  length=3)
-    a.verify(30)
+    verify(a, 30)
 
 def test_pdf_page2():
     a = pdf_page(f"{TEST_FILES_DIR}/snowman.pdf",
                  page_num=1,
                  length=3,
                  size=(101,120))
-    a.verify(10)
+    verify(a, 10)
     assert a.width() == 101
     assert a.height() == 120
 
 def test_spin():
     a = static_image(f"{TEST_FILES_DIR}/flowers.png", 5)
     b = spin(a, 2)
-    b.verify(30)
+    verify(b, 30)
 
 def test_vstack1():
     # Different alignments, both correct and incorrect.
@@ -1955,13 +1955,13 @@ def test_vstack1():
     b = static_image(f"{TEST_FILES_DIR}/water.png", 5)
 
     c = vstack(a, b, align=Align.LEFT)
-    c.verify(30)
+    verify(c, 30)
 
     d = vstack(a, b, align=Align.RIGHT)
-    d.verify(30)
+    verify(d, 30)
 
     e = vstack(a, b, align=Align.CENTER)
-    e.verify(30)
+    verify(e, 30)
 
     with pytest.raises(NotImplementedError):
         vstack(a, b, align=Align.TOP)
@@ -1979,13 +1979,13 @@ def test_hstack1():
     b = static_image(f"{TEST_FILES_DIR}/water.png", 5)
 
     c = hstack(a, b, align=Align.TOP)
-    c.verify(30)
+    verify(c, 30)
 
     d = hstack(a, b, align=Align.BOTTOM)
-    d.verify(30)
+    verify(d, 30)
 
     e = hstack(a, b, align=Align.CENTER)
-    e.verify(30)
+    verify(e, 30)
 
     with pytest.raises(NotImplementedError):
         hstack(a, b, align=Align.LEFT)
@@ -2003,7 +2003,7 @@ def test_stack_clips():
 
     # Integer for spacing in the list
     c = stack_clips(a, 10, b, align=Align.LEFT, vert=True, name='vstack')
-    c.verify(30)
+    verify(c, 30)
 
     # Junk in the list
     with pytest.raises(TypeError):
@@ -2017,20 +2017,20 @@ def test_background():
     c = join(a, b)
     d = background(c, (255,0,0))
 
-    d.verify(30)
+    verify(d, 30)
 
 def test_superimpose_center():
     a = static_image(f"{TEST_FILES_DIR}/flowers.png", 3)
     b = static_image(f"{TEST_FILES_DIR}/water.png", 5)
 
     c = superimpose_center(a, b, 0)
-    c.verify(30)
+    verify(c, 30)
 
 def test_loop():
     a = static_image(f"{TEST_FILES_DIR}/flowers.png", 1.2)
     b = spin(a, 1)
     c = loop(b, 10)
-    c.verify(30)
+    verify(c, 30)
     assert c.length() == 10
 
 def test_ken_burns1():
@@ -2043,7 +2043,7 @@ def test_ken_burns1():
                   start_bottom_right=[100,100],
                   end_top_left=[100,100],
                   end_bottom_right=[250,250])
-    b.verify(30)
+    verify(b, 30)
 
 def test_ken_burns2():
     # Small distortion: OK.  1.779291553133515 vs 1.7777777777777777
@@ -2056,7 +2056,7 @@ def test_ken_burns2():
                   start_bottom_right=(2022,1134),
                   end_top_left=(73,43),
                   end_bottom_right=(2821,1588))
-    b.verify(30)
+    verify(b, 30)
 
 def test_ken_burns3():
     # Big distortions: Bad.
@@ -2082,13 +2082,14 @@ def test_ken_burns3():
 
 
     with pytest.raises(ValueError):
-        ken_burns(clip=a,
-                  width=520,
-                  height=520,
-                  start_top_left=[0,0],
-                  start_bottom_right=[100,100],
-                  end_top_left=[2000,2000],
-                  end_bottom_right=[3000,3000]).verify(30)
+        verify(ken_burns(clip=a,
+                         width=520,
+                         height=520,
+                         start_top_left=[0,0],
+                         start_bottom_right=[100,100],
+                         end_top_left=[2000,2000],
+                         end_bottom_right=[3000,3000]),
+               30)
 
 def test_ken_burns4():
     # Grabbing at the exact width or height: OK, because the slice is not
@@ -2101,7 +2102,7 @@ def test_ken_burns4():
                   start_bottom_right=(100,100),
                   end_top_left=(10,10),
                   end_bottom_right=(100,100))
-    b.verify(30)
+    verify(b, 30)
 
 def test_ken_burns_preview():
     # Legit.
@@ -2113,7 +2114,7 @@ def test_ken_burns_preview():
                           start_bottom_right=[100,100],
                           end_top_left=[100,100],
                           end_bottom_right=[250,250])
-    b.verify(30)
+    verify(b, 30)
 
 def test_fade_between():
     a = black(640, 480, 3)
@@ -2121,7 +2122,7 @@ def test_fade_between():
 
     # Normal use.
     c = fade_between(a, b)
-    c.verify(30)
+    verify(c, 30)
 
     # Must have same length.
     d = white(640, 480, 4)
@@ -2132,12 +2133,12 @@ def test_silence_audio():
     a = from_file(f"{TEST_FILES_DIR}/bunny.webm")
     a = slice_clip(a, 0, 5)
     b = silence_audio(a)
-    b.verify(30)
+    verify(b, 30)
 
 def test_bgr2rgb():
     a = from_file(f"{TEST_FILES_DIR}/bunny.webm")
     b = bgr2rgb(a)
-    b.verify(30)
+    verify(b, 30)
 
 def test_rosbag1():
     # Since thereare no rosbags in our standard test files, we'll make some
@@ -2173,7 +2174,7 @@ def test_rosbag1():
             # Did we get a legit clip?  Does it match the original? Note that
             # the lengths will not match exactly because of the duration of the
             # last frame, which is not stored in the rosbag.
-            b.verify(30)
+            verify(b, 30)
 
             assert a.width() == b.width()
             assert a.height() == b.height()
@@ -2186,7 +2187,7 @@ def test_rosbag1():
             os.utime('test.bag', (1000000, 1000000))
             c = from_rosbag(pathname='test.bag',
                             topic=topic)
-            c.verify(30)
+            verify(c, 30)
 
             sig1 = b.frame_signature(0.5)
             sig2 = c.frame_signature(0.5)

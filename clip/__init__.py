@@ -36,5 +36,6 @@ from .subtitles import *
 from .superimpose import *
 from .text import *
 from .util import *
+from .verify import *
 from .video import *
 from .zip_clip import *
