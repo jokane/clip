@@ -80,24 +80,42 @@ def get_framerate_from_ffprobe_stream(stream):
 
     raise ValueError(f"Could not find a frame rate in ffprobe stream. {stream}")
 
-def metrics_and_frame_rate_from_stream_dicts(streams, filename):
-    """Given a dict containing the audio, video, and subtitles streams of
-    a clip, return the appropriate :class:`Metrics` object, the float frame rate, and
-    booleans telling whether video, audio, and subtitles exist.
+def parse_stream_dicts(streams, filename):
+    """Given a dict containing the audio, video, and subtitles streams of a
+    clip, return the appropriate :class:`Metrics` object, the float frame rate,
+    a possibly empty list of subtitle languages, and three booleans telling
+    whether video, audio, and subtitles exist.
 
-    :param streams: A dictionary with
-            `"audio"`, or `"subtitle"`.  Each value a dictionary built from the
-            key-value pairs in an `ffprobe`
+    :param streams: A dictionary with keys `"video"`, `"audio"`, and/or
+            `"subtitle"`.  Each value is a list of dictionaries built from the
+            key-value pairs in an `ffprobe`.
 
     :param filename: The name of the file described by `streams`.  Used only
             for error messages.
 
     """
-    video_stream = streams['video']
-    audio_stream = streams['audio']
-    subtitle_stream = streams['subtitle']
-    fmt = streams['format']
-    has_subtitles = subtitle_stream is not None
+
+    # Get the video and audio streams, if any.
+    if len(streams['video']) == 0:
+        video_stream = None
+    else:
+        video_stream = streams['video'][0]
+    if len(streams['audio']) == 0:
+        audio_stream = None
+    else:
+        audio_stream = streams['audio'][0]
+
+    # Complain if there is somehow more than one video or more than one audio.
+    if len(streams['video']) > 1:
+        warnings.warn(f'In {filename} there are {len(streams)} video streams.  \
+                    Using the first one.')
+    if len(streams['audio']) > 1:
+        warnings.warn(f'In {filename} there are {len(streams)} audio streams.  \
+                    Using the first one.')
+
+    # There should be exactly one format 'stream'.
+    assert len(streams['format']) == 1
+    fmt = streams['format'][0]
 
     # Some videos, especially from mobile phones, contain metadata asking for a
     # rotation.  We'll generally not try to deal with that here ---better,
@@ -110,51 +128,85 @@ def metrics_and_frame_rate_from_stream_dicts(streams, filename):
           and video_stream['tag:rotate'] in ['-90','90']):
         video_stream['width'],video_stream['height'] = video_stream['height'],video_stream['width']
 
+    # Get the metrics and the framerate.  Where to look depends on whether
+    # there's audio and whether there's video.
+    # - Case 1: Both video and audio.
     if video_stream and audio_stream:
-        vlen = get_duration_from_ffprobe_stream(video_stream, fmt)
         fr = get_framerate_from_ffprobe_stream(video_stream)
+        vlen = get_duration_from_ffprobe_stream(video_stream, fmt)
         alen = get_duration_from_ffprobe_stream(audio_stream, fmt)
 
         if abs(vlen - alen) > 0.5:
             raise ValueError(f"In {filename}, video length ({vlen}) and audio length ({alen}) "
               "do not match. Perhaps load video and audio separately?")
 
-        return Metrics(width = eval(video_stream['width']),
-                       height = eval(video_stream['height']),
-                       sample_rate = eval(audio_stream['sample_rate']),
-                       num_channels = eval(audio_stream['channels']),
-                       length = min(vlen, alen)), \
-               fr, True, True, has_subtitles
-    elif video_stream:
-        vlen = get_duration_from_ffprobe_stream(video_stream, fmt)
-        fr = get_framerate_from_ffprobe_stream(video_stream)
+        metrics = Metrics(width = eval(video_stream['width']),
+                          height = eval(video_stream['height']),
+                          sample_rate = eval(audio_stream['sample_rate']),
+                          num_channels = eval(audio_stream['channels']),
+                          length = min(vlen, alen))
 
-        return Metrics(src = Clip.default_metrics,
+    # Case 2: Video only, no audio.
+    elif video_stream:
+        fr = get_framerate_from_ffprobe_stream(video_stream)
+        vlen = get_duration_from_ffprobe_stream(video_stream, fmt)
+
+        metrics = Metrics(src = Clip.default_metrics,
                        width = eval(video_stream['width']),
                        height = eval(video_stream['height']),
-                       length = vlen), \
-               fr, True, False, has_subtitles
+                       length = vlen)
+
+    # Case 3: Audio only, no video.
     elif audio_stream:
+        fr = None
         alen = get_duration_from_ffprobe_stream(audio_stream, fmt)
         return Metrics(src = Clip.default_metrics,
                        sample_rate = eval(audio_stream['sample_rate']),
                        num_channels = eval(audio_stream['channels']),
-                       length = alen), \
-               None, False, True, has_subtitles
-    else:
-        # Should be impossible to get here, but just in case...
-        raise ValueError(f"File {filename} contains neither audio nor video.") # pragma: no cover
+                       length = alen)
 
-def metrics_from_ffprobe_output(ffprobe_output, filename, suppress=None):
-    """Sift through output from `ffprobe` and trying to make a `Metrics` from it.
+    # Case 4: Neither video nor audio.  (???)
+    else:
+        # Should be pretty hard and/or impossible to get here.
+        raise ValueError(f"File {filename} contains neither audio nor video.") # pragma: no cover
+    
+
+    # Now that we have the metrics and frame rate, we need to get the language
+    # for each subtitle track.
+    langs = []
+    for subtitle_stream in streams['subtitle']:
+        if 'tag:language' in subtitle_stream:
+            lang = subtitle_stream['tag:language']
+        else:
+            lang = 'und'  # 'undetermined' according to ISO 639-2
+
+        if lang in langs:
+            raise UserWarning('Found an extra subtitle track for {lang}.  Ignoring it.')
+        else:
+            langs.append(lang)
+
+    return (metrics,
+            fr,
+            video_stream is None, 
+            audio_stream is None,
+            langs)
+
+def parse_ffprobe_output(ffprobe_output, filename, suppress=None):
+    """Sift through output from `ffprobe` looking for important information
+    about the file.
 
     :param ffprobe_output: A string containing output from `ffprobe`.
     :param supress: A list containing some (possibly empty) subset of
             `"video"`, `"audio"`, and `"subtitle"`.  Streams of those types
             will be ignored.
 
-    :return: A :class:`Metrics` object based on that data, or raise an
-            exception if something strange is in there.
+    :return: A :class:`Metrics` object based on that data
+    :return: The frame rate of the video, if any.
+    :return: A possibly empty list of subtitle language identifiers.
+    :return: Three booleans indicating if there exist video, audio, and
+    subtitles respectively.
+
+    Raises an exception if something strange is in the ffprobe output.
 
     The output should specifically be from::
 
@@ -174,6 +226,7 @@ def metrics_from_ffprobe_output(ffprobe_output, filename, suppress=None):
     for line in ffprobe_output.strip().split('\n'):
         # Each line is a pipe-separated list of key value pairs.  Massage that
         # into a dictionary.
+        line = re.sub(r'\\\|', '', line)
         stream = {}
         fields = line.split('|')
 
@@ -210,18 +263,8 @@ def metrics_from_ffprobe_output(ffprobe_output, filename, suppress=None):
         else:  # fields[0] == 'format':
             stream_lists['format'].append(stream)
 
-    streams_by_type = {}
-    for t, streams in stream_lists.items():
-        if len(streams)==0:
-            streams_by_type[t] = None
-        elif len(streams)==1:
-            streams_by_type[t] = streams[0]
-        else:
-            warnings.warn(f'In {filename} there are {len(streams)} {t} streams.  \
-                    Using the first one.')
-            streams_by_type[t] = streams[0]
-
-    return metrics_and_frame_rate_from_stream_dicts(streams_by_type, filename)
+    # Handle each type of stream individually.
+    return parse_stream_dicts(stream_lists, filename)
 
 def audio_samples_from_file(filename, cache, expected_sample_rate, expected_num_channels,
                             expected_num_samples):
@@ -318,10 +361,11 @@ def parse_subtitles(srt_text, subtitles_filename=None):
         text = '\n'.join(lines[2:])
         yield (start, end, text)
 
-def subtitles_from_file(filename, cache):
+def subtitles_from_file(filename, language, cache):
     """ Extract subtitles from a file.
 
     :param filename: The name of a media file that includes a subtitle stream.
+    :param language: The language code for the subtitle track to extract.
     :param cache: A :class:`ClipCache` that might have the subtitle stream we
             want, or into which it can be stored.
     :return: A generator that yields subtitles, each a `(start_time, end_time, text)`
@@ -330,17 +374,17 @@ def subtitles_from_file(filename, cache):
     """
 
     # What file should the subtitles live in and does it exist already?
-    subtitles_filename, exists = cache.lookup('subtitles',
+    subtitles_filename, exists = cache.lookup(f'subtitles_{language}',
                                               'srt',
                                               use_hash=False)
 
     # If we don't already have the subtitles file, use ffmpeg to get it.
     if not exists:
-        print(f'Extracting subtitles from {filename}')
+        print(f'Extracting {language} subtitles from {filename}')
         with temporary_current_directory():
-            ffmpeg( f'-i "{filename}"',
-                   '-map 0:s:0',
-                    f'"{subtitles_filename}"')
+            ffmpeg(f'-i "{filename}" ',
+                   f'-map 0:s:m:language:{language} ',
+                   f'"{subtitles_filename}"')
 
     # Read the subtitles in from the file.
     with open(subtitles_filename, 'r') as f:
@@ -423,8 +467,6 @@ class from_file(Clip, FiniteIndexed):
                                    num_frames=self.metrics.length*self.frame_rate,
                                    length=self.metrics.length)
 
-        self.subtitles = None
-
     def acquire_metrics(self, suppress=None):
         """ Set the metrics attribute, either by grabbing the metrics from the
         cache, or by getting them the hard way via ffprobe."""
@@ -454,9 +496,13 @@ class from_file(Clip, FiniteIndexed):
 
         # Parse the (very detailed) ffprobe response to get the metrics we
         # need.
-        response = metrics_from_ffprobe_output(deets, self.filename, suppress)
+        response = parse_ffprobe_output(deets, self.filename, suppress)
 
-        self.metrics, self.frame_rate, self.has_video, self.has_audio, self.has_subtitles = response
+        self.metrics, self.frame_rate, self.has_video, self.has_audio, langs = response
+
+        self.subtitles = {}
+        for lang in langs:
+            self.subtitles[lang] = None
 
         self.requested_indices = set()
 
@@ -505,14 +551,24 @@ class from_file(Clip, FiniteIndexed):
 
             return image
 
+    def get_subtitle_languages(self):
+        return list(self.subtitles.keys())
 
-    def get_subtitles(self):
-        if self.subtitles is None:
-            if self.has_subtitles:
-                self.subtitles = list(subtitles_from_file(self.filename, self.cache))
-            else:
-                self.subtitles = []
-        return self.subtitles
+    def get_subtitles(self, language):
+        if language not in self.subtitles:
+            msg = []
+            msg.append(f'File {self.filename} does not contain subtitle track for {language}.')
+            msg.append('It does have subtitle tracks for:')
+            msg += [ f'  {language}' for language in self.subtitles.keys() ]
+            raise ValueError('\n'.join(msg))
+
+        lang_subtitles = self.subtitles[language]
+
+        if lang_subtitles is None:
+            lang_subtitles = list(subtitles_from_file(self.filename, language, self.cache))
+            self.subtitles[language] = lang_subtitles
+
+        return lang_subtitles
 
     def explode_interval(self, start_index, end_index):
         """Expand the given range of frames into the cache.  Helper for explode()."""

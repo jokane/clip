@@ -100,9 +100,14 @@ class Clip(ABC):
         don't want to call this; you probably wany `get_samples` instead."""
 
     @abstractmethod
-    def get_subtitles(self):
-        """Return an iterable of subtitles, each a `(start_time, end_time, text)`
-        triple."""
+    def get_subtitle_languages(self):
+        """Return an iterable of language identifiers for the subtitle tracks
+        present in the clip."""
+
+    @abstractmethod
+    def get_subtitles(self, language):
+        """Return an iterable of subtitles for the given language identifier.
+        Each subtitle is a `(start_time, end_time, text)` triple."""
 
     default_metrics = Metrics(width = 640,
                               height = 480,

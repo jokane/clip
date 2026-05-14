@@ -69,13 +69,12 @@ def get_test_files():  # pragma: no cover
           -i sintel_en.srt -i sintel_es.srt -i sintel_de.srt \
           -map 0:v -map 0:a -map 1 -map 2 -map 3 \
           -c:v copy -c:a copy -c:s mov_text \
-          -metadata:s:s:0 language=eng -metadata:s:s:0 title="English"\
-          -metadata:s:s:1 language=spa -metadata:s:s:1 title="Español"\
-          -metadata:s:s:2 language=ger -metadata:s:s:2 title="Deutsch"\
+          -metadata:s:s:0 language=eng \
+          -metadata:s:s:1 language=spa \
+          -metadata:s:s:2 language=ger \
           sintel-multisub.mp4'
         print(cmd)
         assert os.system(cmd) == 0
-
 
     if not os.path.exists(f"{TEST_FILES_DIR}/bunny_frames"):
         os.mkdir(f"{TEST_FILES_DIR}/bunny_frames")
@@ -753,8 +752,7 @@ def test_from_file1():
 
 def test_from_file2():
     a = from_file(f"{TEST_FILES_DIR}/bunny.webm")
-    a = slice_clip(a, 0, 1.1)
-    verify(a, 30)
+    verify(a, 10)
 
 def test_from_file3():
     b = from_file(f"{TEST_FILES_DIR}/bunny.webm")
@@ -880,6 +878,24 @@ def test_from_file14():
         x = from_file(fname, cache_dir=os.getcwd())
         with pytest.raises(ValueError):
             x.get_frame(1)
+
+def test_from_file15():
+    # If there are multiple subtitle streams, all of them are found and
+    # available.
+
+    x = from_file(f'{TEST_FILES_DIR}/sintel-multisub.mp4')
+
+    verify(x, x.frame_rate)
+
+    languages = x.get_subtitle_languages()
+    assert len(languages) == 3
+
+    st1 = list(x.get_subtitles('eng'))
+    assert len(st1) == 26, len(st1)
+    assert 'Yeah' in st1[17][2], st1[17]
+
+    st2 = list(x.get_subtitles('spa'))
+    assert 'Vamos' in st2[17][2], st2[17]
 
 def test_explode1():
     x = set([1, 2, 3, 7, 8, 9, 15])

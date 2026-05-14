@@ -49,11 +49,12 @@ def verify(clip, frame_rate, verbose=False):
             f'{type(clip)} returned the wrong shape from get_samples.  ' \
             f'Got {samples.shape}; should have been {(clip.num_samples(), clip.num_channels())}'
 
-    subtitles = clip.get_subtitles()
-    for subtitle in subtitles:
-        assert len(subtitle) == 3
-        assert is_non_negative(subtitle[0])
-        assert is_non_negative(subtitle[1])
-        assert subtitle[0] < subtitle[1]
-        assert is_string(subtitle[2])
+    for language in clip.get_subtitle_languages():
+        subtitles = clip.get_subtitles(language)
+        for subtitle in subtitles:
+            assert len(subtitle) == 3
+            assert is_non_negative(subtitle[0])
+            assert is_non_negative(subtitle[1])
+            assert subtitle[0] < subtitle[1]
+            assert is_string(subtitle[2])
 
