@@ -54,6 +54,29 @@ def get_test_files():  # pragma: no cover
     snag("brian.jpg",
          "https://beachboys.com/longpromisedroad.jpg")
 
+    snag("sintel.mp4",
+         "http://peach.themazzone.com/durian/movies/sintel-1024-surround.mp4")
+
+    snag(f'sintel_en.srt',
+         f'https://durian.blender.org/wp-content/content/subtitles/sintel_en.srt')
+    snag(f'sintel_es.srt',
+         f'https://durian.blender.org/wp-content/content/subtitles/sintel_es.srt')
+    snag(f'sintel_de.srt',
+         f'https://durian.blender.org/wp-content/content/subtitles/sintel_de.srt')
+
+    if not os.path.exists(f"{TEST_FILES_DIR}/sintel-multisub.mp4"):
+        cmd = f'cd {TEST_FILES_DIR}; ffmpeg -i sintel.mp4 \
+          -i sintel_en.srt -i sintel_es.srt -i sintel_de.srt \
+          -map 0:v -map 0:a -map 1 -map 2 -map 3 \
+          -c:v copy -c:a copy -c:s mov_text \
+          -metadata:s:s:0 language=eng -metadata:s:s:0 title="English"\
+          -metadata:s:s:1 language=spa -metadata:s:s:1 title="Español"\
+          -metadata:s:s:2 language=ger -metadata:s:s:2 title="Deutsch"\
+          sintel-multisub.mp4'
+        print(cmd)
+        assert os.system(cmd) == 0
+
+
     if not os.path.exists(f"{TEST_FILES_DIR}/bunny_frames"):
         os.mkdir(f"{TEST_FILES_DIR}/bunny_frames")
         with temporary_current_directory():
