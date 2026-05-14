@@ -147,8 +147,11 @@ class from_audio_samples(AudioClip):
                                sample_rate=sample_rate,
                                num_channels=self.samples.shape[1])
 
-    def get_samples(self):
-        return self.samples
+    def compute_samples(self):
+        # We should never actually get here, since setting self.samples in
+        # __init__ should mean that get_samples uses that instead of calling
+        # this.
+        assert False # pragma nocover
 
     def get_subtitles(self):
         return []

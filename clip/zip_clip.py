@@ -112,8 +112,11 @@ class from_zip(Clip, FiniteIndexed):
         frame = cv2.cvtColor(frame, cv2.COLOR_RGBA2BGRA)
         return frame
 
-    def get_samples(self):
-        return self.samples
+    def compute_samples(self):
+        # We should never actually get here, since setting self.samples in
+        # __init__ should mean that get_samples uses that instead of calling
+        # this.
+        assert False # pragma nocover
 
     def get_subtitles(self):
         try:

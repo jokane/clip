@@ -423,7 +423,6 @@ class from_file(Clip, FiniteIndexed):
                                    num_frames=self.metrics.length*self.frame_rate,
                                    length=self.metrics.length)
 
-        self.samples = None
         self.subtitles = None
 
     def acquire_metrics(self, suppress=None):
@@ -611,15 +610,13 @@ class from_file(Clip, FiniteIndexed):
         return num_cached, num_exploded, num_missing
 
 
-    def get_samples(self):
-        if self.samples is None:
-            if self.has_audio:
-                self.samples = audio_samples_from_file(self.filename,
-                                                       self.cache,
-                                                       self.sample_rate(),
-                                                       self.num_channels(),
-                                                       self.num_samples())
-            else:
-                self.samples = np.zeros([self.metrics.num_samples(), self.metrics.num_channels])
-        return self.samples
+    def compute_samples(self):
+        if self.has_audio:
+            return audio_samples_from_file(self.filename,
+                                           self.cache,
+                                           self.sample_rate(),
+                                           self.num_channels(),
+                                           self.num_samples())
+        else:
+            return np.zeros([self.metrics.num_samples(), self.metrics.num_channels])
 

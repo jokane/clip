@@ -35,7 +35,7 @@ class solid(Clip):
     frame_signature = AudioClip.frame_signature
     request_frame = AudioClip.request_frame
     get_frame = AudioClip.get_frame
-    get_samples = VideoClip.get_samples
+    compute_samples = VideoClip.compute_samples
     get_subtitles = VideoClip.get_subtitles
 
 def black(width, height, length):

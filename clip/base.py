@@ -185,7 +185,9 @@ class Clip(ABC):
                   f" Expecting {(self.height(), self.width(), 4)}")
 
         samples = self.get_samples()
-        assert samples.shape == (self.num_samples(), self.num_channels()), f'{type(self)} returned the wrong shape from get_samples.  Got {samples.shape}, but should have been {(self.num_samples(), self.num_channels())}'
+        assert samples.shape == (self.num_samples(), self.num_channels()), \
+                f'{type(self)} returned the wrong shape from get_samples.  ' \
+                f'Got {samples.shape}; should have been {(self.num_samples(), self.num_channels())}'
 
         subtitles = self.get_subtitles()
         for subtitle in subtitles:
@@ -356,7 +358,7 @@ class Clip(ABC):
 class VideoClip(Clip):
     """ Inherit from this for Clip classes that really only have video, to
     default to silent audio."""
-    def get_samples(self):
+    def compute_samples(self):
         """Return audio samples appropriate to use as a default audio.  That
         is, silence with the appropriate metrics."""
         return np.zeros([self.metrics.num_samples(), self.metrics.num_channels])
