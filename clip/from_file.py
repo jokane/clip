@@ -114,8 +114,10 @@ def parse_stream_dicts(streams, filename):
                     Using the first one.')
 
     # There should be exactly one format 'stream'.
-    assert len(streams['format']) == 1
-    fmt = streams['format'][0]
+    if len(streams['format']) > 0:
+        fmt = streams['format'][0]
+    else:
+        fmt = None
 
     # Some videos, especially from mobile phones, contain metadata asking for a
     # rotation.  We'll generally not try to deal with that here ---better,
@@ -160,10 +162,10 @@ def parse_stream_dicts(streams, filename):
     elif audio_stream:
         fr = None
         alen = get_duration_from_ffprobe_stream(audio_stream, fmt)
-        return Metrics(src = Clip.default_metrics,
-                       sample_rate = eval(audio_stream['sample_rate']),
-                       num_channels = eval(audio_stream['channels']),
-                       length = alen)
+        metrics = Metrics(src = Clip.default_metrics,
+                          sample_rate = eval(audio_stream['sample_rate']),
+                          num_channels = eval(audio_stream['channels']),
+                          length = alen)
 
     # Case 4: Neither video nor audio.  (???)
     else:
@@ -203,8 +205,8 @@ def parse_ffprobe_output(ffprobe_output, filename, suppress=None):
     :return: A :class:`Metrics` object based on that data
     :return: The frame rate of the video, if any.
     :return: A possibly empty list of subtitle language identifiers.
-    :return: Three booleans indicating if there exist video, audio, and
-    subtitles respectively.
+    :return: Two booleans indicating if there exist video and audio
+                respectively.
 
     Raises an exception if something strange is in the ffprobe output.
 

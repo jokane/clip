@@ -646,7 +646,7 @@ def test_get_frame_cached():
         x.get_frame_cached(cache, 7.5)
 
 
-def test_metrics_from_ffprobe_output1():
+def test_parse_ffprobe_output1():
     video_deets = "stream|index=0|codec_name=h264|codec_long_name=H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10|profile=High|codec_type=video|codec_time_base=1/60|codec_tag_string=avc1|codec_tag=0x31637661|width=1024|height=576|coded_width=1024|coded_height=576|has_b_frames=2|sample_aspect_ratio=N/A|display_aspect_ratio=N/A|pix_fmt=yuv420p|level=32|color_range=unknown|color_space=unknown|color_transfer=unknown|color_primaries=unknown|chroma_location=left|field_order=unknown|timecode=N/A|refs=1|is_avc=true|nal_length_size=4|id=N/A|r_frame_rate=30/1|avg_frame_rate=30/1|time_base=1/15360|start_pts=0|start_time=0.000000|duration_ts=1416192|duration=92.200000|bit_rate=1134131|max_bit_rate=N/A|bits_per_raw_sample=8|nb_frames=2766|nb_read_frames=N/A|nb_read_packets=N/A|disposition:default=1|disposition:dub=0|disposition:original=0|disposition:comment=0|disposition:lyrics=0|disposition:karaoke=0|disposition:forced=0|disposition:hearing_impaired=0|disposition:visual_impaired=0|disposition:clean_effects=0|disposition:attached_pic=0|disposition:timed_thumbnails=0|tag:language=und|tag:handler_name=VideoHandler" # pylint: disable=line-too-long
     audio_deets = "stream|index=1|codec_name=aac|codec_long_name=AAC (Advanced Audio Coding)|profile=LC|codec_type=audio|codec_time_base=1/44100|codec_tag_string=mp4a|codec_tag=0x6134706d|sample_fmt=fltp|sample_rate=44100|channels=2|channel_layout=stereo|bits_per_sample=0|id=N/A|r_frame_rate=0/0|avg_frame_rate=0/0|time_base=1/44100|start_pts=0|start_time=0.000000|duration_ts=4066020|duration=92.200000|bit_rate=128751|max_bit_rate=128751|bits_per_raw_sample=N/A|nb_frames=3972|nb_read_frames=N/A|nb_read_packets=N/A|disposition:default=1|disposition:dub=0|disposition:original=0|disposition:comment=0|disposition:lyrics=0|disposition:karaoke=0|disposition:forced=0|disposition:hearing_impaired=0|disposition:visual_impaired=0|disposition:clean_effects=0|disposition:attached_pic=0|disposition:timed_thumbnails=0|tag:language=und|tag:handler_name=SoundHandler" # pylint: disable=line-too-long
     short_audio_deets = "stream|index=1|codec_name=aac|codec_long_name=AAC (Advanced Audio Coding)|profile=LC|codec_type=audio|codec_time_base=1/44100|codec_tag_string=mp4a|codec_tag=0x6134706d|sample_fmt=fltp|sample_rate=44100|channels=2|channel_layout=stereo|bits_per_sample=0|id=N/A|r_frame_rate=0/0|avg_frame_rate=0/0|time_base=1/44100|start_pts=0|start_time=0.000000|duration_ts=4066020|duration=91.000000|bit_rate=128751|max_bit_rate=128751|bits_per_raw_sample=N/A|nb_frames=3972|nb_read_frames=N/A|nb_read_packets=N/A|disposition:default=1|disposition:dub=0|disposition:original=0|disposition:comment=0|disposition:lyrics=0|disposition:karaoke=0|disposition:forced=0|disposition:hearing_impaired=0|disposition:visual_impaired=0|disposition:clean_effects=0|disposition:attached_pic=0|disposition:timed_thumbnails=0|tag:language=und|tag:handler_name=SoundHandler" # pylint: disable=line-too-long
@@ -663,40 +663,40 @@ def test_metrics_from_ffprobe_output1():
 
     # Warnings if we are ignoring extra streams.
     with pytest.warns():
-        metrics_from_ffprobe_output(f'{video_deets}\n{video_deets}', 'test.mp4')
+        parse_ffprobe_output(f'{video_deets}\n{video_deets}', 'test.mp4')
     with pytest.warns():
-        metrics_from_ffprobe_output(f'{audio_deets}\n{audio_deets}', 'test.mp4')
+        parse_ffprobe_output(f'{audio_deets}\n{audio_deets}', 'test.mp4')
     with pytest.warns():
-        metrics_from_ffprobe_output(f'{audio_deets}\n{video_deets}\n{video_deets}', 'test.mp4')
+        parse_ffprobe_output(f'{audio_deets}\n{video_deets}\n{video_deets}', 'test.mp4')
 
     # Complaints if the streams are ill-formed.
     with pytest.raises(ValueError):
-        metrics_from_ffprobe_output(f'{audio_deets}\n{video_deets}\n{bogus_deets}', 'test.mp4')
+        parse_ffprobe_output(f'{audio_deets}\n{video_deets}\n{bogus_deets}', 'test.mp4')
     with pytest.raises(ValueError):
-        metrics_from_ffprobe_output(f'{short_audio_deets}\n{video_deets}', 'test.mp4')
+        parse_ffprobe_output(f'{short_audio_deets}\n{video_deets}', 'test.mp4')
     with pytest.raises(ValueError):
-        metrics_from_ffprobe_output('', 'test.mp4')
+        parse_ffprobe_output('', 'test.mp4')
 
     with pytest.raises(ValueError):
         bad_video_deets = re.sub("duration", "dooration", video_deets)
-        metrics_from_ffprobe_output(f'{bad_video_deets}\n{audio_deets}', 'test.mp4')
+        parse_ffprobe_output(f'{bad_video_deets}\n{audio_deets}', 'test.mp4')
 
     # Correct answers when the parsing goes through.
-    m, fr, _, _, _ = metrics_from_ffprobe_output(f'{audio_deets}\n{video_deets}', 'test.mp4')
+    m, fr, _, _, _ = parse_ffprobe_output(f'{audio_deets}\n{video_deets}', 'test.mp4')
     assert m == correct_metrics
     assert fr == correct_frame_rate
 
-    m, fr, _, _, _ = metrics_from_ffprobe_output(f'{video_deets}\n{audio_deets}', 'test.mp4')
+    m, fr, _, _, _ = parse_ffprobe_output(f'{video_deets}\n{audio_deets}', 'test.mp4')
     assert m == correct_metrics
     assert fr == correct_frame_rate
 
-    m, fr, _, _, _ = metrics_from_ffprobe_output(f'{video_deets}', 'test.mp4')
+    m, fr, _, _, _ = parse_ffprobe_output(f'{video_deets}', 'test.mp4')
     assert m == Metrics(src=correct_metrics,
                         sample_rate=Clip.default_metrics.sample_rate,
                         num_channels=Clip.default_metrics.num_channels)
     assert fr == correct_frame_rate
 
-    m, fr, _, _, _ = metrics_from_ffprobe_output(f'{audio_deets}', 'test.mp4')
+    m, fr, _, _, _ = parse_ffprobe_output(f'{audio_deets}', 'test.mp4')
     assert m == Metrics(src=correct_metrics,
                         width=Clip.default_metrics.width,
                         height=Clip.default_metrics.height)
