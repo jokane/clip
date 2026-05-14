@@ -24,6 +24,8 @@ FONT_FILE = f"{TEST_FILES_DIR}/{FONT_NAME}"
 def get_test_files():  # pragma: no cover
     """ Download some media files to use for the test, if they don't exist
     already."""
+    # Those URLS below are pretty long, so...
+    # pylint: disable=line-too-long
 
     if not os.path.exists(TEST_FILES_DIR):
         os.mkdir(TEST_FILES_DIR)
@@ -37,13 +39,20 @@ def get_test_files():  # pragma: no cover
             print(f"Downloading {fname}...")
             urllib.request.urlretrieve(url, f"{TEST_FILES_DIR}/" + fname)
 
-    snag("books.mp4", "https://videos.pexels.com/video-files/2268807/2268807-sd_426_240_24fps.mp4")
-    snag("music.mp3", "https://www.dropbox.com/s/mvvwaw1msplnteq/City%20Lights%20-%20The%20Lemming%20Shepherds.mp3?dl=1") #pylint: disable=line-too-long
-    snag("water.png", "https://cdn.pixabay.com/photo/2017/09/14/11/07/water-2748640_1280.png")
-    snag("flowers.png", "https://cdn.pixabay.com/photo/2017/02/11/17/08/flowers-2058090_1280.png")
-    snag("bunny.webm", "https://www.learningcontainer.com/wp-content/uploads/2020/05/sample-webm-file.webm") # pylint: disable=line-too-long
-    snag("snowman.pdf", "http://ctan.math.utah.edu/ctan/tex-archive/graphics/pgf/contrib/scsnowman/scsnowman-sample.pdf") # pylint: disable=line-too-long
-    snag("brian.jpg", "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b7/Brian_Wilson_%287314673472%29_%28tall%29.jpg/800px-Brian_Wilson_%287314673472%29_%28tall%29.jpg") # pylint: disable=line-too-long
+    snag("books.mp4",
+         "https://videos.pexels.com/video-files/2268807/2268807-sd_426_240_24fps.mp4")
+    snag("music.mp3",
+         "https://www.dropbox.com/s/mvvwaw1msplnteq/City%20Lights%20-%20The%20Lemming%20Shepherds.mp3?dl=1") 
+    snag("water.png",
+         "https://cdn.pixabay.com/photo/2017/09/14/11/07/water-2748640_1280.png")
+    snag("flowers.png",
+         "https://cdn.pixabay.com/photo/2017/02/11/17/08/flowers-2058090_1280.png")
+    snag("bunny.webm",
+         "https://www.learningcontainer.com/wp-content/uploads/2020/05/sample-webm-file.webm")
+    snag("snowman.pdf",
+         "http://ctan.math.utah.edu/ctan/tex-archive/graphics/pgf/contrib/scsnowman/scsnowman-sample.pdf")
+    snag("brian.jpg",
+         "https://beachboys.com/longpromisedroad.jpg")
 
     if not os.path.exists(f"{TEST_FILES_DIR}/bunny_frames"):
         os.mkdir(f"{TEST_FILES_DIR}/bunny_frames")
@@ -357,7 +366,7 @@ def test_read_image1():
 
 def test_read_image2():
     img = read_image(f'{TEST_FILES_DIR}/brian.jpg')
-    assert img.shape == (1067, 800, 4)
+    assert img.shape == (500, 500, 4), img.shape
     assert img.dtype == np.uint8
 
 def test_read_image3():
@@ -388,7 +397,7 @@ def test_flatten_args():
 
 def test_sha256sum_file():
     h = sha256sum_file(f'{TEST_FILES_DIR}/brian.jpg')
-    assert h[:7] == 'e16d354'
+    assert h[:7] == '807a36f', h[:7]
 
 def test_get_font():
     get_font(f"{FONT_FILE}", 10)
