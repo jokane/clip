@@ -604,6 +604,19 @@ def test_subtitles2():
     assert len(caps) == 2
     assert caps[0][2] == 'cap1'
 
+def test_subtitles3():
+    # Adding subtitles for a language that is already subtitled.
+    x = solid([0,0,0], 640, 480, 300)
+    x = add_subtitles(x, 'eng', (1, 5, "It's a bunny!"))
+    x = add_subtitles(x, 'spa', (1, 5, "¡Es un conejito!"))
+    x = add_subtitles(x, 'eng', (3, 10, "He seems tired."))
+    x = add_subtitles(x, 'spa', (3, 10, "Él parece cansado."))
+    verify(x, 30)
+    subs = x.get_subtitles()
+    assert len(subs) == 2
+    assert len(subs['eng']) == 2
+    assert len(subs['spa']) == 2
+
 
 def test_cache1():
     # Create a new directory when needed.  Remove it when we clear the cache.
@@ -756,6 +769,21 @@ def test_parse_ffprobe_output5():
 
     with pytest.raises(ValueError):
         parse_ffprobe_output(f'{stream_deets}\n{format_deets}', 'test.webm')
+
+def test_parse_ffprobe_output6():
+    # Modified to have no language tag.
+    video_deets = "stream|index=0|codec_name=h264|codec_long_name=H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10|profile=High|codec_type=video|codec_time_base=1/60|codec_tag_string=avc1|codec_tag=0x31637661|width=1024|height=576|coded_width=1024|coded_height=576|has_b_frames=2|sample_aspect_ratio=N/A|display_aspect_ratio=N/A|pix_fmt=yuv420p|level=32|color_range=unknown|color_space=unknown|color_transfer=unknown|color_primaries=unknown|chroma_location=left|field_order=unknown|timecode=N/A|refs=1|is_avc=true|nal_length_size=4|id=N/A|r_frame_rate=30/1|avg_frame_rate=30/1|time_base=1/15360|start_pts=0|start_time=0.000000|duration_ts=1416192|duration=92.200000|bit_rate=1134131|max_bit_rate=N/A|bits_per_raw_sample=8|nb_frames=2766|nb_read_frames=N/A|nb_read_packets=N/A|disposition:default=1|disposition:dub=0|disposition:original=0|disposition:comment=0|disposition:lyrics=0|disposition:karaoke=0|disposition:forced=0|disposition:hearing_impaired=0|disposition:visual_impaired=0|disposition:clean_effects=0|disposition:attached_pic=0|disposition:timed_thumbnails=0|tag:language=und|tag:handler_name=VideoHandler" # pylint: disable=line-too-long
+    subtitle_deets = "stream|index=2|codec_name=mov_text|codec_long_name=MOV text|profile=unknown|codec_type=subtitle|codec_tag_string=tx3g|codec_tag=0x67337874|width=N/A|height=N/A|id=0x3|r_frame_rate=0/0|avg_frame_rate=0/0|time_base=1/1000000|start_pts=0|start_time=0.000000|duration_ts=629800000|duration=629.800000|bit_rate=9|max_bit_rate=N/A|bits_per_raw_sample=N/A|nb_frames=53|nb_read_frames=N/A|nb_read_packets=N/A|extradata_size=68|disposition:default=1|disposition:dub=0|disposition:original=0|disposition:comment=0|disposition:lyrics=0|disposition:karaoke=0|disposition:forced=0|disposition:hearing_impaired=0|disposition:visual_impaired=0|disposition:clean_effects=0|disposition:attached_pic=0|disposition:timed_thumbnails=0|disposition:non_diegetic=0|disposition:captions=0|disposition:descriptions=0|disposition:metadata=0|disposition:dependent=0|disposition:still_image=0|tag:handler_name=SubtitleHandler" # pylint: disable=line-too-long
+
+    _, _, _, _, langs = parse_ffprobe_output(f'{video_deets}\n{subtitle_deets}', 'test.webm')
+    assert langs == [ 'und' ]
+
+def test_parse_ffprobe_output7():
+    # Multiple subtitle tracks for the same language.
+    video_deets = "stream|index=0|codec_name=h264|codec_long_name=H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10|profile=High|codec_type=video|codec_time_base=1/60|codec_tag_string=avc1|codec_tag=0x31637661|width=1024|height=576|coded_width=1024|coded_height=576|has_b_frames=2|sample_aspect_ratio=N/A|display_aspect_ratio=N/A|pix_fmt=yuv420p|level=32|color_range=unknown|color_space=unknown|color_transfer=unknown|color_primaries=unknown|chroma_location=left|field_order=unknown|timecode=N/A|refs=1|is_avc=true|nal_length_size=4|id=N/A|r_frame_rate=30/1|avg_frame_rate=30/1|time_base=1/15360|start_pts=0|start_time=0.000000|duration_ts=1416192|duration=92.200000|bit_rate=1134131|max_bit_rate=N/A|bits_per_raw_sample=8|nb_frames=2766|nb_read_frames=N/A|nb_read_packets=N/A|disposition:default=1|disposition:dub=0|disposition:original=0|disposition:comment=0|disposition:lyrics=0|disposition:karaoke=0|disposition:forced=0|disposition:hearing_impaired=0|disposition:visual_impaired=0|disposition:clean_effects=0|disposition:attached_pic=0|disposition:timed_thumbnails=0|tag:language=und|tag:handler_name=VideoHandler" # pylint: disable=line-too-long
+    subtitle_deets = "stream|index=2|codec_name=mov_text|codec_long_name=MOV text|profile=unknown|codec_type=subtitle|codec_tag_string=tx3g|codec_tag=0x67337874|width=N/A|height=N/A|id=0x3|r_frame_rate=0/0|avg_frame_rate=0/0|time_base=1/1000000|start_pts=0|start_time=0.000000|duration_ts=629800000|duration=629.800000|bit_rate=9|max_bit_rate=N/A|bits_per_raw_sample=N/A|nb_frames=53|nb_read_frames=N/A|nb_read_packets=N/A|extradata_size=68|disposition:default=1|disposition:dub=0|disposition:original=0|disposition:comment=0|disposition:lyrics=0|disposition:karaoke=0|disposition:forced=0|disposition:hearing_impaired=0|disposition:visual_impaired=0|disposition:clean_effects=0|disposition:attached_pic=0|disposition:timed_thumbnails=0|disposition:non_diegetic=0|disposition:captions=0|disposition:descriptions=0|disposition:metadata=0|disposition:dependent=0|disposition:still_image=0|tag:handler_name=SubtitleHandler" # pylint: disable=line-too-long
+    with pytest.warns():
+        parse_ffprobe_output(f'{video_deets}\n{subtitle_deets}\n{subtitle_deets}', 'test.webm')
 
 def test_from_file1():
     with pytest.raises(FileNotFoundError):

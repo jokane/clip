@@ -183,7 +183,7 @@ def parse_stream_dicts(streams, filename):
             lang = 'und'  # 'undetermined' according to ISO 639-2
 
         if lang in langs:
-            raise UserWarning('Found an extra subtitle track for {lang}.  Ignoring it.')
+            warnings.warn(f'Found an extra subtitle track for {lang}.  Ignoring it.')
         else:
             langs.append(lang)
 
