@@ -78,6 +78,28 @@ def sha256sum_file(filename):
             h.update(mv[:n])
     return h.hexdigest()
 
+def save_subtitles(subtitles, destination):
+    """Save a list of subtitles to an SRT file.
+
+    :param subtitles: A list of `(start_time, end_time, text)` triples.
+    :param destination: A string filename or file-like object.
+
+    """
+    with contextlib.ExitStack() as exst:
+        if isinstance(destination, str):
+            f = exst.enter_context(open(destination, 'w'))
+        else:
+            f = destination
+
+        for number, subtitle in enumerate(subtitles):
+            print(number+1, file=f)
+            print(format_seconds_as_hms(subtitle[0]),
+                  '-->',
+                  format_seconds_as_hms(subtitle[1]),
+                  file=f)
+            print(subtitle[2], file=f)
+            print(file=f)
+
 def format_seconds_as_hms(seconds):
     """Format a float number of seconds in the format that `ffmpeg` likes to
     see for subtitles.

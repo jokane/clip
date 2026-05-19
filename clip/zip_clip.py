@@ -14,6 +14,7 @@ import soundfile
 
 from .audio import patch_audio_length
 from .base import Clip, FiniteIndexed, require_clip, frame_times
+from .util import save_subtitles
 from .cache import ClipCache
 from .from_file import parse_subtitles
 from .metrics import Metrics
@@ -118,23 +119,14 @@ class from_zip(Clip, FiniteIndexed):
         # this.
         assert False # pragma nocover
 
-    def get_subtitle_languages(self):
-        languages = []
+    def get_subtitles(self):
+        result = {}
         for info in self.zf.infolist():
             if m := re.match(r'^subtitles_(.+)\.srt$', info.filename):
-                languages.append(m.group(1))
-        return languages
-
-    def get_subtitles(self, language):
-        try:
-            info = self.zf.getinfo(f'subtitles_{language}.srt')
-        except KeyError:
-            yield from []
-            return
-
-        srt_text = self.zf.read(info).decode('utf-8')
-
-        yield from parse_subtitles(srt_text)
+                lang = m.group(1)
+                srt_text = self.zf.read(info).decode('utf-8')
+                result[lang] = list(parse_subtitles(srt_text))
+        return result
 
 
 def save_zip(clip, filename, frame_rate, include_audio=True, include_subtitles=None,
@@ -156,24 +148,12 @@ def save_zip(clip, filename, frame_rate, include_audio=True, include_subtitles=N
     require_positive(frame_rate, "frame rate")
     require_bool(include_audio, "include audio")
 
-    subtitles = None
+    all_subs = clip.get_subtitles()
 
     if include_subtitles is None:
-        subtitles = {}
-        num_subtitles = 0
-        for language in clip.get_subtitle_languages():
-            lang_subs = list(clip.get_subtitles(language))
-            num_subtitles += len(lang_subs)
-            subtitles[language] = lang_subs
-        include_subtitles = num_subtitles > 0
+        include_subtitles = any(len(s) > 0 for s in all_subs.values())
 
     require_bool(include_subtitles, "include subtitles")
-
-    if subtitles is None:
-        subtitles = {}
-        for language in clip.get_subtitle_languages():
-            lang_subs = clip.get_subtitles(language)
-            subtitles[language] = lang_subs
 
     cache = ClipCache(cache_dir)
 
@@ -192,9 +172,9 @@ def save_zip(clip, filename, frame_rate, include_audio=True, include_subtitles=N
                 zf_member.write(bio.read())
 
         if include_subtitles:
-            for language in clip.get_subtitle_languages():
+            for language, subs in all_subs.items():
                 sio = exst.enter_context(io.StringIO())
-                clip.save_subtitles(language, sio)
+                save_subtitles(subs, sio)
                 sio.seek(0)
                 with zf.open(f'subtitles_{language}.srt', 'w') as zf_member:
                     zf_member.write(sio.read().encode('utf-8'))

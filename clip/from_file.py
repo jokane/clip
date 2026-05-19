@@ -469,6 +469,8 @@ class from_file(Clip, FiniteIndexed):
                                    num_frames=self.metrics.length*self.frame_rate,
                                    length=self.metrics.length)
 
+        self.subtitles = None
+
     def acquire_metrics(self, suppress=None):
         """ Set the metrics attribute, either by grabbing the metrics from the
         cache, or by getting them the hard way via ffprobe."""
@@ -500,11 +502,7 @@ class from_file(Clip, FiniteIndexed):
         # need.
         response = parse_ffprobe_output(deets, self.filename, suppress)
 
-        self.metrics, self.frame_rate, self.has_video, self.has_audio, langs = response
-
-        self.subtitles = {}
-        for lang in langs:
-            self.subtitles[lang] = None
+        self.metrics, self.frame_rate, self.has_video, self.has_audio, self.langs = response
 
         self.requested_indices = set()
 
@@ -553,27 +551,11 @@ class from_file(Clip, FiniteIndexed):
 
             return image
 
-    def get_subtitle_languages(self):
-        return list(self.subtitles.keys())
-
-    def get_subtitles(self, language):
-        if language not in self.subtitles:
-            msg = []
-            msg.append(f'File {self.filename} does not contain subtitle track for {language}.')
-            if len(self.subtitles) > 0:
-                msg.append('It does have subtitle tracks for:')
-                msg += [ f'  {language}' for language in self.subtitles ]
-            else:
-                msg.append('In fact, it does not have any subtitles at all.')
-            raise ValueError('\n'.join(msg))
-
-        lang_subtitles = self.subtitles[language]
-
-        if lang_subtitles is None:
-            lang_subtitles = list(subtitles_from_file(self.filename, language, self.cache))
-            self.subtitles[language] = lang_subtitles
-
-        return lang_subtitles
+    def get_subtitles(self):
+        if self.subtitles is None:
+            self.subtitles = {lang: list(subtitles_from_file(self.filename, lang, self.cache))
+                              for lang in self.langs}
+        return self.subtitles
 
     def explode_interval(self, start_index, end_index):
         """Expand the given range of frames into the cache.  Helper for explode()."""

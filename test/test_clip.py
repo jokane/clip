@@ -578,7 +578,7 @@ def test_subtitles1():
     # For slice_clip.get_subtitlest
     x = slice_clip(x, 1, 4)
 
-    caps = list(x.get_subtitles("eng"))
+    caps = x.get_subtitles()["eng"]
     assert len(caps) == 2
     assert caps[0][0] == 1
     print(caps)
@@ -599,7 +599,7 @@ def test_subtitles2():
     z = composite(Element(x, 0, [0, 0]),
                   Element(y, 0, [0, 0]))
 
-    caps = list(z.get_subtitles('eng'))
+    caps = z.get_subtitles()['eng']
     print(caps)
     assert len(caps) == 2
     assert caps[0][2] == 'cap1'
@@ -685,33 +685,33 @@ def test_parse_ffprobe_output1():
         parse_ffprobe_output(f'{bad_video_deets}\n{audio_deets}', 'test.mp4')
 
     # Correct answers when the parsing goes through.
-    m, fr, has_video, has_audio, _ = parse_ffprobe_output(f'{audio_deets}\n{video_deets}', 'test.mp4')
+    m, fr, v, a, _ = parse_ffprobe_output(f'{audio_deets}\n{video_deets}', 'test.mp4')
     assert m == correct_metrics
     assert fr == correct_frame_rate
-    assert has_video
-    assert has_audio
+    assert v
+    assert a
 
-    m, fr, has_video, has_audio, _ = parse_ffprobe_output(f'{video_deets}\n{audio_deets}', 'test.mp4')
+    m, fr, v, a, _ = parse_ffprobe_output(f'{video_deets}\n{audio_deets}', 'test.mp4')
     assert m == correct_metrics
     assert fr == correct_frame_rate
-    assert has_video
-    assert has_audio
+    assert v
+    assert a
 
-    m, fr, has_video, has_audio, _ = parse_ffprobe_output(f'{video_deets}', 'test.mp4')
+    m, fr, v, a, _ = parse_ffprobe_output(f'{video_deets}', 'test.mp4')
     assert m == Metrics(src=correct_metrics,
                         sample_rate=Clip.default_metrics.sample_rate,
                         num_channels=Clip.default_metrics.num_channels)
     assert fr == correct_frame_rate
-    assert has_video
-    assert not has_audio
+    assert v
+    assert not a
 
-    m, fr, has_video, has_audio, _ = parse_ffprobe_output(f'{audio_deets}', 'test.mp4')
+    m, fr, v, a, _ = parse_ffprobe_output(f'{audio_deets}', 'test.mp4')
     assert m == Metrics(src=correct_metrics,
                         width=Clip.default_metrics.width,
                         height=Clip.default_metrics.height)
     assert fr is None
-    assert not has_video
-    assert has_audio
+    assert not v
+    assert a
 
 def test_parse_ffprobe_output2():
     rotated_video_deets = "stream|index=0|codec_name=h264|codec_long_name=H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10|profile=Baseline|codec_type=video|codec_time_base=18821810/1129461271|codec_tag_string=avc1|codec_tag=0x31637661|width=1600|height=1200|coded_width=1600|coded_height=1200|has_b_frames=0|sample_aspect_ratio=1:1|display_aspect_ratio=4:3|pix_fmt=yuvj420p|level=10|color_range=pc|color_space=smpte170m|color_transfer=smpte170m|color_primaries=bt470bg|chroma_location=left|field_order=unknown|timecode=N/A|refs=1|is_avc=true|nal_length_size=4|id=N/A|r_frame_rate=30/1|avg_frame_rate=1129461271/37643620|time_base=1/90000|start_pts=0|start_time=0.000000|duration_ts=128477601|duration=1427.528900|bit_rate=18000964|max_bit_rate=N/A|bits_per_raw_sample=8|nb_frames=42832|nb_read_frames=N/A|nb_read_packets=N/A|disposition:default=1|disposition:dub=0|disposition:original=0|disposition:comment=0|disposition:lyrics=0|disposition:karaoke=0|disposition:forced=0|disposition:hearing_impaired=0|disposition:visual_impaired=0|disposition:clean_effects=0|disposition:attached_pic=0|disposition:timed_thumbnails=0|tag:rotate=90|tag:creation_time=2020-08-18T15:50:05.000000Z|tag:language=eng|tag:handler_name=VideoHandle" #pylint: disable=line-too-long
@@ -819,7 +819,7 @@ def test_from_file9():
         save_mp4(x, 'hi.mp4', frame_rate=30)
 
         x = from_file('hi.mp4')
-        caps = list(x.get_subtitles("eng"))
+        caps = x.get_subtitles()["eng"]
         print(caps)
         assert len(caps) == 2
         verify(x, 30)
@@ -899,14 +899,14 @@ def test_from_file15():
 
     verify(x, x.frame_rate)
 
-    languages = x.get_subtitle_languages()
+    languages = list(x.get_subtitles().keys())
     assert len(languages) == 3
 
-    st1 = list(x.get_subtitles('eng'))
+    st1 = x.get_subtitles()['eng']
     assert len(st1) == 26, len(st1)
     assert 'Yeah' in st1[17][2], st1[17]
 
-    st2 = list(x.get_subtitles('spa'))
+    st2 = x.get_subtitles()['spa']
     assert 'Vamos' in st2[17][2], st2[17]
 
 def test_explode1():
@@ -992,13 +992,13 @@ def test_slice_clip2():
                       (3, 4, 'Second'),
                       (5, 6, 'Third'))
     y = slice_clip(x, 2.5, 4.5)
-    subs = list(y.get_subtitles("eng"))
+    subs = y.get_subtitles()["eng"]
     print(y.length(), subs)
     assert len(subs)==1
 
     # Subtitles that are partially sliced out are kept.
     z = slice_clip(x, 1.5, 4.5)
-    subs = list(z.get_subtitles("eng"))
+    subs = z.get_subtitles()["eng"]
     print(z.length(), subs)
     assert len(subs)==2
     assert subs[0][1] - subs[0][0] == 0.5
@@ -1756,7 +1756,7 @@ def test_resample3():
     x = solid([0,0,0], 640, 480, 5)
     x = add_subtitles(x, "eng", (2, 3, 'subtitle'))
     x = resample(x, length=10)
-    subs = list(x.get_subtitles("eng"))
+    subs = x.get_subtitles()["eng"]
     print(subs)
     assert subs[0][0] == 4
 
@@ -1897,7 +1897,7 @@ def test_from_zip1():
     a = from_zip(f"{TEST_FILES_DIR}/bunny.zip", frame_rate=frame_rate)
     assert not a.is_silent()
     verify(a, frame_rate)
-    assert len(list(a.get_subtitles("eng"))) == 0
+    assert len(a.get_subtitles().get("eng", [])) == 0
 
 def test_from_zip2():
     # Basic successful case without audio.
@@ -1905,7 +1905,7 @@ def test_from_zip2():
     a = from_zip(f"{TEST_FILES_DIR}/bunny-silent.zip", frame_rate=frame_rate)
     assert a.is_silent()
     verify(a, frame_rate)
-    assert len(list(a.get_subtitles("eng"))) == 0
+    assert len(a.get_subtitles().get("eng", [])) == 0
 
 
 def test_from_zip3():
@@ -1915,7 +1915,7 @@ def test_from_zip3():
     a = from_zip(f"{TEST_FILES_DIR}/bunny.zip", frame_rate=frame_rate+0.001)
     assert not a.is_silent()
     verify(a, frame_rate)
-    assert len(list(a.get_subtitles("eng"))) == 0
+    assert len(a.get_subtitles().get("eng", [])) == 0
 
 def test_from_zip4():
     # Audio and video lengths mismatch badly.  Abort.
@@ -1931,7 +1931,7 @@ def test_from_zip5():
 def test_from_zip6():
     # Subtitles are read.
     a = from_zip(f"{TEST_FILES_DIR}/bunny-subtitled.zip", frame_rate=15)
-    assert len(list(a.get_subtitles("eng"))) == 2
+    assert len(a.get_subtitles()["eng"]) == 2
 
 def test_from_zip7():
     frame_rate = from_file(f"{TEST_FILES_DIR}/bunny.webm").frame_rate

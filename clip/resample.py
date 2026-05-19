@@ -70,11 +70,9 @@ class resample(MutatorClip):
             data = scipy.signal.resample(data, self.num_samples())
         return data
 
-    def get_subtitles(self, language):
-        for subtitle in self.clip.get_subtitles(language):
-            yield (self.new_time(subtitle[0]),
-                   self.new_time(subtitle[1]),
-                   subtitle[2])
+    def get_subtitles(self):
+        return {lang: [(self.new_time(s[0]), self.new_time(s[1]), s[2]) for s in subs]
+                for lang, subs in self.clip.get_subtitles().items()}
 
 def timewarp(clip, factor):
     """ Speed up a clip by the given factor. |modify|

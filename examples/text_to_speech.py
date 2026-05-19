@@ -53,10 +53,7 @@ class text_to_speech(clip.from_audio_samples):
 
         super().__init__(samples, sample_rate)
 
-    def get_subtitle_languages(self):
-        return ['eng']
-
-    def get_subtitles(self, language):
+    def get_subtitles(self):
         """ Generate the subtitles automatically from the given text.  Estimate
         their timing based on a constant number of characters spoken per second.
         These timings are not perfect, but generally seem not to get too far
@@ -66,12 +63,14 @@ class text_to_speech(clip.from_audio_samples):
         total_characters = len(self.text)
         seconds_so_far = 0
 
+        subs = []
         for chunk in textwrap.wrap(text, width=35):
             characters_this_chunk = len(chunk) + 1
             seconds_this_chunk = total_seconds * characters_this_chunk/ total_characters
             seconds_after_this_chunk = seconds_so_far + seconds_this_chunk
-            yield (seconds_so_far, seconds_after_this_chunk, chunk)
+            subs.append((seconds_so_far, seconds_after_this_chunk, chunk))
             seconds_so_far = seconds_after_this_chunk
+        return {'eng': subs}
 
 def main():
     """Make a short video based on a famous speech."""

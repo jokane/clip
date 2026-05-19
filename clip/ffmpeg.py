@@ -61,9 +61,10 @@ def save_via_ffmpeg(clip, filename, frame_rate, output_args, use_audio, use_subt
             if use_audio:
                 input_args.append('-i audio.flac')
             if use_subtitles:
-                for language in clip.get_subtitle_languages():
+                for language in clip.get_subtitles().keys():
                     if os.stat(f'subtitles_{language}.srt').st_size > 0:
-                        input_args.append(f'-i subtitles_{language}.srt -c:s mov_text -metadata:s:s:0 language={language}')
+                        input_args.append(f'-i subtitles_{language}.srt -c:s mov_text '
+                                          f'-metadata:s:s:0 language={language}')
 
             if not two_pass:
                 ffmpeg(task=f"Encoding {filename}",

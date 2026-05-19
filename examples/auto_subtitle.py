@@ -45,12 +45,7 @@ class auto_subtitle(clip.MutatorClip):
         self.max_characters = max_characters
         self.max_pause = max_pause
 
-    def get_subtitle_languages(self):
-        return ['eng']
-
-    def get_subtitles(self, language):
-        assert language == 'eng'
-
+    def get_subtitles(self):
         audio_array = self.mono_clip.get_samples()
         audio_bytes = (32767*audio_array).astype(np.int16).tobytes()
 
@@ -99,7 +94,7 @@ class auto_subtitle(clip.MutatorClip):
                     current_end = word['end']
                     current_text += ' ' + word['word']
 
-        yield from group_words(result['result'])
+        return {'eng': list(group_words(result['result']))}
 
 
 def main():

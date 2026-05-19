@@ -1,7 +1,7 @@
 """A function to write a clip as an animated GIF."""
 
 from .base import require_clip
-from .validate import require_string, require_float, require_positive, require_bool
+from .validate import require_string, require_float, require_positive
 from .ffmpeg import save_via_ffmpeg
 
 def save_gif(clip, filename, frame_rate, cache_dir='/tmp/clipcache/computed',

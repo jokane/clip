@@ -27,27 +27,14 @@ class add_subtitles(MutatorClip):
                                'clip length')
             require_string(subtitle[2], f'subtitle {i} text')
 
-        self.new_language = language
+        self.new_lang = language
         self.new_subtitles = args
-        self.subtitles = {}
 
-    def get_subtitle_languages(self):
-        languages = set(self.clip.get_subtitle_languages())
-        languages.add(self.new_language)
-        return languages
-
-    def get_subtitles(self, language):
-        if language not in self.subtitles:
-            if language in self.clip.get_subtitle_languages():
-                if language == self.new_language:
-                    self.subtitles[language] = list(heapq.merge(self.new_subtitles, self.clip.get_subtitles(language)))
-                else:
-                    self.subtitles[language] = list(self.clip.get_subtitles(language))
-            else:
-                if language == self.new_language:
-                    self.subtitles[language] = list(self.new_subtitles)
-                else:
-                    self.subtitles[language] = []
-            
-        yield from self.subtitles[language]
+    def get_subtitles(self):
+        subs = self.clip.get_subtitles()
+        if self.new_lang in subs:
+            subs[self.new_lang] = list(heapq.merge(self.new_subtitles, subs[self.new_lang]))
+        else:
+            subs[self.new_lang] = list(self.new_subtitles)
+        return subs
 

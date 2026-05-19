@@ -153,11 +153,8 @@ class from_audio_samples(AudioClip):
         # this.
         assert False # pragma nocover
 
-    def get_subtitle_languages(self):
-        return []
-
-    def get_subtitles(self, language):
-        return []
+    def get_subtitles(self):
+        return {}
 
 
 class sine_wave(AudioClip):
@@ -190,9 +187,6 @@ class sine_wave(AudioClip):
         samples = np.stack([samples]*self.num_channels(), axis=1)
         return samples
 
-    def get_subtitle_languages(self):
-        return []
-
-    def get_subtitles(self, language):
-        return []
+    def get_subtitles(self):
+        return {}
 

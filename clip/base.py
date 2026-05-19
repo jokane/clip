@@ -3,7 +3,6 @@
 # pylint: disable=wildcard-import
 
 from abc import ABC, abstractmethod
-import contextlib
 import os
 
 import cv2
@@ -12,7 +11,7 @@ import soundfile
 
 from .metrics import Metrics
 from .progress import custom_progressbar
-from .util import temporarily_changed_directory, format_seconds_as_hms, read_image
+from .util import temporarily_changed_directory, read_image, save_subtitles
 from .validate import *
 
 
@@ -100,13 +99,8 @@ class Clip(ABC):
         don't want to call this; you probably wany `get_samples` instead."""
 
     @abstractmethod
-    def get_subtitle_languages(self):
-        """Return an iterable of language identifiers for the subtitle tracks
-        present in the clip."""
-
-    @abstractmethod
-    def get_subtitles(self, language):
-        """Return an iterable of subtitles for the given language identifier.
+    def get_subtitles(self):
+        """Return a dictionary mapping language codes to lists of subtitles.
         Each subtitle is a `(start_time, end_time, text)` triple."""
 
     default_metrics = Metrics(width = 640,
@@ -198,34 +192,9 @@ class Clip(ABC):
             soundfile.write(audio_fname, data, self.sample_rate())
 
             # Subtitles
-            for language in self.get_subtitle_languages():
+            for language, subs in self.get_subtitles().items():
                 subtitles_fname = f'subtitles_{language}.srt'
-                self.save_subtitles(language, subtitles_fname)
-
-
-    def save_subtitles(self, language, destination):
-        """Save the subtitles for this clip to the given file.
-
-        :param language: The language code for the subtitles to save.
-
-        :param destination: A string filename or file-like object telling
-                             where to send the subtitles.
-
-        """
-
-        with contextlib.ExitStack() as exst:
-            if isinstance(destination, str):
-                f = exst.enter_context(open(destination, 'w'))
-            else:
-                f = destination
-
-            for number, subtitle in enumerate(self.get_subtitles(language)):
-                print(number+1, file=f)
-                hms0 = format_seconds_as_hms(subtitle[0])
-                hms1 = format_seconds_as_hms(subtitle[1])
-                print(hms0, '-->', hms1, file=f)
-                print(subtitle[2], file=f)
-                print(file=f)
+                save_subtitles(subs, subtitles_fname)
 
     def get_cached_filename(self, cache, t):
         """Make sure the frame is in the cache given, computing it if
@@ -322,11 +291,8 @@ class VideoClip(Clip):
         is, silence with the appropriate metrics."""
         return np.zeros([self.metrics.num_samples(), self.metrics.num_channels])
 
-    def get_subtitle_languages(self):
-        return []
-
-    def get_subtitles(self, language):
-        return iter([])
+    def get_subtitles(self):
+        return {}
 
 
 class AudioClip(Clip):
@@ -377,13 +343,9 @@ class MutatorClip(Clip):
         """ By default, re-use the frames of the original clip."""
         return self.clip.get_frame(t)
 
-    def get_subtitle_languages(self):
-        """ By default, re-use the subtitle languages of the original clip."""
-        return self.clip.get_subtitle_languages()
-
-    def get_subtitles(self, language):
+    def get_subtitles(self):
         """ By default, re-use the subtitles of the original clip."""
-        return self.clip.get_subtitles(language)
+        return self.clip.get_subtitles()
 
     def compute_samples(self):
         """ By default, re-use the audio of the original clip."""

@@ -178,16 +178,10 @@ class Element:
 
         self.clip.request_frame(clip_t)
 
-    def get_subtitle_languages(self):
-        """Return the set of languages for which the clip has subtitles."""
-        return self.clip.get_subtitle_languages()
-
-    def get_subtitles(self, language):
+    def get_subtitles(self):
         """Return the subtitles of the constituent clip, shifted appropriately."""
-        for subtitle_start_time, subtitle_end_time, text in self.clip.get_subtitles(language):
-            new_start_time = self.start_time+subtitle_start_time
-            new_end_time = self.start_time+subtitle_end_time
-            yield new_start_time, new_end_time, text
+        return {lang: [(self.start_time + s, self.start_time + e, t) for s, e, t in subs]
+                for lang, subs in self.clip.get_subtitles().items()}
 
     def apply_to_frame(self, under, t):
         """Modify the given frame as described by this element.
@@ -360,12 +354,12 @@ class composite(Clip):
 
         return samples
 
-    def get_subtitle_languages(self):
-        languages = set()
+    def get_subtitles(self):
+        result = {}
         for e in self.elements:
-            languages.update(e.get_subtitle_languages())
-        return languages
-
-    def get_subtitles(self, language):
-        yield from heapq.merge(*[e.get_subtitles(language) for e in self.elements],
-                               key = lambda x: x[0])
+            for lang, subs in e.get_subtitles().items():
+                if lang not in result:
+                    result[lang] = subs
+                else:
+                    result[lang] = list(heapq.merge(result[lang], subs, key=lambda x: x[0]))
+        return result
