@@ -118,9 +118,16 @@ class from_zip(Clip, FiniteIndexed):
         # this.
         assert False # pragma nocover
 
-    def get_subtitles(self):
+    def get_subtitle_languages(self):
+        languages = []
+        for info in self.zf.infolist():
+            if m := re.match(r'^subtitles_(.+)\.srt$', info.filename):
+                languages.append(m.group(1))
+        return languages
+
+    def get_subtitles(self, language):
         try:
-            info = self.zf.getinfo('subtitles.srt')
+            info = self.zf.getinfo(f'subtitles_{language}.srt')
         except KeyError:
             yield from []
             return
@@ -152,13 +159,21 @@ def save_zip(clip, filename, frame_rate, include_audio=True, include_subtitles=N
     subtitles = None
 
     if include_subtitles is None:
-        subtitles = list(clip.get_subtitles())
-        include_subtitles = len(subtitles) > 0
+        subtitles = {}
+        num_subtitles = 0
+        for language in clip.get_subtitle_languages():
+            lang_subs = list(clip.get_subtitles(language))
+            num_subtitles += len(lang_subs)
+            subtitles[language] = lang_subs
+        include_subtitles = num_subtitles > 0
 
     require_bool(include_subtitles, "include subtitles")
 
     if subtitles is None:
-        subtitles = list(clip.get_subtitles())
+        subtitles = {}
+        for language in clip.get_subtitle_languages():
+            lang_subs = clip.get_subtitles(language)
+            subtitles[language] = lang_subs
 
     cache = ClipCache(cache_dir)
 
@@ -177,11 +192,12 @@ def save_zip(clip, filename, frame_rate, include_audio=True, include_subtitles=N
                 zf_member.write(bio.read())
 
         if include_subtitles:
-            sio = exst.enter_context(io.StringIO())
-            clip.save_subtitles(sio)
-            sio.seek(0)
-            with zf.open('subtitles.srt', 'w') as zf_member:
-                zf_member.write(sio.read().encode('utf-8'))
+            for language in clip.get_subtitle_languages():
+                sio = exst.enter_context(io.StringIO())
+                clip.save_subtitles(language, sio)
+                sio.seek(0)
+                with zf.open(f'subtitles_{language}.srt', 'w') as zf_member:
+                    zf_member.write(sio.read().encode('utf-8'))
 
         for i, t in enumerate(frame_times(clip.length(), frame_rate)):
             pb.update(round(t, 1))

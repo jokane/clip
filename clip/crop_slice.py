@@ -72,7 +72,7 @@ class slice_clip(MutatorClip):
         self.start_sample = int(start * self.sample_rate())
         self.metrics = Metrics(self.metrics, length=end-start)
 
-        self.subtitles = None
+        self.subtitles = {}
 
     def frame_signature(self, t):
         return self.clip.frame_signature(self.start_time + t)
@@ -87,18 +87,19 @@ class slice_clip(MutatorClip):
         original_samples = self.clip.get_samples()
         return original_samples[self.start_sample:self.start_sample+self.num_samples()]
 
-    def get_subtitles(self):
-        if self.subtitles is None:
-            self.subtitles = []
-            for subtitle in self.clip.get_subtitles():
+    def get_subtitles(self, language):
+        if language not in self.subtitles:
+            subs = []
+            for subtitle in self.clip.get_subtitles(language):
                 new_start = subtitle[0] - self.start_time
                 new_end = subtitle[1] - self.start_time
                 length = self.length()
                 if 0 <= new_start <= length or 0 <= new_end <= length:
                     new_start = max(0, new_start)
                     new_end = min(self.length(), new_end)
-                    self.subtitles.append((new_start, new_end, subtitle[2]))
-        return self.subtitles
+                    subs.append((new_start, new_end, subtitle[2]))
+            self.subtitles[language] = subs
+        return self.subtitles[language]
 
 def slice_out(clip, start, end):
     """ Remove the part between the given endponts. |modify|

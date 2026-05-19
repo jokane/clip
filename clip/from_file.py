@@ -171,7 +171,7 @@ def parse_stream_dicts(streams, filename):
     else:
         # Should be pretty hard and/or impossible to get here.
         raise ValueError(f"File {filename} contains neither audio nor video.") # pragma: no cover
-    
+
 
     # Now that we have the metrics and frame rate, we need to get the language
     # for each subtitle track.
@@ -189,8 +189,8 @@ def parse_stream_dicts(streams, filename):
 
     return (metrics,
             fr,
-            video_stream is None, 
-            audio_stream is None,
+            video_stream is not None,
+            audio_stream is not None,
             langs)
 
 def parse_ffprobe_output(ffprobe_output, filename, suppress=None):
@@ -560,8 +560,11 @@ class from_file(Clip, FiniteIndexed):
         if language not in self.subtitles:
             msg = []
             msg.append(f'File {self.filename} does not contain subtitle track for {language}.')
-            msg.append('It does have subtitle tracks for:')
-            msg += [ f'  {language}' for language in self.subtitles.keys() ]
+            if len(self.subtitles) > 0:
+                msg.append('It does have subtitle tracks for:')
+                msg += [ f'  {language}' for language in self.subtitles ]
+            else:
+                msg.append('In fact, it does not have any subtitles at all.')
             raise ValueError('\n'.join(msg))
 
         lang_subtitles = self.subtitles[language]

@@ -57,12 +57,12 @@ def get_test_files():  # pragma: no cover
     snag("sintel.mp4",
          "http://peach.themazzone.com/durian/movies/sintel-1024-surround.mp4")
 
-    snag(f'sintel_en.srt',
-         f'https://durian.blender.org/wp-content/content/subtitles/sintel_en.srt')
-    snag(f'sintel_es.srt',
-         f'https://durian.blender.org/wp-content/content/subtitles/sintel_es.srt')
-    snag(f'sintel_de.srt',
-         f'https://durian.blender.org/wp-content/content/subtitles/sintel_de.srt')
+    snag('sintel_en.srt',
+         'https://durian.blender.org/wp-content/content/subtitles/sintel_en.srt')
+    snag('sintel_es.srt',
+         'https://durian.blender.org/wp-content/content/subtitles/sintel_es.srt')
+    snag('sintel_de.srt',
+         'https://durian.blender.org/wp-content/content/subtitles/sintel_de.srt')
 
     if not os.path.exists(f"{TEST_FILES_DIR}/sintel-multisub.mp4"):
         cmd = f'cd {TEST_FILES_DIR}; ffmpeg -i sintel.mp4 \
@@ -94,7 +94,7 @@ def get_test_files():  # pragma: no cover
         with temporarily_changed_directory(TEST_FILES_DIR):
             os.system("zip bunny-silent.zip bunny_frames/*.png")
 
-    if not os.path.exists(f"{TEST_FILES_DIR}/subtitles.srt"):
+    if not os.path.exists(f"{TEST_FILES_DIR}/subtitles_eng.srt"):
         srt = """1
 00:00:01,000 --> 00:00:05,000
 Look it's a bunny!
@@ -103,12 +103,12 @@ Look it's a bunny!
 00:00:03,000 --> 00:00:10,000
 He seems tired."""
 
-        with open(f"{TEST_FILES_DIR}/subtitles.srt", 'w') as f:
+        with open(f"{TEST_FILES_DIR}/subtitles_eng.srt", 'w') as f:
             print(srt, file=f)
 
     if not os.path.exists(f"{TEST_FILES_DIR}/bunny-subtitled.zip"):
         with temporarily_changed_directory(TEST_FILES_DIR):
-            os.system("zip bunny-subtitled.zip subtitles.srt bunny_frames/*.png")
+            os.system("zip bunny-subtitled.zip subtitles_eng.srt bunny_frames/*.png")
 
     if not os.path.exists(f"{TEST_FILES_DIR}/name with space.webm"):
         shutil.copyfile(f"{TEST_FILES_DIR}/bunny.webm",
@@ -479,7 +479,8 @@ def test_save3():
             target_bytes = 2**20*ts
             difference = abs(actual_bytes - target_bytes)
             margin = 0.02 * target_bytes
-            assert difference < margin, f'{difference} {margin}'
+            assert difference < margin, f'difference={difference} margin={margin} ' \
+                    f'actual_bytes={actual_bytes} target_bytes={target_bytes}'
 
 
 def test_save4():
@@ -537,10 +538,10 @@ def test_save_audio():
 def test_save_gif1():
     # Save to gif works correctly, even if there are subtitles.
     a = slice_clip(from_file(f"{TEST_FILES_DIR}/bunny.webm"), 0, 5)
-    b = add_subtitles(a, (0, a.length(), "It's a bunny!"))
+    b = add_subtitles(a, 'eng', (0, a.length(), "It's a bunny!"))
     with temporary_current_directory():
-        save_gif(b, 'with.gif', frame_rate=10, burn_subtitles=True)
-        save_gif(b, 'without.gif', frame_rate=10, burn_subtitles=False)
+        save_gif(b, 'with.gif', frame_rate=10, burn_subtitles_language='eng')
+        save_gif(b, 'without.gif', frame_rate=10, burn_subtitles_language=None)
 
 def test_save_gif2():
     # Filename with a space.
@@ -551,8 +552,9 @@ def test_save_gif2():
 def test_save_zip():
     a = slice_clip(from_file(f"{TEST_FILES_DIR}/bunny.webm"), 5, 10)
     a = join(a, sine_wave(880, 0.1, 10, 44100, 2))
-    a = add_subtitles(a, (2, 3, 'First subtitle'),
-                         (3, 4, 'Second subtitle'))
+    a = add_subtitles(a, 'eng',
+                      (2, 3, 'First subtitle'),
+                      (3, 4, 'Second subtitle'))
     with temporary_current_directory():
         save_zip(a, 'test1.zip', frame_rate=10)
         save_zip(a, 'test2.zip', frame_rate=10, include_subtitles=False, include_audio=False)
@@ -566,37 +568,38 @@ def test_subtitles1():
     x = solid([0,0,0], 640, 480, 5)
 
     # For add_subtitles.get_subtitles:
-    x = add_subtitles(x, (2, 3, 'First subtitle'),
-                        (3, 4, 'Second subtitle'))
+    x = add_subtitles(x, "eng",
+                      (2, 3, 'First subtitle'),
+                      (3, 4, 'Second subtitle'))
 
     # For MutatorClip.get_subtitles:
     x = filter_frames(x, lambda x: x)
 
-    # For slice_clip.get_subtitles:
+    # For slice_clip.get_subtitlest
     x = slice_clip(x, 1, 4)
 
-    caps = list(x.get_subtitles())
+    caps = list(x.get_subtitles("eng"))
     assert len(caps) == 2
     assert caps[0][0] == 1
     print(caps)
     verify(x, frame_rate=30)
 
     with temporary_current_directory():
-        save_mp4(x, 'burned.mp4', frame_rate=30, burn_subtitles=True)
-        save_mp4(x, 'not_burned.mp4', frame_rate=30, burn_subtitles=False)
+        save_mp4(x, 'burned.mp4', frame_rate=30, burn_subtitles_language='eng')
+        save_mp4(x, 'not_burned.mp4', frame_rate=30, burn_subtitles_language=None)
 
 def test_subtitles2():
     # Compositing merges the subtitles correctly.
     x = solid([0,0,0], 640, 480, 5)
-    x = add_subtitles(x, (3, 4, 'cap2'))
+    x = add_subtitles(x, 'eng', (3, 4, 'cap2'))
 
     y = solid([0,0,0], 640, 480, 5)
-    y = add_subtitles(y, (1, 2, 'cap1'))
+    y = add_subtitles(y, 'eng', (1, 2, 'cap1'))
 
     z = composite(Element(x, 0, [0, 0]),
                   Element(y, 0, [0, 0]))
 
-    caps = list(z.get_subtitles())
+    caps = list(z.get_subtitles('eng'))
     print(caps)
     assert len(caps) == 2
     assert caps[0][2] == 'cap1'
@@ -682,69 +685,77 @@ def test_parse_ffprobe_output1():
         parse_ffprobe_output(f'{bad_video_deets}\n{audio_deets}', 'test.mp4')
 
     # Correct answers when the parsing goes through.
-    m, fr, _, _, _ = parse_ffprobe_output(f'{audio_deets}\n{video_deets}', 'test.mp4')
+    m, fr, has_video, has_audio, _ = parse_ffprobe_output(f'{audio_deets}\n{video_deets}', 'test.mp4')
     assert m == correct_metrics
     assert fr == correct_frame_rate
+    assert has_video
+    assert has_audio
 
-    m, fr, _, _, _ = parse_ffprobe_output(f'{video_deets}\n{audio_deets}', 'test.mp4')
+    m, fr, has_video, has_audio, _ = parse_ffprobe_output(f'{video_deets}\n{audio_deets}', 'test.mp4')
     assert m == correct_metrics
     assert fr == correct_frame_rate
+    assert has_video
+    assert has_audio
 
-    m, fr, _, _, _ = parse_ffprobe_output(f'{video_deets}', 'test.mp4')
+    m, fr, has_video, has_audio, _ = parse_ffprobe_output(f'{video_deets}', 'test.mp4')
     assert m == Metrics(src=correct_metrics,
                         sample_rate=Clip.default_metrics.sample_rate,
                         num_channels=Clip.default_metrics.num_channels)
     assert fr == correct_frame_rate
+    assert has_video
+    assert not has_audio
 
-    m, fr, _, _, _ = parse_ffprobe_output(f'{audio_deets}', 'test.mp4')
+    m, fr, has_video, has_audio, _ = parse_ffprobe_output(f'{audio_deets}', 'test.mp4')
     assert m == Metrics(src=correct_metrics,
                         width=Clip.default_metrics.width,
                         height=Clip.default_metrics.height)
     assert fr is None
+    assert not has_video
+    assert has_audio
 
-def test_metrics_from_ffprobe_output2():
+def test_parse_ffprobe_output2():
     rotated_video_deets = "stream|index=0|codec_name=h264|codec_long_name=H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10|profile=Baseline|codec_type=video|codec_time_base=18821810/1129461271|codec_tag_string=avc1|codec_tag=0x31637661|width=1600|height=1200|coded_width=1600|coded_height=1200|has_b_frames=0|sample_aspect_ratio=1:1|display_aspect_ratio=4:3|pix_fmt=yuvj420p|level=10|color_range=pc|color_space=smpte170m|color_transfer=smpte170m|color_primaries=bt470bg|chroma_location=left|field_order=unknown|timecode=N/A|refs=1|is_avc=true|nal_length_size=4|id=N/A|r_frame_rate=30/1|avg_frame_rate=1129461271/37643620|time_base=1/90000|start_pts=0|start_time=0.000000|duration_ts=128477601|duration=1427.528900|bit_rate=18000964|max_bit_rate=N/A|bits_per_raw_sample=8|nb_frames=42832|nb_read_frames=N/A|nb_read_packets=N/A|disposition:default=1|disposition:dub=0|disposition:original=0|disposition:comment=0|disposition:lyrics=0|disposition:karaoke=0|disposition:forced=0|disposition:hearing_impaired=0|disposition:visual_impaired=0|disposition:clean_effects=0|disposition:attached_pic=0|disposition:timed_thumbnails=0|tag:rotate=90|tag:creation_time=2020-08-18T15:50:05.000000Z|tag:language=eng|tag:handler_name=VideoHandle" #pylint: disable=line-too-long
-    m, _, _, _, _ = metrics_from_ffprobe_output(f'{rotated_video_deets}', 'test.mp4')
+    m, _, _, _, _ = parse_ffprobe_output(f'{rotated_video_deets}', 'test.mp4')
     print(m)
 
-def test_metrics_from_ffprobe_output3():
+def test_parse_ffprobe_output3():
     # From a DVD rip.
     tagged_video_deets = "stream|index=0|codec_name=mpeg2video|codec_long_name=MPEG-2 video|profile=Main|codec_type=video|codec_tag_string=[0][0][0][0]|codec_tag=0x0000|width=720|height=480|coded_width=0|coded_height=0|closed_captions=0|has_b_frames=1|sample_aspect_ratio=8:9|display_aspect_ratio=4:3|pix_fmt=yuv420p|level=8|color_range=tv|color_space=unknown|color_transfer=unknown|color_primaries=unknown|chroma_location=left|field_order=progressive|refs=1|id=N/A|r_frame_rate=30000/1001|avg_frame_rate=30000/1001|time_base=1/1000|start_pts=83|start_time=0.083000|duration_ts=N/A|duration=N/A|bit_rate=N/A|max_bit_rate=N/A|bits_per_raw_sample=N/A|nb_frames=N/A|nb_read_frames=N/A|nb_read_packets=N/A|disposition:default=0|disposition:dub=0|disposition:original=0|disposition:comment=0|disposition:lyrics=0|disposition:karaoke=0|disposition:forced=0|disposition:hearing_impaired=0|disposition:visual_impaired=0|disposition:clean_effects=0|disposition:attached_pic=0|disposition:timed_thumbnails=0|tag:language=eng|tag:BPS-eng=5495948|tag:DURATION-eng=00:12:59.044933333|tag:NUMBER_OF_FRAMES-eng=18681|tag:NUMBER_OF_BYTES-eng=535198192|tag:SOURCE_ID-eng=0100E0|tag:_STATISTICS_WRITING_APP-eng=MakeMKV v1.15.1 linux(x64-release)|tag:_STATISTICS_WRITING_DATE_UTC-eng=2020-06-15 22:14:22|tag:_STATISTICS_TAGS-eng=BPS DURATION NUMBER_OF_FRAMES NUMBER_OF_BYTES SOURCE_ID" # pylint:disable=line-too-long
     bitmap_subtitle_deets = "stream|index=2|codec_name=dvd_subtitle|codec_long_name=DVD subtitles|profile=unknown|codec_type=subtitle|codec_tag_string=[0][0][0][0]|codec_tag=0x0000|width=720|height=480|id=N/A|r_frame_rate=0/0|avg_frame_rate=0/0|time_base=1/1000|start_pts=0|start_time=0.000000|duration_ts=779044|duration=779.044000|bit_rate=N/A|max_bit_rate=N/A|bits_per_raw_sample=N/A|nb_frames=N/A|nb_read_frames=N/A|nb_read_packets=N/A|disposition:default=1|disposition:dub=0|disposition:original=0|disposition:comment=0|disposition:lyrics=0|disposition:karaoke=0|disposition:forced=0|disposition:hearing_impaired=0|disposition:visual_impaired=0|disposition:clean_effects=0|disposition:attached_pic=0|disposition:timed_thumbnails=0|tag:language=eng|tag:BPS-eng=3689|tag:DURATION-eng=00:12:45.387411111|tag:NUMBER_OF_FRAMES-eng=233|tag:NUMBER_OF_BYTES-eng=352964|tag:SOURCE_ID-eng=0120BD|tag:_STATISTICS_WRITING_APP-eng=MakeMKV v1.15.1 linux(x64-release)|tag:_STATISTICS_WRITING_DATE_UTC-eng=2020-06-15 22:14:22|tag:_STATISTICS_TAGS-eng=BPS DURATION NUMBER_OF_FRAMES NUMBER_OF_BYTES SOURCE_ID" # pylint:disable=line-too-long
 
     # Duration correctly found from tag:DURATION-eng
-    m, _, _, _, _ = metrics_from_ffprobe_output(f'{tagged_video_deets}', 'test.mp4')
+    m, _, _, _, _ = parse_ffprobe_output(f'{tagged_video_deets}', 'test.mp4')
     print(m)
 
     # Warning about bitmap subtitles.
     with pytest.warns():
-        metrics_from_ffprobe_output(f'{bitmap_subtitle_deets}\n{tagged_video_deets}', 'test.mp4')
+        parse_ffprobe_output(f'{bitmap_subtitle_deets}\n{tagged_video_deets}', 'test.mp4')
 
     # Complain about multiple versions of the same key.  (Note no newline between the
     # two stream details entries.)
     with pytest.raises(ValueError):
-        metrics_from_ffprobe_output(f'{bitmap_subtitle_deets}{tagged_video_deets}', 'test.mp4')
+        parse_ffprobe_output(f'{bitmap_subtitle_deets}{tagged_video_deets}', 'test.mp4')
 
-def test_metrics_from_ffprobe_output4():
+def test_parse_ffprobe_output4():
     # From an Ubuntu screencast.  Duration only in the format metadata, not in
     # the individual stream.  Also avg_frame_rate is somehow 0/0?
     stream_deets = "stream|index=0|codec_name=vp8|codec_long_name=On2 VP8|profile=0|codec_type=video|codec_tag_string=[0][0][0][0]|codec_tag=0x0000|width=1629|height=991|coded_width=1629|coded_height=991|closed_captions=0|has_b_frames=0|sample_aspect_ratio=1:1|display_aspect_ratio=1629:991|pix_fmt=yuv420p|level=-99|color_range=tv|color_space=bt709|color_transfer=bt709|color_primaries=bt709|chroma_location=unspecified|field_order=progressive|refs=1|id=N/A|r_frame_rate=1000/1|avg_frame_rate=0/0|time_base=1/1000|start_pts=13|start_time=0.013000|duration_ts=N/A|duration=N/A|bit_rate=N/A|max_bit_rate=N/A|bits_per_raw_sample=N/A|nb_frames=N/A|nb_read_frames=N/A|nb_read_packets=N/A|disposition:default=1|disposition:dub=0|disposition:original=0|disposition:comment=0|disposition:lyrics=0|disposition:karaoke=0|disposition:forced=0|disposition:hearing_impaired=0|disposition:visual_impaired=0|disposition:clean_effects=0|disposition:attached_pic=0|disposition:timed_thumbnails=0|tag:language=eng|tag:title=Video" # pylint:disable=line-too-long
     format_deets = "format|filename=screencast.webm|nb_streams=1|nb_programs=0|format_name=matroska,webm|format_long_name=Matroska / WebM|start_time=0.013000|duration=9.889831|size=15004885|bit_rate=12137627|probe_score=100|tag:encoder=GStreamer matroskamux version 1.20.3|tag:creation_time=2025-01-09T18:43:05.862999Z" # pylint:disable=line-too-long
 
     with pytest.raises(ValueError):
-        metrics_from_ffprobe_output(stream_deets, 'test.webm')
+        parse_ffprobe_output(stream_deets, 'test.webm')
 
-    m, fr, _, _, _ = metrics_from_ffprobe_output(f'{stream_deets}\n{format_deets}', 'test.webm')
+    m, fr, _, _, _ = parse_ffprobe_output(f'{stream_deets}\n{format_deets}', 'test.webm')
     assert m.length > 9.7 and m.length < 9.9
     assert fr > 500
 
-def test_metrics_from_ffprobe_output5():
+def test_parse_ffprobe_output5():
     # Modified to have no legit framerate.
     stream_deets = "stream|index=0|codec_name=vp8|codec_long_name=On2 VP8|profile=0|codec_type=video|codec_tag_string=[0][0][0][0]|codec_tag=0x0000|width=1629|height=991|coded_width=1629|coded_height=991|closed_captions=0|has_b_frames=0|sample_aspect_ratio=1:1|display_aspect_ratio=1629:991|pix_fmt=yuv420p|level=-99|color_range=tv|color_space=bt709|color_transfer=bt709|color_primaries=bt709|chroma_location=unspecified|field_order=progressive|refs=1|id=N/A|r_frame_rate=0/0|avg_frame_rate=0/0|time_base=1/1000|start_pts=13|start_time=0.013000|duration_ts=N/A|duration=N/A|bit_rate=N/A|max_bit_rate=N/A|bits_per_raw_sample=N/A|nb_frames=N/A|nb_read_frames=N/A|nb_read_packets=N/A|disposition:default=1|disposition:dub=0|disposition:original=0|disposition:comment=0|disposition:lyrics=0|disposition:karaoke=0|disposition:forced=0|disposition:hearing_impaired=0|disposition:visual_impaired=0|disposition:clean_effects=0|disposition:attached_pic=0|disposition:timed_thumbnails=0|tag:language=eng|tag:title=Video" # pylint:disable=line-too-long
     format_deets = "format|filename=screencast.webm|nb_streams=1|nb_programs=0|format_name=matroska,webm|format_long_name=Matroska / WebM|start_time=0.013000|duration=9.889831|size=15004885|bit_rate=12137627|probe_score=100|tag:encoder=GStreamer matroskamux version 1.20.3|tag:creation_time=2025-01-09T18:43:05.862999Z" # pylint:disable=line-too-long
 
     with pytest.raises(ValueError):
-        metrics_from_ffprobe_output(f'{stream_deets}\n{format_deets}', 'test.webm')
+        parse_ffprobe_output(f'{stream_deets}\n{format_deets}', 'test.webm')
 
 def test_from_file1():
     with pytest.raises(FileNotFoundError):
@@ -802,12 +813,13 @@ def test_from_file9():
     # If there are subtitles to read.
     with temporary_current_directory():
         x = solid([0,0,0], 640, 480, 5)
-        x = add_subtitles(x, (2, 3, 'First subtitle'),
-                            (3, 4, 'Second subtitle'))
+        x = add_subtitles(x, "eng",
+                          (2, 3, 'First subtitle'),
+                          (3, 4, 'Second subtitle'))
         save_mp4(x, 'hi.mp4', frame_rate=30)
 
         x = from_file('hi.mp4')
-        caps = list(x.get_subtitles())
+        caps = list(x.get_subtitles("eng"))
         print(caps)
         assert len(caps) == 2
         verify(x, 30)
@@ -975,18 +987,18 @@ def test_slice_clip1():
 def test_slice_clip2():
     # Subtitles that are sliced out don't appear in the output.
     x = solid([0,0,0], 640, 480, 7)
-    x = add_subtitles(x,
+    x = add_subtitles(x, "eng",
                       (1, 2, 'First'),
                       (3, 4, 'Second'),
                       (5, 6, 'Third'))
     y = slice_clip(x, 2.5, 4.5)
-    subs = list(y.get_subtitles())
+    subs = list(y.get_subtitles("eng"))
     print(y.length(), subs)
     assert len(subs)==1
 
     # Subtitles that are partially sliced out are kept.
     z = slice_clip(x, 1.5, 4.5)
-    subs = list(z.get_subtitles())
+    subs = list(z.get_subtitles("eng"))
     print(z.length(), subs)
     assert len(subs)==2
     assert subs[0][1] - subs[0][0] == 0.5
@@ -1742,9 +1754,9 @@ def test_resample2():
 def test_resample3():
     # Subtitle times get scaled appropriately.
     x = solid([0,0,0], 640, 480, 5)
-    x = add_subtitles(x, (2, 3, 'subtitle'))
+    x = add_subtitles(x, "eng", (2, 3, 'subtitle'))
     x = resample(x, length=10)
-    subs = list(x.get_subtitles())
+    subs = list(x.get_subtitles("eng"))
     print(subs)
     assert subs[0][0] == 4
 
@@ -1885,7 +1897,7 @@ def test_from_zip1():
     a = from_zip(f"{TEST_FILES_DIR}/bunny.zip", frame_rate=frame_rate)
     assert not a.is_silent()
     verify(a, frame_rate)
-    assert len(list(a.get_subtitles())) == 0
+    assert len(list(a.get_subtitles("eng"))) == 0
 
 def test_from_zip2():
     # Basic successful case without audio.
@@ -1893,7 +1905,8 @@ def test_from_zip2():
     a = from_zip(f"{TEST_FILES_DIR}/bunny-silent.zip", frame_rate=frame_rate)
     assert a.is_silent()
     verify(a, frame_rate)
-    assert len(list(a.get_subtitles())) == 0
+    assert len(list(a.get_subtitles("eng"))) == 0
+
 
 def test_from_zip3():
     # Audio and video lengths mismatch just a little.  Patch the audio length
@@ -1902,7 +1915,7 @@ def test_from_zip3():
     a = from_zip(f"{TEST_FILES_DIR}/bunny.zip", frame_rate=frame_rate+0.001)
     assert not a.is_silent()
     verify(a, frame_rate)
-    assert len(list(a.get_subtitles())) == 0
+    assert len(list(a.get_subtitles("eng"))) == 0
 
 def test_from_zip4():
     # Audio and video lengths mismatch badly.  Abort.
@@ -1918,7 +1931,7 @@ def test_from_zip5():
 def test_from_zip6():
     # Subtitles are read.
     a = from_zip(f"{TEST_FILES_DIR}/bunny-subtitled.zip", frame_rate=15)
-    assert len(list(a.get_subtitles())) == 2
+    assert len(list(a.get_subtitles("eng"))) == 2
 
 def test_from_zip7():
     frame_rate = from_file(f"{TEST_FILES_DIR}/bunny.webm").frame_rate

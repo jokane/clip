@@ -8,7 +8,7 @@ from .validate import require_string, require_float, require_positive, require_b
 from .ffmpeg import save_via_ffmpeg
 
 def save_mp4(clip, filename, frame_rate, bitrate=None, target_size=None, two_pass=None,
-         preset='slow', cache_dir='/tmp/clipcache/computed', burn_subtitles=False):
+         preset='slow', cache_dir='/tmp/clipcache/computed', burn_subtitles_language=None):
     """ Save a clip to an MP4 file. |save|
 
     :param clip: The clip to save.
@@ -19,8 +19,9 @@ def save_mp4(clip, filename, frame_rate, bitrate=None, target_size=None, two_pas
     :param preset: A string that controls how quickly ffmpeg encodes.  See below.
     :param two_pass: Should the `ffmpeg` encoding run twice or just once?
     :param cache_dir: The directory to use for the frame cache.
-    :param burn_subtitles: Should the frames be modified to include the subtitle text?
-
+    :param burn_subtitles_language: In which language should the frames be
+                                    modified to include the subtitle text?  Use
+                                    `None` for no burned subtitles.
 
     At most one of `bitrate` and `target_size` should be given.
 
@@ -104,15 +105,19 @@ def save_mp4(clip, filename, frame_rate, bitrate=None, target_size=None, two_pas
                              'Cannot exceed ~268 GB/s.')
 
     require_string(cache_dir, 'cache directory')
-    require_bool(burn_subtitles, 'burn subtitles')
+
+    if burn_subtitles_language is not None:
+        require_string(burn_subtitles_language, 'burn subtitles language')
 
 
     # Some shared arguments across all ffmpeg calls: single pass,
     # first pass of two, and second pass of two.
-    # These include filters to:
+    # - Set the output format and codec.
     args = []
     args.append('-vcodec libx264')
     args.append('-f mp4')
+
+    # - Set the bitrate and encoding preset.
     if bitrate:
         args.append(f'-vb {bitrate}')
     if preset:
@@ -133,8 +138,8 @@ def save_mp4(clip, filename, frame_rate, bitrate=None, target_size=None, two_pas
     filters.append(f'fps={frame_rate}')
 
     # - If requested, burn in the subtitles.
-    if burn_subtitles:
-        filters.append('subtitles=subtitles.srt')
+    if burn_subtitles_language:
+        filters.append(f'subtitles=subtitles_{burn_subtitles_language}.srt')
 
     filters_text=','.join(filters)
     args.append(f'-filter_complex "{filters_text}"')

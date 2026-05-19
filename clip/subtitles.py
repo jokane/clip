@@ -10,11 +10,13 @@ class add_subtitles(MutatorClip):
     """ Add one or more subtitles to a clip. |modify|
 
     :param clip: The original clip.
+    :param language: A string identifier for the language of the subtitles.
     :param args: Subtitles to add, each a `(start_time, end_time, text)` triple.
 
     """
-    def __init__(self, clip, *args):
+    def __init__(self, clip, language, *args):
         super().__init__(clip)
+        require_string(language, 'language')
         for i, subtitle in enumerate(args):
             require_iterable(subtitle, f'subtitle {i}')
             require_float(subtitle[0], f'subtitle {i} start time')
@@ -25,11 +27,27 @@ class add_subtitles(MutatorClip):
                                'clip length')
             require_string(subtitle[2], f'subtitle {i} text')
 
+        self.new_language = language
         self.new_subtitles = args
-        self.subtitles = None
+        self.subtitles = {}
 
-    def get_subtitles(self):
-        if self.subtitles is None:
-            self.subtitles = list(heapq.merge(self.new_subtitles, self.clip.get_subtitles()))
-        yield from self.subtitles
+    def get_subtitle_languages(self):
+        languages = set(self.clip.get_subtitle_languages())
+        languages.add(self.new_language)
+        return languages
+
+    def get_subtitles(self, language):
+        if language not in self.subtitles:
+            if language in self.clip.get_subtitle_languages():
+                if language == self.new_language:
+                    self.subtitles[language] = list(heapq.merge(self.new_subtitles, self.clip.get_subtitles(language)))
+                else:
+                    self.subtitles[language] = list(self.clip.get_subtitles(language))
+            else:
+                if language == self.new_language:
+                    self.subtitles[language] = list(self.new_subtitles)
+                else:
+                    self.subtitles[language] = []
+            
+        yield from self.subtitles[language]
 

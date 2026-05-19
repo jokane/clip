@@ -159,7 +159,7 @@ class Clip(ABC):
 
             - For each frame, a symlink into a cache directory, named in numerical order.
             - FLAC file of the audio called `audio.flac`
-            - Subtitles as an SRT file call `subtitles.srt`
+            - For each subtitle language, an SRT file called `subtitles_XXX.srt`
 
         :param directory: The directory in which to stage things.
         :param cache: A :class:`ClipCache` to use to get the frames, or to
@@ -198,12 +198,15 @@ class Clip(ABC):
             soundfile.write(audio_fname, data, self.sample_rate())
 
             # Subtitles
-            subtitles_fname = 'subtitles.srt'
-            self.save_subtitles(subtitles_fname)
+            for language in self.get_subtitle_languages():
+                subtitles_fname = f'subtitles_{language}.srt'
+                self.save_subtitles(language, subtitles_fname)
 
 
-    def save_subtitles(self, destination):
+    def save_subtitles(self, language, destination):
         """Save the subtitles for this clip to the given file.
+
+        :param language: The language code for the subtitles to save.
 
         :param destination: A string filename or file-like object telling
                              where to send the subtitles.
@@ -216,7 +219,7 @@ class Clip(ABC):
             else:
                 f = destination
 
-            for number, subtitle in enumerate(self.get_subtitles()):
+            for number, subtitle in enumerate(self.get_subtitles(language)):
                 print(number+1, file=f)
                 hms0 = format_seconds_as_hms(subtitle[0])
                 hms1 = format_seconds_as_hms(subtitle[1])
@@ -319,8 +322,11 @@ class VideoClip(Clip):
         is, silence with the appropriate metrics."""
         return np.zeros([self.metrics.num_samples(), self.metrics.num_channels])
 
-    def get_subtitles(self):
+    def get_subtitle_languages(self):
         return []
+
+    def get_subtitles(self, language):
+        return iter([])
 
 
 class AudioClip(Clip):
@@ -371,9 +377,13 @@ class MutatorClip(Clip):
         """ By default, re-use the frames of the original clip."""
         return self.clip.get_frame(t)
 
-    def get_subtitles(self):
+    def get_subtitle_languages(self):
+        """ By default, re-use the subtitle languages of the original clip."""
+        return self.clip.get_subtitle_languages()
+
+    def get_subtitles(self, language):
         """ By default, re-use the subtitles of the original clip."""
-        return self.clip.get_subtitles()
+        return self.clip.get_subtitles(language)
 
     def compute_samples(self):
         """ By default, re-use the audio of the original clip."""

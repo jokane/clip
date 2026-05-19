@@ -53,7 +53,10 @@ class text_to_speech(clip.from_audio_samples):
 
         super().__init__(samples, sample_rate)
 
-    def get_subtitles(self):
+    def get_subtitle_languages(self):
+        return ['eng']
+
+    def get_subtitles(self, language):
         """ Generate the subtitles automatically from the given text.  Estimate
         their timing based on a constant number of characters spoken per second.
         These timings are not perfect, but generally seem not to get too far

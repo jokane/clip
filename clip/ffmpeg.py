@@ -60,8 +60,10 @@ def save_via_ffmpeg(clip, filename, frame_rate, output_args, use_audio, use_subt
             input_args.append(f'-i %06d.{cache.frame_format}')
             if use_audio:
                 input_args.append('-i audio.flac')
-            if use_subtitles and os.stat('subtitles.srt').st_size > 0:
-                input_args.append('-i subtitles.srt -c:s mov_text -metadata:s:s:0 language=eng')
+            if use_subtitles:
+                for language in clip.get_subtitle_languages():
+                    if os.stat(f'subtitles_{language}.srt').st_size > 0:
+                        input_args.append(f'-i subtitles_{language}.srt -c:s mov_text -metadata:s:s:0 language={language}')
 
             if not two_pass:
                 ffmpeg(task=f"Encoding {filename}",
@@ -105,6 +107,8 @@ def ffmpeg(*args, task=None, num_frames=None, callback=None):
 
         stats = estack.enter_context(tempfile.NamedTemporaryFile())
         command = f"ffmpeg -y -vstats_file {stats.name} {' '.join(args)} 2> errors"
+
+        print(command)
 
         proc = estack.enter_context(subprocess.Popen(command, shell=True))
 

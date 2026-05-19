@@ -36,6 +36,7 @@ class solid(Clip):
     request_frame = AudioClip.request_frame
     get_frame = AudioClip.get_frame
     compute_samples = VideoClip.compute_samples
+    get_subtitle_languages = VideoClip.get_subtitle_languages
     get_subtitles = VideoClip.get_subtitles
 
 def black(width, height, length):
@@ -107,8 +108,6 @@ class static_frame(VideoClip):
     def get_frame(self, t):
         return self.the_frame
 
-    def get_subtitles(self):
-        return []
 
 class repeat_frame(VideoClip):
     """Show the same frame, from another clip, over and over. |modify|
@@ -141,9 +140,6 @@ class repeat_frame(VideoClip):
 
     def get_frame(self, t):
         return self.clip.get_frame(self.when)
-
-    def get_subtitles(self):
-        return []
 
 
 def static_image(filename, length):

@@ -70,8 +70,8 @@ class resample(MutatorClip):
             data = scipy.signal.resample(data, self.num_samples())
         return data
 
-    def get_subtitles(self):
-        for subtitle in self.clip.get_subtitles():
+    def get_subtitles(self, language):
+        for subtitle in self.clip.get_subtitles(language):
             yield (self.new_time(subtitle[0]),
                    self.new_time(subtitle[1]),
                    subtitle[2])

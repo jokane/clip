@@ -5,13 +5,15 @@ from .validate import require_string, require_float, require_positive, require_b
 from .ffmpeg import save_via_ffmpeg
 
 def save_gif(clip, filename, frame_rate, cache_dir='/tmp/clipcache/computed',
-             burn_subtitles=False):
+             burn_subtitles_language=None):
     """Save a clip to an animated GIF. |save|
 
     :param clip: The clip to save.
     :param filename: A file name to write to.
     :param cache_dir: The directory to use for the frame cache.
-    :param burn_subtitles: Should the frames be modified to include the subtitle text?
+    :param burn_subtitles_language: In which language should the frames be
+                                    modified to include the subtitle text?  Use
+                                    `None` for no burned subtitles.
 
     """
 
@@ -19,14 +21,15 @@ def save_gif(clip, filename, frame_rate, cache_dir='/tmp/clipcache/computed',
     require_string(filename, "filename")
     require_float(frame_rate, "frame rate")
     require_positive(frame_rate, "frame rate")
-    require_bool(burn_subtitles, 'burn subtitles')
+    if burn_subtitles_language is not None:
+        require_string(burn_subtitles_language, 'burn subtitles language')
 
     args = []
     args.append('-f gif')
 
     filters = []
-    if burn_subtitles:
-        filters.append('[0:v] subtitles=subtitles.srt [c]')
+    if burn_subtitles_language is not None:
+        filters.append(f'[0:v] subtitles=subtitles_{burn_subtitles_language}.srt [c]')
     else:
         filters.append('[0:v] null [c]')
 
