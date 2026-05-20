@@ -109,8 +109,6 @@ def ffmpeg(*args, task=None, num_frames=None, callback=None):
         stats = estack.enter_context(tempfile.NamedTemporaryFile())
         command = f"ffmpeg -y -vstats_file {stats.name} {' '.join(args)} 2> errors"
 
-        print(command)
-
         proc = estack.enter_context(subprocess.Popen(command, shell=True))
 
         t = threading.Thread(target=proc.communicate)
