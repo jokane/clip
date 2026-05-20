@@ -362,4 +362,5 @@ class composite(Clip):
                     result[lang] = subs
                 else:
                     result[lang] = list(heapq.merge(result[lang], subs, key=lambda x: x[0]))
+                result[lang] = [ sub for sub in result[lang] if sub[0] < self.length() ]
         return result
