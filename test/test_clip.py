@@ -1342,7 +1342,16 @@ def test_composite18():
     with pytest.raises(ValueError, match='element'):
         composite()
 
-
+def test_composite19():
+    # Subtitles after the end are excluded.
+    a = solid([0,255,0], 640, 480, 5)
+    b = add_subtitles(a, 'eng',
+                      (1, 2, "YES"),
+                      (4, 5, "NO"))
+    z = composite(Element(b, 0, [0, 0]), length = 3)
+    subs = z.get_subtitles()
+    print(subs)
+    assert len(subs['eng']) == 1
 
 def test_join1():
     # Normal case.
