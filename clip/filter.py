@@ -81,6 +81,7 @@ class filter_frames(MutatorClip):
 
         # Figure out the size.
         if size is None:
+            clip.request_frame(0)
             sample_frame = self.func(clip.get_frame(0), 0)
             height, width, _ = sample_frame.shape
         else:
