@@ -1441,7 +1441,12 @@ def test_filter_frames4():
 
     assert b.sig != c.sig, f'{b.sig} {c.sig}'
 
-
+def test_filter_frames5():
+    # Make sure we're requesting the frames we need.
+    with temporary_current_directory():
+        a = from_file(f"{TEST_FILES_DIR}/bunny.webm", cache_dir=os.getcwd())
+        b = filter_frames(a, lambda x, i: x)
+        verify(b, a.frame_rate)
 
 def test_scale_to_size():
     a = black(640, 480, 3)
