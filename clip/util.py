@@ -156,6 +156,8 @@ def read_image(filename):
     if frame.shape[2] == 3:
         frame = cv2.cvtColor(frame, cv2.COLOR_RGB2RGBA)
     assert frame.shape[2] == 4, frame.shape
+    if frame.dtype == np.uint16:
+        frame = (frame >> 8).astype(np.uint8)
     assert frame.dtype == np.uint8, f'Reading {filename} gave frame.dtype=={frame.dtype}.'
     return frame
 

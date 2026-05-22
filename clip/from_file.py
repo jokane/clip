@@ -588,6 +588,7 @@ class from_file(Clip, FiniteIndexed):
                f'-t {length}',
                f'-i "{self.filename}"',
                f'-r {self.frame_rate}',
+               '-pix_fmt rgb24',
                '%06d.png',
                task=f'Exploding {os.path.basename(self.filename)}',
                num_frames=num_frames_expected,
