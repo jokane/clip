@@ -29,7 +29,9 @@ def save_mp4(clip, filename, frame_rate, bitrate=None, target_size=None, two_pas
           target.
         - If a `target_size` is given, we compute the appropriate `bitrate` to
           attempt to get close to that target.
-        - If both are omitted, the default is to target a bitrate of 1024k.
+        - If both are omitted, use a reasonable default quality level
+          (specifically, libx264 CRF 23) which adapts to content complexity and
+          resolution.
 
     For `preset`, choose from:
 
@@ -77,9 +79,9 @@ def save_mp4(clip, filename, frame_rate, bitrate=None, target_size=None, two_pas
         raise ValueError(f'Parameter preset should be one of: {presets_str}')
 
     # Figure out what bitrate to target.
+    crf = None
     if bitrate is None and target_size is None:
-        # A hopefully sensible high-quality default.
-        bitrate = 1024*1024
+        crf = 23
     elif bitrate is None and target_size is not None:
         # Compute target bit rate, which should be in bits per second,
         # from the target filesize.
@@ -96,7 +98,7 @@ def save_mp4(clip, filename, frame_rate, bitrate=None, target_size=None, two_pas
     # ffmmpeg will complain with something like this if the bitrate is too high:
     # [libx264 @ 0x5ac9d0599640] bit_rate and rc_max_rate > 2147483647000 not supported by libx264
     # If this happens, send back a sensible exception.
-    if bitrate >= 2147483647000:
+    if bitrate is not None and bitrate >= 2147483647000:
         if target_size is not None:
             raise ValueError(f'Target size of {target_size:0.1f}MB gives a bitrate too large, '
                             'probably by a lot.')
@@ -117,8 +119,10 @@ def save_mp4(clip, filename, frame_rate, bitrate=None, target_size=None, two_pas
     args.append('-vcodec libx264')
     args.append('-f mp4')
 
-    # - Set the bitrate and encoding preset.
-    if bitrate:
+    # - Set the bitrate/quality and encoding preset.
+    if crf is not None:
+        args.append(f'-crf {crf}')
+    elif bitrate:
         args.append(f'-vb {bitrate}')
     if preset:
         args.append(f'-preset {preset}')
