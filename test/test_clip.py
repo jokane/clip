@@ -114,6 +114,10 @@ He seems tired."""
         shutil.copyfile(f"{TEST_FILES_DIR}/bunny.webm",
                         f"{TEST_FILES_DIR}/name with space.webm")
 
+    if not os.path.exists(f"{TEST_FILES_DIR}/water-16.png"):
+        img = cv2.imread(f"{TEST_FILES_DIR}/water.png", cv2.IMREAD_UNCHANGED)
+        cv2.imwrite(f"{TEST_FILES_DIR}/water-16.png", img.astype(np.uint16) * 256)
+
     exists = os.path.exists(FONT_FILE)
     if not exists:
         with urllib.request.urlopen(FONT_URL) as u:
@@ -394,6 +398,11 @@ def test_read_image2():
 def test_read_image3():
     with pytest.raises(FileNotFoundError):
         read_image("xyz.png")
+
+def test_read_image4():
+    img = read_image(f'{TEST_FILES_DIR}/water-16.png')
+    assert img.shape == (682, 1280, 4)
+    assert img.dtype == np.uint8
 
 def test_func_signature1():
     # Differences in func.__code__.co_code.consts
